@@ -3,10 +3,12 @@ import json
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from app import create_app
+import app as portal_module
 
 
 class IdentityServer(BaseHTTPRequestHandler):
@@ -81,6 +83,14 @@ class PortalContracts(unittest.TestCase):
         self.assertEqual(response.status_code,200);self.assertIn('Public announcement',[n['title'] for n in response.json['announcements']])
         self.assertEqual(self.client.get('/portal-api/content',headers={'If-None-Match':response.headers['ETag']}).status_code,304)
         self.assertNotIn('history',response.json);self.assertNotIn('draft',response.json)
+
+    def test_public_announcements_fetch_on_cold_start(self):
+        # A new CI worker can have monotonic uptime below the 60-second TTL.
+        # The first request must still fetch the identity announcement.
+        with patch.object(portal_module.time, 'monotonic', return_value=5):
+            cold=self.client.get('/portal-api/content')
+        self.assertEqual(cold.status_code,200)
+        self.assertIn('Public announcement',[n['title'] for n in cold.json['announcements']])
 
     def test_markdown_roundtrip_old_articles_and_old_editor_guard(self):
         state=self.content();before=json.loads(json.dumps(state['draft']['articles']))
