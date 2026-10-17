@@ -1,6 +1,20 @@
-import {createQueue, queueHTML, processQueue} from './upload-queue.js';
-import {defaultStorage, storagePage, uploadR2, formatUploadLimit} from './storage.js';
-import {articleMarkdown, importInfo, renderMarkdown, plainText, inspectMarkdown, tocHTML} from './markdown.js';
+let articleMarkdown, importInfo, renderMarkdown, plainText, inspectMarkdown, tocHTML;
+let createQueue, queueHTML, processQueue, storagePage, uploadR2, formatUploadLimit;
+let markdownPromise, adminModulesPromise;
+function loadMarkdown() {
+  if(!markdownPromise)markdownPromise=import('./markdown.js').then(module=>{
+    ({articleMarkdown,importInfo,renderMarkdown,plainText,inspectMarkdown,tocHTML}=module);
+  }).catch(error=>{markdownPromise=null;throw error;});
+  return markdownPromise;
+}
+function loadAdminModules() {
+  if(!adminModulesPromise)adminModulesPromise=Promise.all([loadMarkdown(),import('./upload-queue.js'),import('./storage.js')]).then(([,queue,storage])=>{
+    ({createQueue,queueHTML,processQueue}=queue);
+    ({storagePage,uploadR2,formatUploadLimit}=storage);
+    storageSettings??=structuredClone(storage.defaultStorage);
+  }).catch(error=>{adminModulesPromise=null;throw error;});
+  return adminModulesPromise;
+}
 const $ = (selector, root = document) => root.querySelector(selector);
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 const iconPaths = {
@@ -31,7 +45,7 @@ let saving=false, editorUnsaved=false, pendingImports=[], editorReturnURL='', de
 const draftImages=new Map(), searchCache=new Map();
 function articleSearchText(a){const raw=articleMarkdown(a),old=searchCache.get(a.slug);if(old?.raw===raw)return old.text;const text=plainText(raw);searchCache.set(a.slug,{raw,text});return text;}
 const articleCategories=['快速开始','客户端配置','API 接入','图像创作','计费与限制','常见问题'];
-let editingResource=null, storageSettings=structuredClone(defaultStorage), storageUnsaved=false, uploading=false, uploadController=null, uploadQueue=[], completedBatch=null, resourceUnsaved=false, recoverableFiles=[], resumableUploads=[];
+let editingResource=null, storageSettings=null, storageUnsaved=false, uploading=false, uploadController=null, uploadQueue=[], completedBatch=null, resourceUnsaved=false, recoverableFiles=[], resumableUploads=[];
 let original, published, draft, editingSlug = null, articleCategory = '全部教程', docSearch = '', resourceCategory = '全部资源', resourcePlatform = '全部系统', resourceSearch = '', snippet = 'responses', uploadFile = null, toastTimer;
 
 async function refreshIdentity() {
@@ -67,7 +81,7 @@ async function loadAdmin() {
   editingResource=null;uploadFile=null;uploadQueue=[];completedBatch=null;resourceUnsaved=false;editorUnsaved=false;
   adminState='loading';render();
   try{
-    await api('session');const result=await api('content');storageSettings=(await api('storage')).data;recoverableFiles=(await api('r2/uploads/completed')).data;resumableUploads=(await api('r2/uploads/pending')).data;storageUnsaved=false;
+    await api('session');await loadAdminModules();const result=await api('content');storageSettings=(await api('storage')).data;recoverableFiles=(await api('r2/uploads/completed')).data;resumableUploads=(await api('r2/uploads/pending')).data;storageUnsaved=false;
     draft=result.data.draft;published=result.data.published;serverRevision=result.data.revision;serverHistory=result.data.history;
     adminState='ready';adminError='';
   }catch(error){adminState='denied';adminError=error.message;}
@@ -297,9 +311,18 @@ function adminHome() {
   return `<form class="admin-editor" id="homepage-form" style="margin-top:0"><h3>首屏内容</h3><div class="form-grid"><label class="field field-wide"><span>首页标题 · 换行分隔</span><textarea name="headline" required maxlength="80" style="min-height:90px">${escape(draft.site.headline)}</textarea></label><label class="field field-wide"><span>简短介绍</span><textarea name="intro" required maxlength="180" style="min-height:90px">${escape(draft.site.intro)}</textarea></label><label class="field field-wide"><span>API Base URL</span><input name="baseUrl" type="url" required value="${escape(draft.site.baseUrl)}"></label><label class="field field-wide"><span>首页置顶公告</span><select name="pinned">${draft.announcements.map(x=>`<option value="${escape(x.id)}" ${x.id===n?.id?'selected':''}>${escape(x.title)}</option>`).join('')}</select></label></div><div class="form-footer"><p>模型权限与价格仍由 New API 管理。</p><button class="btn btn-sm" type="submit">保存首页草稿</button></div></form>`;
 }
 function notFound(){return `<div class="container loading"><h1 style="font-size:32px">这页还未准备好。</h1><p>可以先从教程文档或下载中心开始。</p>${link('返回首页','/','btn')}</div>`;}
+let renderSequence=0;
 function render({focus=false}={}) {
+  const sequence=++renderSequence;
   const path=location.pathname.replace(/\/$/,'')||'/';
   renderHeader();
+  if((path==='/docs'||path.startsWith('/docs/'))&&!articleMarkdown){
+    $('#main').innerHTML='<div class="container loading" role="status">正在加载文档…</div>';
+    loadMarkdown().then(()=>{if(sequence===renderSequence)render({focus});}).catch(()=>{
+      if(sequence===renderSequence)$('#main').innerHTML='<div class="container loading"><h1>文档暂时无法加载</h1><p>请检查网络后重试，或先返回首页。</p><button class="btn" data-action="retry-module">重新加载</button></div>';
+    });
+    return;
+  }
   let html,title;
   if(path==='/'){html=home();title='一个 Key，接入你的 AI 工作流';}
   else if(path==='/docs'){html=docs();title='教程文档';}
@@ -325,7 +348,18 @@ function navigate(url) {
   history.pushState({},'',target.pathname+target.search+target.hash);render({focus:true});window.scrollTo(0,0);if(target.pathname.startsWith('/site-admin')&&adminState==='idle')void loadAdmin();
 }
 
-function renderSearch() {
+let searchSequence=0;
+async function renderSearch() {
+  const sequence=++searchSequence;
+  if(!published)return;
+  if(!articleMarkdown){
+    $('#search-results').innerHTML='<div class="empty-state" role="status">正在加载搜索…</div>';
+    try{await loadMarkdown();}catch{
+      if(sequence===searchSequence)$('#search-results').innerHTML='<div class="empty-state"><p>搜索暂时无法加载，请检查网络后重试。</p><button class="btn" data-action="retry-module">重新加载</button></div>';
+      return;
+    }
+  }
+  if(sequence!==searchSequence||!$('#search-dialog').open)return;
   const q=$('#global-search').value.trim().toLowerCase();
   const all=[...published.articles.map(a=>({name:a.title,description:a.summary,body:articleSearchText(a),meta:a.category,url:'/docs/'+a.slug})),...published.resources.map(r=>({name:r.name,description:r.summary,body:r.platforms.join(' ')+' '+r.version,meta:r.category,url:'/downloads/?q='+encodeURIComponent(r.name)}))];
   const hits=all.filter(x=>(x.name+' '+x.description+' '+x.meta+' '+x.body).toLowerCase().includes(q));
@@ -336,6 +370,7 @@ function highlightTOC(){tocObserver?.disconnect();const headings=[...document.qu
 
 document.addEventListener('click',async event=>{
   const el=event.target.closest('a,button');if(!el)return;
+  if(el.dataset.action==='retry-module'){location.reload();return;}
   if(el.dataset.action==='cancel-upload'){uploadController?.abort('cancel');return;}
   if(el.dataset.action==='pause-upload'){uploadController?.abort('pause');return;}
   if(resourceUnsaved&&(el.dataset.restore||['publish','reload-admin'].includes(el.dataset.action)||el.dataset.editResource||el.dataset.removeResource)){event.preventDefault();toast('资源编辑或上传队列尚未保存，请保存或放弃编辑');return;}
@@ -485,9 +520,9 @@ document.addEventListener('keydown',event=>{
 $('#search-dialog').addEventListener('click',event=>{if(event.target===$('#search-dialog')){const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();}});
 window.addEventListener('beforeunload',event=>{if(editorUnsaved||pendingImports.length||storageUnsaved||uploading||resourceUnsaved){event.preventDefault();event.returnValue='';}});
 window.addEventListener('popstate',()=>{if(uploading||storageUnsaved||resourceUnsaved){history.pushState({},'','/site-admin/?tab='+(storageUnsaved?'storage':'resources'));toast('请先保存设置或完成上传');return;}if(editorUnsaved){history.pushState({},'',editorReturnURL);toast('有未保存正文，请先保存草稿或放弃编辑');return;}editingResource=null;uploadFile=null;render({focus:true});if(location.pathname.startsWith('/site-admin')&&adminState==='idle')void loadAdmin();});
-try {
-  const response=await fetch('/portal-api/content',{cache:'no-cache'});if(!response.ok)throw new Error('content unavailable');original=await response.json();if(!validStored(original))throw new Error('invalid content');
+export function startPortal(content) {
+  original=content;if(!validStored(original))throw new Error('invalid content');
   published=clone(original);draft=clone(original);
   try{document.body.classList.toggle('dark',localStorage.getItem(STORAGE+'-theme')==='dark');}catch{}
   render();if(location.pathname.startsWith('/site-admin'))void loadAdmin();
-}catch(error){$('#main').innerHTML='<div class="container loading"><h1 style="font-size:28px">内容暂时无法加载</h1><p>请稍后刷新。你也可以直接访问控制台。</p><a class="btn" href="/dashboard">前往控制台</a></div>';}
+}

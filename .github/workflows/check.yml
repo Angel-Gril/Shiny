@@ -15,6 +15,15 @@ jobs:
       - run: python -m pip install -r portal/backend/requirements.txt
       - run: python scripts/check-secrets.py --all
       - run: python -m unittest discover -s portal/backend -p 'test_*.py'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/shiny-browser" playwright@1.58.2
+      - run: '"$RUNNER_TEMP/shiny-browser/node_modules/.bin/playwright" install --with-deps chromium'
+      - run: node portal/test-lazy-loading.mjs
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-browser/node_modules/playwright
   new-api:
     runs-on: ubuntu-latest
     services:
