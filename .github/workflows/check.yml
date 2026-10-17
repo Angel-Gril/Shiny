@@ -47,7 +47,7 @@ jobs:
         working-directory: new-api/web
       - run: bunx vitest run src/features/user-insight/__tests__/user-details.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
         working-directory: new-api/web
-      - run: go test ./controller -run '^TestUserInsight' -count=1
+      - run: go test ./controller -run '^(TestUserInsight|TestRequestPolicyRetryAvoidsUsedChannelsDatabaseMatrix)' -count=1
         working-directory: new-api
         env:
           TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
