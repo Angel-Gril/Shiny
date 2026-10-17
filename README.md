@@ -6,6 +6,8 @@ Shiny 的站点源码、New API 针对性修改与部署维护规范。该仓库
 
 - `portal/`：独立首页、教程、下载与管理员内容服务；R2 分片直传、暂停续传及资源保存恢复。
 - `new-api/`：基于 QuantumNous/new-api 的完整可构建源码与 Shiny 变更。保留上游 LICENSE、NOTICE 及原作者归属。
+- `cpa/`：CPA 官方内核版本、包摘要、配置示例、插件约束与升级验收。
+- `cpa-pro/`：CPA Manager Plus Full 的版本、服务和统一管理入口集成。
 - `ops/`：组件版本、配置示例与升级兼容检查。
 - `scripts/`：提交前敏感信息检查和维护辅助工具。
 

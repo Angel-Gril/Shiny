@@ -1,0 +1,29 @@
+[Unit]
+Description=Shiny CPA Manager Plus statistics and management
+After=network-online.target relay-native-cpa.service
+Wants=network-online.target
+ConditionPathExists=/etc/shiny-cpamp/admin.key
+
+[Service]
+Type=simple
+User=shiny-cpamp
+Group=shiny-cpamp
+WorkingDirectory=/var/lib/shiny-cpamp
+Environment=CPA_MANAGER_CONFIG=/etc/shiny-cpamp/config.json
+ExecStart=/opt/shiny-cpamp/releases/v1.14.7/cpa-manager-plus
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shiny-cpamp
+UMask=0077
+MemoryHigh=384M
+MemoryMax=768M
+TasksMax=256
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
