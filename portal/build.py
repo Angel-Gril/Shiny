@@ -11,12 +11,12 @@ out=root/'build'/args.release
 if out.exists():raise SystemExit('Release already exists; choose a new immutable release ID')
 web=out/'site';assets=web/'shiny-home-assets'/args.release
 assets.mkdir(parents=True)
-for name in ['app.js','markdown.js','storage.js','multipart.js','upload-queue.js','styles.css','content.css']:
+for name in ['boot.js','app.js','markdown.js','storage.js','multipart.js','upload-queue.js','styles.css','content.css']:
     shutil.copy2(root/'web'/name,assets/name)
 shutil.copytree(root/'web'/'assets',assets/'assets')
 shutil.copytree(root/'web'/'vendor',assets/'vendor')
 html=(root/'web'/'index.html').read_text(encoding='utf-8')
-for old,new in [('/assets/mark.svg',f'/shiny-home-assets/{args.release}/assets/mark.svg'),('/styles.css',f'/shiny-home-assets/{args.release}/styles.css'),('/content.css',f'/shiny-home-assets/{args.release}/content.css'),('/app.js',f'/shiny-home-assets/{args.release}/app.js')]:html=html.replace(old,new)
+for old,new in [('/assets/mark.svg',f'/shiny-home-assets/{args.release}/assets/mark.svg'),('/styles.css',f'/shiny-home-assets/{args.release}/styles.css'),('/content.css',f'/shiny-home-assets/{args.release}/content.css'),('/app.js',f'/shiny-home-assets/{args.release}/app.js'),('/boot.js',f'/shiny-home-assets/{args.release}/boot.js')]:html=html.replace(old,new)
 (web/'index.html').write_text(html,encoding='utf-8')
 app=(assets/'app.js').read_text(encoding='utf-8').replace('/assets/mark.svg',f'/shiny-home-assets/{args.release}/assets/mark.svg')
 (assets/'app.js').write_text(app,encoding='utf-8')
