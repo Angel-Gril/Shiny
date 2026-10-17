@@ -1,0 +1,6 @@
+{
+  "notice": "按实际客户端要求填写，文件不包含真实密钥。",
+  "base_url": "https://shinyapi.com/v1",
+  "api_key": "YOUR_API_KEY",
+  "model": "SELECT_A_MODEL_FROM_SHINY"
+}

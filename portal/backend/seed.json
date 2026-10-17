@@ -1,0 +1,356 @@
+{
+  "revision": "portal-v1",
+  "site": {
+    "headline": "一个 Key，\n接入你的 AI 工作流。",
+    "intro": "从第一次调用，到日常开发与创作。\n模型、教程和工具，在这里连接起来。",
+    "baseUrl": "https://shinyapi.com/v1"
+  },
+  "navigation": [
+    {
+      "id": "home",
+      "title": "首页",
+      "url": "/",
+      "enabled": true
+    },
+    {
+      "id": "models",
+      "title": "模型与价格",
+      "url": "https://shinyapi.com/pricing",
+      "enabled": true
+    },
+    {
+      "id": "docs",
+      "title": "教程文档",
+      "url": "/docs/",
+      "enabled": true
+    },
+    {
+      "id": "downloads",
+      "title": "资源下载",
+      "url": "/downloads/",
+      "enabled": true
+    },
+    {
+      "id": "announcements",
+      "title": "公告",
+      "url": "/announcements/",
+      "enabled": true
+    }
+  ],
+  "announcements": [],
+  "models": [
+    {
+      "name": "GPT · 文本与推理",
+      "subtitle": "代码编写、复杂推理与日常任务",
+      "mark": "◎",
+      "tone": "navy",
+      "tags": [
+        "文本",
+        "代码",
+        "工具调用"
+      ]
+    },
+    {
+      "name": "GPT Image · 图像创作",
+      "subtitle": "图片生成、编辑与视觉表达",
+      "mark": "▧",
+      "tone": "violet",
+      "tags": [
+        "图像",
+        "编辑"
+      ]
+    },
+    {
+      "name": "DeepSeek · 对话与开发",
+      "subtitle": "中文对话、知识问答与编程",
+      "mark": "◇",
+      "tone": "blue",
+      "tags": [
+        "文本",
+        "推理"
+      ]
+    }
+  ],
+  "articles": [
+    {
+      "slug": "quickstart",
+      "title": "第一次使用 Shiny API",
+      "summary": "创建令牌、选择模型，完成你的第一次接入。",
+      "category": "快速开始",
+      "tags": [
+        "新手",
+        "API"
+      ],
+      "minutes": 4,
+      "updated": "2026-10-16",
+      "featured": true,
+      "icon": "spark",
+      "sections": [
+        {
+          "id": "before",
+          "title": "开始之前",
+          "text": "准备一个 Shiny 账号，并在控制台确认当前可用的模型和额度。本页介绍账号、令牌和接口的基本使用方式。"
+        },
+        {
+          "id": "key",
+          "title": "01 · 创建 API 令牌",
+          "text": "登录控制台，进入令牌管理，创建用于当前客户端的令牌。按用途设置分组和额度；将密钥保存在你信任的客户端中，不要公开分享。",
+          "link": {
+            "label": "打开 Shiny 控制台",
+            "url": "https://shinyapi.com/dashboard"
+          }
+        },
+        {
+          "id": "endpoint",
+          "title": "02 · 填写接口地址",
+          "text": "兼容 OpenAI 的客户端通常需要填写下面的 Base URL。完整接口路径与软件要求各不相同，请使用对应客户端教程。",
+          "code": "https://shinyapi.com/v1",
+          "language": "Base URL"
+        },
+        {
+          "id": "choose",
+          "title": "03 · 选择模型与接入方式",
+          "text": "先在模型与价格页确认完整模型名和可用分组。图像、对话、Responses 等接口的用途不同，选择与你的工具匹配的协议。",
+          "link": {
+            "label": "查看模型与价格",
+            "url": "https://shinyapi.com/pricing"
+          }
+        },
+        {
+          "id": "next",
+          "title": "接下来，选择你的工具",
+          "text": "使用 CC Switch 管理多个客户端，或直接按 API 接入说明集成。教程与下载条目会相互关联，避免在不同页面重复寻找。",
+          "link": {
+            "label": "阅读 CC Switch 配置指南",
+            "url": "/docs/cc-switch"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "cc-switch",
+      "title": "用 CC Switch 接入 Shiny",
+      "summary": "安装工具、添加供应商，再确认客户端使用的接口。",
+      "category": "客户端配置",
+      "tags": [
+        "CC Switch",
+        "Codex"
+      ],
+      "minutes": 6,
+      "updated": "2026-10-16",
+      "featured": true,
+      "icon": "switch",
+      "sections": [
+        {
+          "id": "prepare",
+          "title": "准备工具与令牌",
+          "text": "通过资源下载页前往作者发布页，选择与你系统匹配的 CC Switch 版本。准备一个为本客户端单独创建的 Shiny 令牌。",
+          "link": {
+            "label": "查看 CC Switch 资源",
+            "url": "/downloads/?q=CC%20Switch"
+          }
+        },
+        {
+          "id": "provider",
+          "title": "添加供应商",
+          "text": "在 CC Switch 中选择目标客户端，然后添加供应商。名称可以填写 Shiny API；接口地址和模型名称以本站对应客户端教程及模型页面为准。"
+        },
+        {
+          "id": "address",
+          "title": "核对地址与协议",
+          "text": "不要把 API Key 当作登录密码，也不要在 Base URL 中重复拼接 /v1。Responses 与 Chat Completions 应按客户端支持情况选择。",
+          "code": "https://shinyapi.com/v1",
+          "language": "Base URL"
+        },
+        {
+          "id": "verify",
+          "title": "保存与验证",
+          "text": "保存后确认客户端已经切换到 Shiny。出现错误时保留错误码、发生时间和 request_id，按排错指南检查。",
+          "link": {
+            "label": "查看错误排查指南",
+            "url": "/docs/troubleshooting"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "api-basics",
+      "title": "API 地址与协议怎么选",
+      "summary": "分清 Base URL 与完整路径，避免重复添加 /v1。",
+      "category": "API 接入",
+      "tags": [
+        "API",
+        "开发"
+      ],
+      "minutes": 5,
+      "updated": "2026-10-16",
+      "featured": true,
+      "icon": "code",
+      "sections": [
+        {
+          "id": "base",
+          "title": "Base URL 和完整路径",
+          "text": "Base URL 是客户端构造请求时的接口前缀；完整路径指具体接口。不要在要求 Base URL 的地方随意填写 /responses 或 /chat/completions。",
+          "code": "Base URL    https://shinyapi.com/v1\nResponses   /v1/responses\nChat        /v1/chat/completions",
+          "language": "接口示意"
+        },
+        {
+          "id": "auth",
+          "title": "认证与密钥",
+          "text": "按对应客户端的认证字段填写本站令牌。模板仅使用 YOUR_API_KEY 占位符；你不需要把真实密钥写进下载模板或公开教程。"
+        },
+        {
+          "id": "stream",
+          "title": "流式请求与耗时",
+          "text": "总耗时包括等待、推理和内容输出，首个事件也不一定是首段正文。发生断流时，应先检查错误来源，再决定是否重试。",
+          "link": {
+            "label": "排查连接与 503 错误",
+            "url": "/docs/troubleshooting"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "image-guide",
+      "title": "开始使用图片模型",
+      "summary": "选模型、看支持能力，再选择合适的创作工具。",
+      "category": "图像创作",
+      "tags": [
+        "图像",
+        "API"
+      ],
+      "minutes": 5,
+      "updated": "2026-10-16",
+      "featured": false,
+      "icon": "image",
+      "sections": [
+        {
+          "id": "model",
+          "title": "确认模型能力",
+          "text": "图片生成、图像编辑和图片输入不是同一种能力。首先在模型页面核对当前已开放的接口、分组及价格。"
+        },
+        {
+          "id": "client",
+          "title": "选择合适的客户端",
+          "text": "使用支持对应图片接口的软件；模型名与参数请以当前模型与价格页以及客户端的支持情况为准。"
+        },
+        {
+          "id": "usage",
+          "title": "查看使用记录",
+          "text": "生成结束后，到控制台查看结果和实际使用记录。计费规则以模型与价格页面展示为准。",
+          "link": {
+            "label": "打开控制台",
+            "url": "https://shinyapi.com/dashboard"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "troubleshooting",
+      "title": "常见错误与排查",
+      "summary": "从 401、413、429 到 503，按来源找到下一步。",
+      "category": "常见问题",
+      "tags": [
+        "503",
+        "排错"
+      ],
+      "minutes": 7,
+      "updated": "2026-10-16",
+      "featured": true,
+      "icon": "lifebuoy",
+      "sections": [
+        {
+          "id": "id",
+          "title": "先保留这些信息",
+          "text": "记录发生时间、模型、完整错误码和 request_id。提交排障信息前，先移除 API Key、Cookie 和其他敏感内容。"
+        },
+        {
+          "id": "auth",
+          "title": "401 · 认证未通过",
+          "text": "检查令牌是否填写完整、是否已停用，以及客户端是否仍在使用旧供应商配置。"
+        },
+        {
+          "id": "size",
+          "title": "413 · 请求体过大",
+          "text": "缩短重复上下文，减少一次附带的图片或文件。具体大小限制以本站当前配置为准。"
+        },
+        {
+          "id": "limit",
+          "title": "429 · 频率或额度限制",
+          "text": "检查错误说明和重试时间。用户请求频率限制、上游账号五小时额度与周额度是不同限制，不宜持续快速重试。"
+        },
+        {
+          "id": "unavailable",
+          "title": "503 · 先分清错误来源",
+          "text": "auth_unavailable 表示相应渠道的账号池暂无可用账号；content_audit_unavailable 表示内容检查暂时未能完成。这两种情况都不能仅凭状态码判断为内容违规。"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "cc-switch",
+      "name": "CC Switch",
+      "summary": "在常用 AI 编程客户端之间管理供应商与配置。",
+      "category": "客户端工具",
+      "platforms": [
+        "Windows",
+        "macOS",
+        "Linux"
+      ],
+      "version": "作者最新发布",
+      "source": "GitHub 官方仓库",
+      "url": "https://github.com/farion1231/cc-switch/releases",
+      "article": "cc-switch",
+      "icon": "switch",
+      "featured": true
+    },
+    {
+      "id": "cherry",
+      "name": "Cherry Studio",
+      "summary": "用于日常对话和多模型协作的桌面客户端。",
+      "category": "客户端工具",
+      "platforms": [
+        "Windows",
+        "macOS",
+        "Linux"
+      ],
+      "version": "作者最新发布",
+      "source": "GitHub 官方仓库",
+      "url": "https://github.com/CherryHQ/cherry-studio/releases",
+      "article": "quickstart",
+      "icon": "chat",
+      "featured": true
+    },
+    {
+      "id": "starter",
+      "name": "Shiny 接入信息模板",
+      "summary": "包含接口地址与密钥占位符，不含任何真实凭据。",
+      "category": "配置模板",
+      "platforms": [
+        "通用"
+      ],
+      "version": "v1.0",
+      "source": "本站资料 · JSON",
+      "url": "/templates/shiny-connection.json",
+      "article": "api-basics",
+      "icon": "code",
+      "featured": true
+    },
+    {
+      "id": "guide",
+      "name": "新手接入速查表",
+      "summary": "保存接口地址、检查步骤和排障所需信息。",
+      "category": "文档资料",
+      "platforms": [
+        "通用"
+      ],
+      "version": "v1.0",
+      "source": "本站资料 · Markdown",
+      "url": "/templates/quickstart.md",
+      "article": "quickstart",
+      "icon": "book",
+      "featured": false
+    }
+  ]
+}
