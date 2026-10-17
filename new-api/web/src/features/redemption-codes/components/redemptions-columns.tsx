@@ -23,11 +23,7 @@ import { MaskedValueDisplay } from '@/components/masked-value-display'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { UserInsightTrigger } from '@/features/user-insight'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
 
 import { REDEMPTION_FILTER_EXPIRED, REDEMPTION_STATUSES } from '../constants'
@@ -216,38 +212,14 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       meta: { mobileHidden: true },
       cell: ({ row }) => {
         const userId = row.getValue('used_user_id') as number
-        const redemption = row.original
-
         if (userId === 0) {
           return <span className='text-muted-foreground text-sm'>-</span>
         }
 
         return (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <StatusBadge
-                  label={t('User {{id}}', { id: userId })}
-                  variant='neutral'
-                  copyable={false}
-                  className='cursor-help'
-                />
-              }
-            ></TooltipTrigger>
-            <TooltipContent>
-              <div className='space-y-1 text-xs'>
-                <div>
-                  {t('User ID:')} {userId}
-                </div>
-                {redemption.redeemed_time > 0 && (
-                  <div>
-                    {t('Redeemed:')}{' '}
-                    {formatTimestampToDate(redemption.redeemed_time)}
-                  </div>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
+          <UserInsightTrigger userId={userId}>
+            {t('User {{id}}', { id: userId })}
+          </UserInsightTrigger>
         )
       },
       size: 140,
