@@ -6,4 +6,5 @@
 - New API, CPA, CPA Manager Plus and the independent portal have separate version and deployment lifecycles. No blanket production updates.
 - Portal file bytes upload directly to R2. Preserve existing resource URLs and compatibility for immutable old frontend assets.
 - Use feature branches, run meaningful tests and secret scanning, verify candidate deployment before production. Never push binaries/runtime state as source backups.
+- Preserve Git history. Start from the existing remote main and make incremental commits on a feature branch, then merge through a PR. Never recreate repository history, replace main with a fresh snapshot, force-push main (including --force-with-lease), or delete main. Correct author identity for future commits without rewriting published history; any exceptional history rewrite needs separate explicit user authorization for that exact operation.
 - Record grants, actual cash payments and quota separately. Historical wallet provenance may be incomplete; do not invent a refundable paid balance from aggregate quota.
