@@ -1,0 +1,16 @@
+{
+  "httpAddr": "127.0.0.1:18317",
+  "dataDir": "/var/lib/shiny-cpamp",
+  "dbPath": "/var/lib/shiny-cpamp/usage.sqlite",
+  "dataKeyPath": "/var/lib/shiny-cpamp/data.key",
+  "adminKeyFile": "/etc/shiny-cpamp/admin.key",
+  "collectorMode": "http",
+  "pollIntervalMs": 1000,
+  "batchSize": 100,
+  "queryLimit": 10000,
+  "corsOrigins": ["http://100.101.98.55:8317"],
+  "quotaCooldownEnabled": false,
+  "accountActionsEnabled": false,
+  "accountActionsAutoDisable": false,
+  "usageArchiveRetentionEnabled": false
+}
