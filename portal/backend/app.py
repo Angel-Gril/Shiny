@@ -242,9 +242,13 @@ def create_app(config=None):
             temp.chmod(0o644);os.replace(temp,folder/'content.json')
         finally:temp.unlink(missing_ok=True)
 
-    status_cache={'time':0,'announcements':[]}; status_lock=threading.Lock()
+    # ``time.monotonic()`` is process uptime, so a fresh process can have an
+    # uptime below the cache TTL.  A zero-valued timestamp would then make an
+    # uninitialized cache look fresh and hide the first announcement fetch.
+    status_cache={'time':None,'announcements':[]}; status_lock=threading.Lock()
     def announcements():
-        if time.monotonic()-status_cache['time']<60:return copy.deepcopy(status_cache['announcements'])
+        cached_at=status_cache['time']
+        if cached_at is not None and time.monotonic()-cached_at<60:return copy.deepcopy(status_cache['announcements'])
         if not status_lock.acquire(blocking=False):return copy.deepcopy(status_cache['announcements'])
         try:
             status=fetch_json('/api/status')

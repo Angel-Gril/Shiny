@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   Link2,
   CreditCard,
+  UserRoundSearch,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -48,6 +49,7 @@ import {
 } from '@/components/ui/tooltip'
 import type { AdminUserManageAction } from '@/features/auth/secure-verification'
 import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
+import { UserInsightDialog } from '@/features/user-insight'
 import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
 
@@ -88,6 +90,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const [insightOpen, setInsightOpen] = useState(false)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -214,6 +217,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         ariaLabel={t('Open menu')}
         contentClassName='w-48'
       >
+        <DropdownMenuItem onClick={() => setInsightOpen(true)}>
+          {t('User details')}
+          <DropdownMenuShortcut>
+            <UserRoundSearch size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+
         {isDisabled ? (
           <DropdownMenuItem onClick={() => handleManage('enable')}>
             {t('Enable')}
@@ -353,6 +363,11 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         onOpenChange={setSubscriptionsDialogOpen}
         user={{ id: user.id, username: user.username }}
         onSuccess={triggerRefresh}
+      />
+      <UserInsightDialog
+        open={insightOpen}
+        onOpenChange={setInsightOpen}
+        userId={user.id}
       />
     </div>
   )

@@ -217,3 +217,88 @@ func TestRequestPolicyRoutingDatabaseMatrix(t *testing.T) {
 		})
 	}
 }
+
+func TestRequestPolicyRetryAvoidsUsedChannelsDatabaseMatrix(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
+		t.Run(dialect.kind, func(t *testing.T) {
+			dsn := os.Getenv(dialect.env)
+			if dialect.env != "" && dsn == "" {
+				t.Skipf("%s not configured", dialect.env)
+			}
+			db := modelManagementDB(t, dialect.kind, dsn)
+			affinity := operation_setting.GetChannelAffinitySetting()
+			previousAffinity := *affinity
+			t.Cleanup(func() { *affinity = previousAffinity })
+			for _, cached := range []bool{false, true} {
+				for _, tc := range []struct {
+					name          string
+					boundPriority int64
+					backupStatus  int
+					backupGroup   string
+					pin           bool
+					mode          string
+					want          int
+				}{
+					{"lower priority session", 9, common.ChannelStatusEnabled, "default", false, "prefer", 2},
+					{"higher priority session", 11, common.ChannelStatusEnabled, "default", false, "prefer", 2},
+					{"same priority peer", 10, common.ChannelStatusEnabled, "default", false, "prefer", 2},
+					{"disabled backup", 9, common.ChannelStatusManuallyDisabled, "default", false, "prefer", 9},
+					{"different group cannot bypass isolation", 9, common.ChannelStatusEnabled, "private", false, "prefer", 9},
+					{"explicit token pin stays pinned", 9, common.ChannelStatusEnabled, "default", true, "prefer", 9},
+					{"strict session does not retry", 9, common.ChannelStatusEnabled, "default", false, "strict", 0},
+				} {
+					t.Run(fmt.Sprintf("cache=%t/%s", cached, tc.name), func(t *testing.T) {
+						require.NoError(t, db.Where("id > 0").Delete(&model.Channel{}).Error)
+						require.NoError(t, db.Where("channel_id > 0").Delete(&model.Ability{}).Error)
+						channels := []model.Channel{
+							{Id: 2, Name: "backup", Type: 1, Key: "fixture-only", Status: tc.backupStatus, Models: "retry-fixture", Group: tc.backupGroup, Priority: common.GetPointer(int64(10))},
+							{Id: 9, Name: "preferred", Type: 1, Key: "fixture-only", Status: common.ChannelStatusEnabled, Models: "retry-fixture", Group: "default", Priority: &tc.boundPriority},
+						}
+						for i := range channels {
+							require.NoError(t, db.Create(&channels[i]).Error)
+							require.NoError(t, channels[i].AddAbilities(db))
+						}
+						common.MemoryCacheEnabled = cached
+						model.InitChannelCache()
+						snapshot, err := model.BuildRequestPolicy(map[string]string{
+							"channel_affinity_setting.enabled": "true",
+							"channel_affinity_setting.rules":   fmt.Sprintf(`[{"name":"session","model_regex":[".*"],"key_sources":[{"type":"request_header","key":"X-Session"}],"session_mode":%q}]`, tc.mode),
+						})
+						require.NoError(t, err)
+						*affinity = snapshot.Affinity
+						seed := newPinRetryContext()
+						seed.Request.Header.Set("X-Session", t.Name())
+						service.GetPreferredChannelByAffinity(seed, "retry-fixture", "default")
+						seed.Set("channel_id", 9)
+						service.RecordChannelAffinity(seed, 9)
+						t.Cleanup(func() { service.ClearCurrentChannelAffinityCache(seed) })
+						request := newPinRetryContext()
+						request.Request.Header.Set("X-Session", t.Name())
+						retry := &service.RetryParam{Ctx: request, TokenGroup: "default", ModelName: "retry-fixture", Retry: common.GetPointer(0)}
+						first, _, selectErr := service.SelectChannelForRequest(request, "retry-fixture", retry)
+						require.Nil(t, selectErr)
+						require.Equal(t, 9, first.Id)
+						service.AppendUsedChannel(request, first.Id)
+						failure := types.NewOpenAIError(errors.New("auth_unavailable: account pool exhausted"), types.ErrorCodeBadResponseStatusCode, http.StatusServiceUnavailable)
+						decision := service.DecideRelayRetry(request, failure, 1)
+						if tc.mode == "strict" {
+							assert.Equal(t, "strict_session", decision.Reason)
+							assert.Equal(t, "stop", decision.Action)
+							return
+						}
+						require.Equal(t, "retry", decision.Action)
+						if tc.pin {
+							service.GetChannelConstraints(request).AddPin(dto.ChannelPin{ChannelId: 9, Source: dto.PinSourceToken, Rank: dto.PinRankToken, RetryMode: dto.PinRetrySameChannel})
+						}
+						retry.SetRetry(1)
+						second, _, selectErr := service.SelectChannelForRequest(request, "retry-fixture", retry)
+						require.Nil(t, selectErr)
+						require.NotNil(t, second)
+						assert.Equal(t, tc.want, second.Id)
+					})
+				}
+			}
+		})
+	}
+}

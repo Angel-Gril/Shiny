@@ -31,6 +31,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
+import { UserInsightTrigger } from '@/features/user-insight'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -167,6 +168,11 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
                 {formatQuota(redemption.quota)}
               </span>
             </div>
+            {redemption.used_user_id > 0 && (
+              <UserInsightTrigger userId={redemption.used_user_id}>
+                {t('User {{id}}', { id: redemption.used_user_id })}
+              </UserInsightTrigger>
+            )}
           </div>
         )
       })}

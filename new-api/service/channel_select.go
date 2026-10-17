@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -147,7 +149,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, _ = model.GetRandomSatisfiedChannel(
+			channel, _ = selectRetryChannel(param,
 				autoGroup,
 				param.ModelName,
 				priorityRetry,
@@ -190,7 +192,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else {
-		channel, err = model.GetRandomSatisfiedChannel(
+		channel, err = selectRetryChannel(param,
 			param.TokenGroup,
 			param.ModelName,
 			param.GetRetry(),
@@ -201,6 +203,29 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+// selectRetryChannel gives an untried eligible channel the next attempt before
+// spending it on a channel that has already failed. Affinity can start at any
+// priority, so the attempt index alone cannot identify a different channel.
+// If no alternative exists, preserve the configured same-channel retry budget.
+func selectRetryChannel(param *RetryParam, group, modelName string, retry int, filters []dto.ChannelFilter) (*model.Channel, error) {
+	var attempted []int
+	if param.Ctx != nil {
+		for _, value := range param.Ctx.GetStringSlice("use_channel") {
+			if id, err := strconv.Atoi(value); err == nil && id > 0 {
+				attempted = append(attempted, id)
+			}
+		}
+	}
+	if len(attempted) > 0 {
+		untriedFilters := append(slices.Clone(filters), dto.ChannelFilter{Kind: dto.FilterExcludeChannels, ExcludedChannelIDs: attempted})
+		channel, err := model.GetRandomSatisfiedChannel(group, modelName, 0, untriedFilters)
+		if err != nil || channel != nil {
+			return channel, err
+		}
+	}
+	return model.GetRandomSatisfiedChannel(group, modelName, retry, filters)
 }
 
 func pinnedTaskPluginIdentities(c *gin.Context, expected string) ([]int, []string) {
