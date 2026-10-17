@@ -1,0 +1,14 @@
+[
+  {
+    "package": "markdown-it",
+    "version": "15.0.3",
+    "integrity": "sha512-+Az7Ojz3iRGu8KYMvJ6xVhvrxP3eE+vEtJX75Ow88XBpcQNV/0lGX5ZynIIBftREo4DC2jsveAMDaeltmm8QvQ==",
+    "file": "markdown-it.mjs"
+  },
+  {
+    "package": "dompurify",
+    "version": "3.4.17",
+    "integrity": "sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==",
+    "file": "purify.mjs"
+  }
+]

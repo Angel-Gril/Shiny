@@ -1,0 +1,7 @@
+{
+  "as_of": "2026-10-17",
+  "new_api": {"upstream_commit":"f7cd34f265341cab766d025887c50eddb6461409","production_release":"release-20261015-audit-v4","custom_source":"new-api/"},
+  "cpa": {"version":"v8.0.32","commit":"911f49cb","build":"official linux amd64 plugin-enabled","key_router":"v0.4.1","locally_modified_kernel":false},
+  "cpamp": {"version":"v1.14.7","locally_modified_binary":false,"persistent_usage_database":true},
+  "portal": {"production_release":"portal-20261017-v14","r2_default_limit_mib":10240,"source":"portal/"}
+}

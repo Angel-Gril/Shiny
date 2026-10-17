@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/QuantumNous/new-api",
+  "commit": "f7cd34f265341cab766d025887c50eddb6461409",
+  "snapshot": "Shiny audit-v4 source; 2026-10-15",
+  "local_features": [
+    "audit off/shadow/preflight",
+    "keyword signal/block",
+    "role-aware long context audit",
+    "abuse review false-positive reduction",
+    "independent portal full navigation"
+  ]
+}
