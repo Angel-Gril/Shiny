@@ -1,0 +1,19 @@
+[Unit]
+Description=Shiny CPA kernel (example deployment)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=relay
+Group=relay
+WorkingDirectory=/var/lib/relay-native/bin
+ExecStart=/var/lib/relay-native/bin/CLIProxyAPI -config /var/lib/relay-native/bin/config.yaml
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

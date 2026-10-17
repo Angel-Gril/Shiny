@@ -1,0 +1,31 @@
+# Illustrative v8 configuration only. Set secrets on the server before use.
+# Never replace a live configuration or real account bindings with this example.
+config-version: 8
+server:
+  host: 127.0.0.1
+  port: 8317
+management:
+  allow-remote: false
+  secret-key: REPLACE_WITH_SERVER_PRIVATE_MANAGEMENT_KEY
+oauth:
+  auth-dir: /var/lib/relay-native/cpa-auths
+access:
+  api-keys:
+    - REPLACE_WITH_POOL_A_DOWNSTREAM_KEY
+    - REPLACE_WITH_POOL_B_DOWNSTREAM_KEY
+observability:
+  usage:
+    usage-statistics-enabled: true
+plugins:
+  enabled: true
+  dir: /var/lib/relay-native/bin/plugins
+  configs:
+    key-router:
+      enabled: true
+      priority: 100
+      # Account bindings belong in the installed plugin's own configuration.
+      # Verify its version-specific schema; do not add production emails here.
+    cpa-account-concurrency:
+      enabled: false
+    quota-monitor:
+      enabled: false

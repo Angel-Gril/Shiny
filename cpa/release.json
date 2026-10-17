@@ -1,0 +1,12 @@
+{
+  "upstream": "https://github.com/router-for-me/CLIProxyAPI",
+  "version": "v8.0.32",
+  "commit": "911f49cb",
+  "asset": "CLIProxyAPI_8.0.32_linux_amd64.tar.gz",
+  "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.32/CLIProxyAPI_8.0.32_linux_amd64.tar.gz",
+  "archive_sha256": "082a4a38d9470c070ac85ab2d9c4a2aa51f9a7ee19831c3b811e26fe5b7480a7",
+  "binary_sha256": "2851f6e036bb2613dc6ba945d08e08e13a728a386a8c0346183a4eaad5cb93d7",
+  "plugin_enabled_build": true,
+  "key_router_version": "v0.4.1",
+  "kernel_modifications": false
+}
