@@ -1,6 +1,6 @@
 # 公开门户纸质视觉统一
 
-状态：用户已授权开发与验证后上线。基线 `3bc1d76b1885ae6174e8022f744b8eacd9b64a41`，功能分支 `feat/portal-paper-visuals`。
+状态：实现、独立审查、候选及公网验收完成，前端 `portal-20261018-v18` 已上线。经 [PR #9](https://github.com/Angel-Gril/Shiny/pull/9) 合并，发布与回滚见[发布记录](releases/2026-10-18-portal-paper.md)。基线 `3bc1d76b1885ae6174e8022f744b8eacd9b64a41`，功能分支 `feat/portal-paper-visuals`。
 
 视觉：延续粒子首屏的暖白纸色、深墨正文与蓝色操作，统一公开首页、教程、下载和公告；深色改为暖黑。保留 SHINY 字标、粒子互动及真实内容，采用相同内容边距、细线和轻圆角，不增加纹理图片、字体下载或动画库。
 
