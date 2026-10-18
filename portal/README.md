@@ -50,7 +50,7 @@
 
 ## 首屏与按需加载
 
-`boot.js` 在主应用下载时并行请求公开内容，HTML 使用 `modulepreload` 提前下载 `app.js`。首页、下载中心和公告不加载 Markdown 或上传模块；访问文档或打开搜索时加载 Markdown，管理员身份校验通过后再加载内容编辑和上传模块。文档/搜索保留原清理与正文匹配逻辑，上传仍使用同一 R2 引擎和资源批次接口。
+`boot.js` 在主应用下载时并行请求公开内容，HTML 使用 `modulepreload` 提前下载 `app.js`。主要内容不等待 Markdown 或上传模块；文档、搜索、公告详情及未读系统公告弹层按需加载 Markdown，空公告/已读公告不加载它。管理员身份校验通过后再加载内容编辑和上传模块。文档/搜索保留原清理与正文匹配逻辑，上传仍使用同一 R2 引擎和资源批次接口。
 
 模块加载中保留页面导航；文档模块或公开内容失败时提供重新加载入口。路由和搜索的请求序号避免旧异步结果覆盖后续操作。旧发布路径长期保留，新的入口与其动态导入使用同一个不可变 release 路径。
 
@@ -113,7 +113,17 @@
 
 粒子发布只切换 Nginx 的门户前端 include，保留旧版资源路径；不切换内容服务 `current`，不重启 New API、CPA 或 CPAMP。模板示例、提示词、截图和本地启动脚本不进入发布包。
 
-## 运行观察
+## 公告与首次提示
+
+New API 的 `/system-settings/site/notice` 保存重要系统公告，正文非空时在门户首页或控制台 `/dashboard/overview` 对未读版本自动提示。普通历史公告在 `/system-settings/content/announcements` 管理，新增/编辑后还须点击「保存设置」。历史公告开关不控制系统 Notice。
+
+「我知道了」、关闭、Esc、遮罩及查看详情均记已读。两端共用 `new-api/web/src/lib/site-notice-policy.ts` 的规范化、SHA-256 与同源存储协议，门户构建把这份纯 TS 编译为自身不可变 ESM；生产运行互不依赖。新增 `shiny.notice-read.v1` 仅含最近100个内容指纹，控制台缓存清理保留它，旧通知中心已读记录继续兼容。禁用存储时当前页面保留记忆，跨刷新无法保证记住；公告请求或弹层组件失败不阻塞页面。
+
+系统详情为 `/announcements/system-notice`，历史详情为 `/announcements/<id>`。完整 content/extra 由公开 `/api/status` 读取并净化显示，失败时有已同步内容则明确显示缓存提示；没有内容则给重试或返回入口。没有显式ID的旧公告首次解析后使用内容指纹规范地址，避免排序或编辑器补ID后指向另一条。首页与控制台共享已读，非首页/管理/安全/支付页面不自动打断。
+
+验收 `node portal/test-announcements.mjs`；控制台测试 `cd new-api/web && bun run test:stable src/features/site-announcements/__tests__`。部署分别切换门户与控制台前端 include，并确认公告子路径直达及刷新。内容服务和 New API 后端无需更新。
+
+## 服务观察
 
 公开门户的共用视觉在 `web/paper.css`：暖白/暖黑、统一容器和排版、紧凑下载元数据。`paper-portal` 仅作用于公开路由，内容管理保留工作台样式。当前首页标题按内容库换行显示，常见桌面和手机保持两行；任意自定义长标题仍允许自然换行。宽屏正文阅读列最大 800px，1150px 等中等屏幕改用文章内目录。
 

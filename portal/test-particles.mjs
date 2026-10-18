@@ -230,6 +230,7 @@ try {
       const path = new URL(req.url, 'http://fixture.invalid').pathname;
       requests.push(path);
       if (path === '/portal-api/content') {answer(res, 200, content); return;}
+      if (path === '/api/notice') {answer(res, 200, {success:true,data:''}); return;}
       if (path === '/favicon.ico') {res.writeHead(204); res.end(); return;}
       const held = moduleGate;
       if (held?.match(path)) {held.markSeen(); await held.promise;}

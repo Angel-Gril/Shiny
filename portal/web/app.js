@@ -1,6 +1,7 @@
 let articleMarkdown, importInfo, renderMarkdown, plainText, inspectMarkdown, tocHTML;
 let createQueue, queueHTML, processQueue, storagePage, uploadR2, formatUploadLimit;
 let markdownPromise, adminModulesPromise;
+let announcementsPromise, announcementRequest, noticeHandle, noticeTimer;
 let particleModule, particleInstance, particleIdle, particleTimer, particlePageHidden=false;
 const particleFallback=new URL('./assets/shiny-particle-fallback.svg',import.meta.url).href;
 const particleCredits=new URL('./particle-licenses/index.html',import.meta.url).pathname;
@@ -26,16 +27,41 @@ function scheduleParticles(sequence) {
   if('requestIdleCallback' in window)particleIdle=requestIdleCallback(mount,{timeout:1200});
   else particleTimer=setTimeout(mount,120);
 }
-window.addEventListener('pagehide',()=>{particlePageHidden=true;});
-window.addEventListener('pageshow',()=>{
+window.addEventListener('pagehide',()=>{particlePageHidden=true;stopAnnouncements();});
+window.addEventListener('pageshow',event=>{
   particlePageHidden=false;
   if(!particleInstance&&location.pathname==='/'&&document.querySelector('[data-particle-stage]'))scheduleParticles(renderSequence);
+  if(event.persisted){
+    if(location.pathname==='/'&&document.querySelector('.hero h1'))scheduleNotice(renderSequence);
+    else if(location.pathname.startsWith('/announcements/')&&document.querySelector('#main>.loading'))render();
+  }
 });
 function loadMarkdown() {
   if(!markdownPromise)markdownPromise=import('./markdown.js').then(module=>{
     ({articleMarkdown,importInfo,renderMarkdown,plainText,inspectMarkdown,tocHTML}=module);
   }).catch(error=>{markdownPromise=null;throw error;});
   return markdownPromise;
+}
+function loadAnnouncements() {
+  announcementsPromise??=import('./announcements.js').catch(error=>{announcementsPromise=null;throw error;});
+  return announcementsPromise;
+}
+function stopAnnouncements() {
+  clearTimeout(noticeTimer);noticeTimer=undefined;
+  announcementRequest?.abort();announcementRequest=null;
+  noticeHandle?.dispose();noticeHandle=null;
+}
+function scheduleNotice(sequence) {
+  stopAnnouncements();
+  const controller=new AbortController();announcementRequest=controller;
+  const current=()=>!controller.signal.aborted&&sequence===renderSequence&&location.pathname==='/'&&!particlePageHidden;
+  noticeTimer=setTimeout(async()=>{
+    try{
+      const module=await loadAnnouncements();if(!current())return;
+      const handle=await module.mountNotice({signal:controller.signal,isCurrent:current,onDetails:()=>navigate('/announcements/system-notice')});
+      if(current())noticeHandle=handle;else handle.dispose();
+    }catch{/* Optional announcements never block the public page. */}
+  },160);
 }
 function loadAdminModules() {
   if(!adminModulesPromise)adminModulesPromise=Promise.all([loadMarkdown(),import('./upload-queue.js'),import('./storage.js')]).then(([,queue,storage])=>{
@@ -66,6 +92,10 @@ const publicLink = (url) => /^https:\/\//i.test(url);
 const safeUrl = (url) => typeof url === 'string' && (/^https:\/\//i.test(url) || /^\/(?!\/)/.test(url)) ? url : '#';
 const attrs = (url) => publicLink(url) ? 'target="_blank" rel="noopener noreferrer"' : 'data-route';
 const link = (label, url, cls = 'text-link', symbol = 'arrow') => `<a class="${cls}" href="${escape(safeUrl(url))}" ${attrs(url)}>${escape(label)}${symbol ? icon(symbol, 15) : ''}</a>`;
+const announcementHref = notice => {
+  const href=safeUrl(notice.href);
+  return !href||href==='#'||/^\/announcements\/?$/.test(href)?'/announcements/'+encodeURIComponent(String(notice.id)):href;
+};
 const tag = (text, neutral = false) => `<span class="tag${neutral ? ' tag-neutral' : ''}">${escape(text)}</span>`;
 const meta = (article) => `<span>${escape(article.category)}</span><span>·</span><span>${article.minutes} 分钟阅读</span><span>·</span><span>${escape(article.updated)}</span>`;
 const clone = (data) => structuredClone(data);
@@ -150,7 +180,7 @@ function particleHero() {
 function home() {
   const notice = published.announcements.find(n => n.pinned) || published.announcements[0];
   return `${particleHero()}
-  ${notice?`<div class="notice-rail"><div class="container notice-inner"><span class="notice-label">${icon('bell',15)}最新公告</span>${tag(notice.tag)}<a class="notice-title" href="${escape(safeUrl(notice.href))}" ${attrs(notice.href)}>${escape(notice.title)}</a>${link('全部公告','/announcements/')}</div></div>`:''}
+  ${notice?`<div class="notice-rail"><div class="container notice-inner"><span class="notice-label">${icon('bell',15)}最新公告</span>${tag(notice.tag)}<a class="notice-title" href="${escape(safeUrl(announcementHref(notice)))}" ${attrs(announcementHref(notice))}>${escape(notice.title)}</a>${link('全部公告','/announcements/')}</div></div>`:''}
   <section class="particle-connect container" id="connect"><div><div class="kicker">YOUR FIRST REQUEST</div><h2>从这里，开始第一次调用。</h2><p>复制接口地址，选择协议，连接你的工具。</p>${link('查看完整接入教程','/docs/quickstart')}</div><div class="code-demo"><div class="demo-bar"><div class="demo-dots"><i></i><i></i><i></i></div><span class="demo-label">你的第一次 API 调用 ${icon('code',13)}</span></div><div class="demo-inner" id="code-sample">${sampleHTML()}</div><div class="demo-foot"><span>API Base URL</span><strong>${escape(published.site.baseUrl)}</strong><button class="link-button" data-copy="${escape(published.site.baseUrl)}" aria-label="复制接口地址">${icon('copy',13)}</button></div></div></section>
   <section class="section container"><div class="section-heading"><div><div class="kicker">GET STARTED</div><h2>从这里开始，少一点摸索。</h2><p>选好工具，按步骤接入你的工作流。</p></div>${link('全部教程','/docs/')}</div><div class="quick-grid">${[
     ['book','第一次使用','注册、创建令牌，了解模型与分组。','quickstart','01 · 快速开始'],
@@ -197,7 +227,7 @@ function downloads() {
   resourceSearch=new URLSearchParams(location.search).get('q')||resourceSearch;
   return `<div class="container"><div class="page-head">${breadcrumb('资源下载')}<div class="kicker">TOOLS & RESOURCES</div><h1>工具就绪，灵感开工。</h1><p>常用客户端、配置模板与接入资料。每份资源，都有清楚的来源与下一步。</p></div><div class="resource-toolbar"><div class="filter-chips">${['全部资源','客户端工具','配置模板','文档资料'].map(c=>`<button class="chip ${resourceCategory===c?'active':''}" data-resource-category="${c}" aria-pressed="${resourceCategory===c}">${c}</button>`).join('')}</div><label><span class="visually-hidden">操作系统</span><select class="select-field" id="platform-filter" aria-label="选择操作系统">${['全部系统','Windows','macOS','Linux'].map(p=>`<option ${p===resourcePlatform?'selected':''}>${p}</option>`).join('')}</select></label></div><div class="resource-toolbar"><span class="item-meta">下载前，请先查看版本说明与对应教程。</span><div class="search-box resource-search">${icon('search',15)}<input type="search" id="resource-search" aria-label="搜索资源" placeholder="搜索资源名称" value="${escape(resourceSearch)}"></div></div><div class="resource-grid" id="resource-results">${resourceResults()}</div><p class="resource-note">${icon('info',14)} 软件链接指向作者发布页；本站模板使用占位符，不包含真实密钥。本站附件由独立文件库提供。</p></div>`;
 }
-function announcements() { return `<div class="container"><div class="page-head">${breadcrumb('公告')}<div class="kicker">WHAT’S NEW</div><h1>Shiny 的最新动态。</h1><p>功能更新、使用提示与接入说明，一处了解。</p></div><div class="notice-page-list">${[...published.announcements].sort((a,b)=>Number(b.pinned)-Number(a.pinned)).map(n=>`<article class="notice-page-item"><time datetime="${escape(n.date)}">${escape(n.date)}</time><div>${n.pinned?tag('置顶'):tag(n.tag,true)}<h2>${escape(n.title)}</h2><p>${escape(n.summary)}</p>${link('查看详情',n.href)}</div></article>`).join('')}</div></div>`; }
+function announcements() { return `<div class="container"><div class="page-head">${breadcrumb('公告')}<div class="kicker">WHAT’S NEW</div><h1>Shiny 的最新动态。</h1><p>功能更新、使用提示与接入说明，一处了解。</p></div><div class="notice-page-list">${[...published.announcements].sort((a,b)=>Number(b.pinned)-Number(a.pinned)).map(n=>`<article class="notice-page-item"><time datetime="${escape(n.date)}">${escape(n.date)}</time><div>${n.pinned?tag('置顶'):tag(n.tag,true)}<h2>${escape(n.title)}</h2><p>${escape(n.summary)}</p>${link('查看详情',announcementHref(n))}</div></article>`).join('')}</div></div>`; }
 
 const adminTabs=[['articles','book','教程文档'],['resources','download','资源管理'],['navigation','menu','顶部导航'],['homepage','settings','首页内容'],['storage','settings','存储设置']];
 function admin() {
@@ -350,11 +380,32 @@ function notFound(){return `<div class="container loading"><h1 style="font-size:
 let renderSequence=0;
 function render({focus=false}={}) {
   stopParticles();
+  stopAnnouncements();
   const sequence=++renderSequence;
   const path=location.pathname.replace(/\/$/,'')||'/';
   document.body.classList.toggle('particle-home',path==='/');
   document.body.classList.toggle('paper-portal',path!=='/site-admin');
   renderHeader();
+  if(path.startsWith('/announcements/')){
+    const controller=new AbortController();announcementRequest=controller;
+    $('#main').innerHTML='<div class="container loading" role="status">正在加载公告…</div>';document.title='公告详情 · Shiny API';
+    void(async()=>{
+      try{
+        let id;try{id=decodeURIComponent(path.slice('/announcements/'.length));}catch{id='';}
+        const module=await loadAnnouncements();
+        if(controller.signal.aborted)return;
+        const result=await module.renderAnnouncementDetail({id,announcements:published.announcements,signal:controller.signal});
+        if(controller.signal.aborted||sequence!==renderSequence)return;
+        $('#main').innerHTML=result.html;document.title=`${result.title} · Shiny API`;
+        if(result.canonicalPath)history.replaceState({},'',result.canonicalPath);
+        if(result.version)module.markNoticeRead(result.version);
+        if(focus)$('#main').focus({preventScroll:true});
+      }catch{
+        if(!controller.signal.aborted&&sequence===renderSequence)$('#main').innerHTML='<div class="container page-head" data-announcement-detail><h1>公告暂时无法加载</h1><p>请稍后重试，或先返回公告列表。</p><button class="btn" data-action="retry-module">重新加载</button> <a class="text-link" href="/announcements/" data-route>返回公告列表</a></div>';
+      }
+    })();
+    return;
+  }
   if((path==='/docs'||path.startsWith('/docs/'))&&!articleMarkdown){
     $('#main').innerHTML='<div class="container loading" role="status">正在加载文档…</div>';
     loadMarkdown().then(()=>{if(sequence===renderSequence)render({focus});}).catch(()=>{
@@ -374,7 +425,7 @@ function render({focus=false}={}) {
   if(focus)$('#main').focus({preventScroll:true});
   if(location.hash)requestAnimationFrame(()=>{try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}catch{}});
   highlightTOC();
-  if(path==='/')scheduleParticles(sequence);
+  if(path==='/'){scheduleParticles(sequence);scheduleNotice(sequence);}
 }
 function navigate(url) {
   if(uploading){toast('文件正在上传，请完成或取消后再离开');return;}
@@ -418,7 +469,7 @@ document.addEventListener('click',async event=>{
   if(uploading&&el.closest('.admin-layout')){event.preventDefault();toast('文件正在上传，请等待或取消上传');return;}
   if(saving&&el.closest('.admin-layout')){event.preventDefault();toast('正在保存，请等待完成后再操作');return;}
   if(editorUnsaved&&(el.dataset.restore||el.dataset.action==='reload-admin')){event.preventDefault();toast('有未保存正文，请先保存草稿或放弃编辑');return;}
-  if(el.matches('a[data-route]')&&!el.hasAttribute('download')&&/^\/(?:$|docs(?:\/|$)|downloads\/?$|announcements\/?$|site-admin\/?$)/.test(new URL(el.href).pathname)&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(el.href);return;}
+  if(el.matches('a[data-route]')&&!el.hasAttribute('download')&&/^\/(?:$|docs(?:\/|$)|downloads\/?$|announcements(?:\/|$)|site-admin\/?$)/.test(new URL(el.href).pathname)&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(el.href);return;}
   if(el.dataset.restore){try{await api('restore/'+el.dataset.restore,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:serverRevision})});await loadAdmin();toast('历史版本已恢复到草稿，确认后再发布');}catch(error){failure(error);}return;}
   if(el.dataset.copy!==undefined){try{await navigator.clipboard.writeText(el.dataset.copy);toast('已复制到剪贴板');}catch{toast('复制失败，请手动选择文本复制');}return;}
   if(el.dataset.snippet){snippet=el.dataset.snippet;$('#code-sample').innerHTML=sampleHTML();$(`[data-snippet="${snippet}"]`).focus();return;}

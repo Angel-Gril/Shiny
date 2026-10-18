@@ -17,11 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
+import { useSiteNotice } from '@/features/site-announcements/hooks/use-site-notice'
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
+import {
+  markNoticeRead,
+  normalizeNotice,
+  noticeVersion,
+} from '@/lib/site-notice-policy'
 import { useNotificationStore } from '@/stores/notification-store'
 
 function hashString(input: string): string {
@@ -78,6 +84,7 @@ export function useNotifications() {
     queryKey: ['notice'],
     queryFn: async () => requireServerSuccess(await getNotice()),
     staleTime: 1000 * 60 * 5, // 5 minutes
+    meta: { errorToast: false },
   })
 
   // Fetch Announcements from status
@@ -94,20 +101,34 @@ export function useNotifications() {
   // Notification store
   const {
     lastReadNotice,
-    markNoticeRead,
+    markNoticeRead: markLegacyNoticeRead,
     markAnnouncementsRead,
     isAnnouncementRead,
   } = useNotificationStore()
 
   // Extract notice content
-  const noticeContent = noticeResponse?.success
-    ? (noticeResponse.data || '').trim()
-    : ''
+  const siteNotice = useSiteNotice(
+    noticeResponse?.success ? noticeResponse.data : ''
+  )
+  const noticeContent = siteNotice.content
+
+  useEffect(() => {
+    // Preserve read status for people who already viewed this notice in the bell.
+    if (
+      siteNotice.version &&
+      !siteNotice.read &&
+      noticeContent === normalizeNotice(lastReadNotice)
+    ) {
+      markNoticeRead(siteNotice.version)
+    }
+  }, [siteNotice.version, siteNotice.read, noticeContent, lastReadNotice])
 
   // Calculate unread counts
   const unreadCounts = useMemo(() => {
-    const noticeUnread =
-      noticeContent && noticeContent !== lastReadNotice ? 1 : 0
+    const readNotice = siteNotice.version
+      ? siteNotice.read
+      : noticeContent === normalizeNotice(lastReadNotice)
+    const noticeUnread = noticeContent && !readNotice ? 1 : 0
 
     const announcementsUnread = announcements.filter(
       (item: Record<string, unknown>) => {
@@ -121,7 +142,28 @@ export function useNotifications() {
       announcements: announcementsUnread,
       total: noticeUnread + announcementsUnread,
     }
-  }, [noticeContent, lastReadNotice, announcements, isAnnouncementRead])
+  }, [
+    noticeContent,
+    siteNotice.version,
+    siteNotice.read,
+    lastReadNotice,
+    announcements,
+    isAnnouncementRead,
+  ])
+
+  const markCurrentNoticeRead = () => {
+    if (!noticeContent) return
+    try {
+      markLegacyNoticeRead(noticeContent)
+    } catch {
+      // The legacy store can throw when browser persistence is blocked.
+    }
+    void noticeVersion(noticeContent)
+      .then((version) => {
+        if (version) markNoticeRead(version)
+      })
+      .catch(() => undefined)
+  }
 
   const markAnnouncementsAsRead = () => {
     if (announcements.length > 0) {
@@ -137,9 +179,7 @@ export function useNotifications() {
     const nextTab = tab || activeTab
 
     // Mark currently visible content as read when opening the notification center
-    if (noticeContent) {
-      markNoticeRead(noticeContent)
-    }
+    if (nextTab === 'notice') markCurrentNoticeRead()
     if (nextTab === 'announcements') {
       markAnnouncementsAsRead()
     }
@@ -163,6 +203,8 @@ export function useNotifications() {
 
     if (tab === 'announcements') {
       markAnnouncementsAsRead()
+    } else {
+      markCurrentNoticeRead()
     }
   }
 

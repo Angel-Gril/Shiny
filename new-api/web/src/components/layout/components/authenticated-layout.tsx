@@ -16,16 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useLocation } from '@tanstack/react-router'
+import { lazy, Suspense } from 'react'
+
 import { AnimatedOutlet } from '@/components/page-transition'
 import { SkipToMain } from '@/components/skip-to-main'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
+import { NoticeBoundary } from '@/features/site-announcements/notice-boundary'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
 
 import { AppHeader } from './app-header'
 import { AppSidebar } from './app-sidebar'
+
+const SiteNoticePopup = lazy(() =>
+  import('@/features/site-announcements/notice-popup').then((module) => ({
+    default: module.SiteNoticePopup,
+  }))
+)
 
 type AuthenticatedLayoutProps = {
   children?: React.ReactNode
@@ -33,6 +43,8 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const pathname = useLocation({ select: (location) => location.pathname })
+  const showSiteNotice = /^\/dashboard(?:\/overview)?\/?$/.test(pathname)
 
   return (
     <LayoutProvider>
@@ -53,6 +65,13 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
               {props.children ?? <AnimatedOutlet />}
             </SidebarInset>
           </div>
+          {showSiteNotice ? (
+            <NoticeBoundary>
+              <Suspense fallback={null}>
+                <SiteNoticePopup />
+              </Suspense>
+            </NoticeBoundary>
+          ) : null}
         </SidebarProvider>
       </SearchProvider>
     </LayoutProvider>

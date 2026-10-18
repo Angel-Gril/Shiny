@@ -27,6 +27,7 @@ const server=http.createServer(async(req,res)=>{
  try{
   const p=new URL(req.url,'http://fixture.invalid').pathname;requests.push(p);
   if(p==='/portal-api/content'){contentSeen?.release();answer(res,contentError?503:200,contentError?{}:content);return;}
+  if(p==='/api/notice'){answer(res,200,{success:true,data:''});return;}
   if(p==='/api/user/auth/refresh'){answer(res,200,{success:true,data:{access_token:'fixture-only',access_expires_at:Date.now()/1000+3600}});return;}
   if(p==='/portal-api/admin/session'){answer(res,200,{success:true,data:{id:7,name:'fixture-admin'}});return;}
   if(p==='/portal-api/admin/content'){answer(res,200,{success:true,data:{draft,published:content,revision:1,history:[]}});return;}
