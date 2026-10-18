@@ -27,3 +27,7 @@ CPA Manager Plus 是独立官方服务，长期统计库与 data.key 共同备�
 系统公告继续通过 New API `Notice` 与 `/api/notice` 提供，历史公告用公开 `/api/status`。保留自定义 `web/src/lib/site-notice-policy.ts`：门户构建与控制台都使用相同规范化/SHA-256和 `shiny.notice-read.v1` 协议；控制台缓存迁移必须保留该键。两端仅编译共享源，不共享运行模块或数据库。控制台自动提示挂载点、局部错误边界和铃铛已读同步都在前端源码中，升级时须同时验收，不能用官方前端直接覆盖。
 
 公告详情子路径由独立门户 Nginx 前缀接管，保留 API 路由和旧静态资源。门户、控制台前端分别记录版本及回滚 include，内容服务 current 与 Go 服务独立。配置公告应保留现有ID，旧无ID公告的指纹详情地址不得重新解析成其他记录。
+
+## 独立域名入口
+
+`www.shinyapi.com`的HTTP/HTTPS重定向vhost独立于门户与控制台include，源码见`ops/nginx/`。升级时保留该站点启用链接、独立www证书/续期配置以及Certbot的Nginx检查/重载钩子；域名入口修复不需要替换主域名/api证书或放宽默认TLS拒绝规则。变更后分别验收www、主域名与api的SNI及路径/查询保留。
