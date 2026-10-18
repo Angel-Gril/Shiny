@@ -1,6 +1,6 @@
 # 公告详情与首次公告提示
 
-状态：用户已授权实现、验证和上线。基线 main `ecb1c1683de9314d26b497db86192fb86fc26732`，功能分支 `feat/announcements-and-notice-popup`。继续通过受保护 PR 与必需 CI 合并。
+状态：已通过 [PR #13](https://github.com/Angel-Gril/Shiny/pull/13) 合并，生产双前端已上线，候选/公网验收及五分钟健康观察均通过，临时资源已清理。发布结果见[记录](releases/2026-10-19-announcements.md)。原实施基线 main `ecb1c1683de9314d26b497db86192fb86fc26732`，功能分支 `feat/announcements-and-notice-popup`。
 
 ## 用户行为
 
