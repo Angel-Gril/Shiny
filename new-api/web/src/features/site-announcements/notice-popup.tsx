@@ -49,7 +49,7 @@ export function SiteNoticePopup() {
     queryKey: ['notice'],
     queryFn: async () => requireServerSuccess(await getNotice()),
     staleTime: 1000 * 60 * 5,
-    meta: { errorToast: false },
+    meta: { errorToast: false, errorRedirect: false },
   })
   const notice = useSiteNotice(query.data?.data)
   const [openVersion, setOpenVersion] = useState<string | null>(null)

@@ -119,7 +119,7 @@ New API 的 `/system-settings/site/notice` 保存重要系统公告，正文非�
 
 「我知道了」、关闭、Esc、遮罩及查看详情均记已读。两端共用 `new-api/web/src/lib/site-notice-policy.ts` 的规范化、SHA-256 与同源存储协议，门户构建把这份纯 TS 编译为自身不可变 ESM；生产运行互不依赖。新增 `shiny.notice-read.v1` 仅含最近100个内容指纹，控制台缓存清理保留它，旧通知中心已读记录继续兼容。禁用存储时当前页面保留记忆，跨刷新无法保证记住；公告请求或弹层组件失败不阻塞页面。
 
-系统详情为 `/announcements/system-notice`，历史详情为 `/announcements/<id>`。完整 content/extra 由公开 `/api/status` 读取并净化显示，失败时有已同步内容则明确显示缓存提示；没有内容则给重试或返回入口。没有显式ID的旧公告首次解析后使用内容指纹规范地址，避免排序或编辑器补ID后指向另一条。首页与控制台共享已读，非首页/管理/安全/支付页面不自动打断。
+系统详情为 `/announcements/system-notice`，正文来自 `/api/notice`；历史详情为 `/announcements/<id>`，完整 content/extra 来自公开 `/api/status`，均净化后显示。失败时有已同步内容则明确显示缓存提示；没有内容则给重试或返回入口。没有显式ID的旧公告首次解析后使用内容指纹规范地址，避免排序或编辑器补ID后指向另一条。首页与控制台共享已读，非首页/管理/安全/支付页面不自动打断。实施依据见[公告计划](../ops/ANNOUNCEMENT_PLAN.md)。
 
 验收 `node portal/test-announcements.mjs`；控制台测试 `cd new-api/web && bun run test:stable src/features/site-announcements/__tests__`。部署分别切换门户与控制台前端 include，并确认公告子路径直达及刷新。内容服务和 New API 后端无需更新。
 
