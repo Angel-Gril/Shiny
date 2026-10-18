@@ -191,7 +191,7 @@ function articlePage(slug) {
 }
 function resourceResults() {
   const rows=published.resources.filter(r=>(resourceCategory==='全部资源'||r.category===resourceCategory)&&(resourcePlatform==='全部系统'||r.platforms.includes(resourcePlatform)||r.platforms.includes('通用'))&&(`${r.name} ${r.summary}`).toLowerCase().includes(resourceSearch.toLowerCase()));
-  return rows.length?rows.map(r=>`<article class="resource-card"><div class="resource-card-top"><span class="tile-icon">${icon(r.icon,22)}</span><div><h2>${escape(r.name)}</h2><p>${escape(r.version)}</p></div>${tag(r.category,true)}</div><p>${escape(r.summary)}</p><div class="item-meta">${icon('check',12)}${escape(r.source)}</div>${r.file_size?`<p class="file-details">文件大小 ${formatBytes(r.file_size)}</p>`:''}${r.sha256?`<details class="file-checksum"><summary>SHA-256 校验值</summary><code>${escape(r.sha256)}</code></details>`:''}${r.architecture?`<p class="file-details">适用架构 ${escape(r.architecture)}</p>`:''}<div class="resource-platforms">${r.platforms.map(p=>tag(p,true)).join('')}</div><div class="resource-card-footer">${link('使用教程','/docs/'+encodeURIComponent(r.article),'text-link','book')}${publicLink(r.url)?link(r.storage==='r2'?'下载文件':'前往发布页',r.url,'btn btn-sm',r.storage==='r2'?'download':'external'):`<a class="btn btn-sm" href="${escape(safeUrl(r.url))}" download>${icon('download',14)}下载文件</a>`}</div></article>`).join(''):'<div class="empty-state"><h2>没有找到对应资源</h2><p>请尝试其他关键词、资源分类或操作系统。</p></div>';
+  return rows.length?rows.map(r=>`<article class="resource-card"><div class="resource-card-top"><span class="tile-icon">${icon(r.icon,22)}</span><div><h2>${escape(r.name)}</h2><p>${escape(r.version)}</p></div>${tag(r.category,true)}</div><p class="resource-summary">${escape(r.summary)}</p><div class="item-meta">${icon('check',12)}${escape(r.source)}</div><div class="resource-facts">${r.file_size?`<span>文件大小 ${formatBytes(r.file_size)}</span>`:''}${r.architecture?`<span>适用架构 ${escape(r.architecture)}</span>`:''}</div>${r.sha256?`<details class="file-checksum"><summary>SHA-256 校验值</summary><code>${escape(r.sha256)}</code></details>`:''}<div class="resource-platforms">${r.platforms.map(p=>tag(p,true)).join('')}</div><div class="resource-card-footer">${link('使用教程','/docs/'+encodeURIComponent(r.article),'text-link','book')}${publicLink(r.url)?link(r.storage==='r2'?'下载文件':'前往发布页',r.url,'btn btn-sm',r.storage==='r2'?'download':'external'):`<a class="btn btn-sm" href="${escape(safeUrl(r.url))}" download>${icon('download',14)}下载文件</a>`}</div></article>`).join(''):'<div class="empty-state"><h2>没有找到对应资源</h2><p>请尝试其他关键词、资源分类或操作系统。</p></div>';
 }
 function downloads() {
   resourceSearch=new URLSearchParams(location.search).get('q')||resourceSearch;
@@ -353,6 +353,7 @@ function render({focus=false}={}) {
   const sequence=++renderSequence;
   const path=location.pathname.replace(/\/$/,'')||'/';
   document.body.classList.toggle('particle-home',path==='/');
+  document.body.classList.toggle('paper-portal',path!=='/site-admin');
   renderHeader();
   if((path==='/docs'||path.startsWith('/docs/'))&&!articleMarkdown){
     $('#main').innerHTML='<div class="container loading" role="status">正在加载文档…</div>';

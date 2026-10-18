@@ -100,6 +100,7 @@ try{
  checks.push('Search lazily loads Markdown and still finds body-only text without upload modules');
 
  page=await fresh('/site-admin/?tab=resources');await page.locator('#resource-upload').waitFor({state:'attached'});
+ assert.equal(await page.locator('body').evaluate(node=>node.classList.contains('paper-portal')),false,'Public paper skin leaked into administration');
  assert.ok(requests.some(p=>p.endsWith('/multipart.js')));assert.ok(requests.some(p=>p.endsWith('/upload-queue.js')));
  await page.locator('#resource-upload').setInputFiles([{name:'client-windows-x64.zip',mimeType:'application/zip',buffer:Buffer.from('fixture-win')},{name:'client-macos-arm64.zip',mimeType:'application/zip',buffer:Buffer.from('fixture-mac')}]);
  assert.equal(await page.locator('.upload-queue-row').count(),2);
@@ -107,6 +108,10 @@ try{
  await page.locator('#resource-form button[type=submit]').click();await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('2 个文件'));
  assert.equal(uploads,2);assert.equal(batches,1);
  checks.push('Admin-only modules support multi-file upload and a single resource batch save');
+ await page.locator('#site-header a[href="/"]').first().click();await page.locator('.hero h1').waitFor();
+ assert.equal(await page.locator('body').evaluate(node=>node.classList.contains('paper-portal')),true);
+ await page.locator('#site-footer a[href="/site-admin/"]').click();await page.locator('.admin-layout').waitFor();
+ assert.equal(await page.locator('body').evaluate(node=>node.classList.contains('paper-portal')),false,'Public/admin navigation retained the wrong visual scope');
 
  r2Enabled=true;const localUploadsBeforeR2=uploads,batchesBeforeR2=batches,r2Bytes=Buffer.from('fixture-r2-data');
  page=await fresh('/site-admin/?tab=resources');await page.locator('#resource-upload').waitFor({state:'attached'});
