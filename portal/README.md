@@ -105,6 +105,14 @@
 
 部署记录与带摘要校验的回滚脚本在 `/root/shiny-maintenance/portal-production-20261016/`。回滚只恢复原 Nginx 首页路由和文档链接，保留正式内容库/上传文件，不触及 New API 模型数据。`deploy/rollback.py` 是脚本源码。部署测试与截图在本地 `maintenance/portal-production-20261016/`。
 
+## 粒子首页
+
+首页保留内容库中的标题、简介、导航和接入示例，独立加载粒子模块，不等待动画才能阅读或跳转。桌面默认自动播放；窄屏或低性能设备先显示静态 Shiny 图形，用户可手动播放。系统减少动态或浏览器省流量开启时保持静态。支持 31 个分组造型、暂停、自动轮播和局部鼠标笔刷；离屏、后台和页面离开时停止绘制并清理资源。
+
+构建需 Bun **1.3.10**：`python portal/build.py --release <唯一版本>`。脚本生成原生 ESM 和按组加载的场景文件，不依赖外部 CDN。回归使用 `bun run portal/particles/test-scenes.ts`、`node portal/test-particles.mjs` 和既有 `node portal/test-lazy-loading.mjs`；浏览器测试使用 Playwright 1.58.2，可通过 `PLAYWRIGHT_PATH` 指定其模块路径。许可证和本次修改源码入口在页脚「开源与致谢」，来源与改动见 `particles/SOURCE.md`。
+
+粒子发布只切换 Nginx 的门户前端 include，保留旧版资源路径；不切换内容服务 `current`，不重启 New API、CPA 或 CPAMP。模板示例、提示词、截图和本地启动脚本不进入发布包。
+
 ## 运行观察
 
 检查 `systemctl status shiny-portal` 与 `journalctl -u shiny-portal`；健康接口 `/portal-api/health`。正常信号为公开内容 200/304、合法管理员写入 200、未登录 401、普通用户 403；上传失败、内容 5xx、鉴权接口不兼容或发布冲突异常增加时先停止发布，按记录回滚门户入口。

@@ -1,0 +1,138 @@
+{
+  "revision": "b878c6dc092bb0c723cf6b5a20dcd1779f87cc57",
+  "files": {
+    "home-poster.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/home-poster.ts",
+      "sha256": "7800bace91ba0524697964d2651ace32cee501f6ae9e1dfd3d004db3cbcba788",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": [
+        "Explicit prepared scene selection",
+        "Fine point grid",
+        "Configurable sampling and bounded DPR",
+        "CSS HEX palette invalidation",
+        "Release per-renderer buffers on dispose"
+      ]
+    },
+    "home-sculptures.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/home-sculptures.ts",
+      "sha256": "de577b48c8e9389dbad3b5db445facd7641c5e1deb766cfe7e1360436f112363",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": [
+        "Replace eager factories with six dynamic group imports",
+        "Serialized preparation and atomic commits",
+        "Four-model LRU and disposal invalidation",
+        "Add Shiny scene to portal catalog"
+      ]
+    },
+    "sculptures/geometry.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/geometry.ts",
+      "sha256": "fd2570b8a06be2cba72a8d982d9a5fd0e76afd41cb04a87307d583cb168ce203",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/abstract.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/abstract.ts",
+      "sha256": "1c86d0ac0bb737d465d619609caff6effbde8098acf1b5025a309c28b1e18f2c",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/cosmos.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/cosmos.ts",
+      "sha256": "83216e38bff96b8153f1766d4f3b2925f9a5fbfb35ff0bbc7d848e933134742a",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/future.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/future.ts",
+      "sha256": "9e014de784574279b34b86d75e8c7bee9313ad7b8effbaa7ace9f687f5e76703",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/market.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/market.ts",
+      "sha256": "4a81f1754bdc88694b294440e4853f609998353acf0a7f3340c7b4557742871d",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/marks.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/marks.ts",
+      "sha256": "f557fc82fbd15670fae0610b19d0a507e7306e4fe513b792a0235d25f03d5866",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/spectacle.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/spectacle.ts",
+      "sha256": "c29a8efb5691eb19218d7d718984335cf99677b1554a8cc7ac5ed5d99e697de0",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/bicycle.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/bicycle.ts",
+      "sha256": "34fdbc36d3c89850c911db4946dc8a73956b8c53dca7b6898328218bbbacfd30",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/ai-brand-outlines.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/ai-brand-outlines.ts",
+      "sha256": "339d0cf1f50a13444a9056f291703d7485f35322228cebb49ebf3cc0ba92ab55",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "sculptures/brand-outlines.ts": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/brand-outlines.ts",
+      "sha256": "1c32cd0c15e22de6b50cafa54253a3332ccbc187158ca2f1420d80f34ffc3448",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/particle-licenses/LMM-LICENSE.txt": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/LICENSE",
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/particle-licenses/LMM-NOTICE.txt": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/NOTICE",
+      "sha256": "14627c8d04f9a1d9f6bc7c60c4ac11256d3ec0cc99453d94472818f430b35106",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/particle-licenses/brand-outlines.LICENSE": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/brand-outlines.LICENSE",
+      "sha256": "133a24a65a97a738f084ae1f4d7d41c3100bb6d2546e7fbc7e43bdff28e32829",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/particle-licenses/ai-brand-outlines.LICENSE": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/sculptures/ai-brand-outlines.LICENSE",
+      "sha256": "6477ec0a84dd8249b6ed58aef0c127f1c36dd15859cecc5c11672d66946ede1b",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/assets/mark.svg": {
+      "upstream": "https://raw.githubusercontent.com/Angel-Gril/Shiny/5f5d82f2c1874448b56e91060d8a1c16527bac30/portal/web/assets/mark.svg",
+      "sha256": "295e2b9d06a23f48ae70194ff7c34c27705ea06fbf0f0a478eeb4c65037a4ff1",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/assets/bodoni-moda.ttf": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/assets/bodoni-moda.ttf",
+      "sha256": "7bf8604bdeb63fe00278935c1a7e8595de56dfc053ab43581ca848ffd5ad11ba",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    },
+    "../web/particle-licenses/BODONI-OFL.txt": {
+      "upstream": "https://raw.githubusercontent.com/TokenNotIncluded/lmm-api/b878c6dc092bb0c723cf6b5a20dcd1779f87cc57/apps/web/src/features/home/assets/BODONI-OFL.txt",
+      "sha256": "97e32fdfa86a9aa79b85ce20b63b8618a8bf3e1110a0e631fac7f73983417b55",
+      "sha256_scope": "original upstream download before modification",
+      "modifications": []
+    }
+  },
+  "local_additions": {
+    "sculptures/shiny.ts": "Procedural Shiny mark based on the pinned ../web/assets/mark.svg; portal adaptation of the local addition, AGPL-3.0-or-later.",
+    "catalog.ts": "Portal scene IDs, labels, six groups and featured ordering, AGPL-3.0-or-later.",
+    "groups/playful.ts": "Dynamic group adapter for original future/spectacle scene factories, AGPL-3.0-or-later.",
+    "index.ts": "Public portal ESM entry; no static scene group imports, AGPL-3.0-or-later.",
+    "test-scenes.ts": "Scene, cache and renderer regression checks, AGPL-3.0-or-later."
+  },
+  "notes": "Only selected particle source, required notices, mark reference and font are represented. Original SHA-256 values identify unmodified downloads, not modified portal source; see SOURCE.md for changes."
+}

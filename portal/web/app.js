@@ -1,6 +1,36 @@
 let articleMarkdown, importInfo, renderMarkdown, plainText, inspectMarkdown, tocHTML;
 let createQueue, queueHTML, processQueue, storagePage, uploadR2, formatUploadLimit;
 let markdownPromise, adminModulesPromise;
+let particleModule, particleInstance, particleIdle, particleTimer, particlePageHidden=false;
+const particleFallback=new URL('./assets/shiny-particle-fallback.svg',import.meta.url).href;
+const particleCredits=new URL('./particle-licenses/index.html',import.meta.url).pathname;
+function stopParticles() {
+  if(particleIdle!==undefined)window.cancelIdleCallback?.(particleIdle);
+  clearTimeout(particleTimer);particleIdle=undefined;particleTimer=undefined;
+  particleInstance?.dispose();particleInstance=null;
+}
+function scheduleParticles(sequence) {
+  const stage=document.querySelector('[data-particle-stage]');
+  const mount=async()=>{
+    particleIdle=undefined;particleTimer=undefined;
+    if(particlePageHidden||sequence!==renderSequence||!stage?.isConnected||location.pathname!=='/')return;
+    try{
+      particleModule??=import('./particles.js').catch(error=>{particleModule=null;throw error;});
+      const module=await particleModule;
+      if(particlePageHidden||sequence!==renderSequence||!stage.isConnected||location.pathname!=='/')return;
+      particleInstance=module.mountParticles(stage);
+    }catch{
+      if(stage?.isConnected){stage.dataset.particleState='failed';stage.querySelector('[data-particle-status]').textContent='静态品牌图形';stage.querySelector('[data-particle-controls]').hidden=true;stage.querySelector('[data-particle-start]').hidden=true;}
+    }
+  };
+  if('requestIdleCallback' in window)particleIdle=requestIdleCallback(mount,{timeout:1200});
+  else particleTimer=setTimeout(mount,120);
+}
+window.addEventListener('pagehide',()=>{particlePageHidden=true;});
+window.addEventListener('pageshow',()=>{
+  particlePageHidden=false;
+  if(!particleInstance&&location.pathname==='/'&&document.querySelector('[data-particle-stage]'))scheduleParticles(renderSequence);
+});
 function loadMarkdown() {
   if(!markdownPromise)markdownPromise=import('./markdown.js').then(module=>{
     ({articleMarkdown,importInfo,renderMarkdown,plainText,inspectMarkdown,tocHTML}=module);
@@ -102,7 +132,7 @@ function validStored(data) { return data && data.site && Array.isArray(data.navi
 function renderHeader() {
   const path = location.pathname;
   $('#site-header').innerHTML = `<div class="container header-inner">${brand()}<nav class="nav" id="main-nav" aria-label="主导航">${published.navigation.filter(n => n.enabled).map(n => `<a href="${escape(safeUrl(n.url))}" ${attrs(n.url)} ${path === n.url || n.url !== '/' && path.startsWith(n.url) ? 'class="active" aria-current="page"' : ''}>${escape(n.title)}${publicLink(n.url) ? '<span class="sr-only"></span>' : ''}</a>`).join('')}</nav><div class="header-actions"><button class="icon-button search-trigger" data-action="search" aria-label="搜索教程与资源">${icon('search',16)}<span>搜索教程与资源</span><kbd>Ctrl K</kbd></button><button class="icon-button" data-action="theme" aria-label="切换${document.body.classList.contains('dark')?'浅':'深'}色模式">${icon(document.body.classList.contains('dark')?'sun':'moon',16)}</button>${link('登录','https://shinyapi.com/sign-in','btn btn-sm login-link','')}${link('控制台','https://shinyapi.com/dashboard','btn btn-sm btn-dark','external')}<button class="icon-button menu-button" data-action="menu" aria-label="打开菜单" aria-expanded="false" aria-controls="main-nav">${icon('menu',17)}</button></div></div>`;
-  $('#site-footer').innerHTML = `<div class="container"><div class="footer-top"><div>${brand()}<p>一个 Key，连接你的 AI 工作流。</p></div><nav class="footer-links" aria-label="页脚导航">${link('教程文档','/docs/','','')}${link('资源下载','/downloads/','','')}${link('使用帮助','/docs/troubleshooting','','')}${link('内容管理','/site-admin/','','')}</nav></div><div class="footer-bottom"><span>© 2026 Shiny API. All rights reserved.</span><span>${link('用户协议','https://shinyapi.com/user-agreement','','')} · ${link('隐私政策','https://shinyapi.com/privacy-policy','','')}</span></div></div>`;
+  $('#site-footer').innerHTML = `<div class="container"><div class="footer-top"><div>${brand()}<p>一个 Key，连接你的 AI 工作流。</p></div><nav class="footer-links" aria-label="页脚导航">${link('教程文档','/docs/','','')}${link('资源下载','/downloads/','','')}${link('使用帮助','/docs/troubleshooting','','')}${link('内容管理','/site-admin/','','')}</nav></div><div class="footer-bottom"><span>© 2026 Shiny API. All rights reserved.</span><span>${link('用户协议','https://shinyapi.com/user-agreement','','')} · ${link('隐私政策','https://shinyapi.com/privacy-policy','','')} · ${link('开源与致谢',particleCredits,'','')}</span></div></div>`;
 }
 
 function requestSample(mode) {
@@ -112,10 +142,16 @@ function sampleHTML() {
   const code = requestSample(snippet);
   return `<div class="snippet-tabs" role="tablist" aria-label="接口示例"><button role="tab" aria-selected="${snippet==='responses'}" class="${snippet==='responses'?'active':''}" data-snippet="responses">Responses</button><button role="tab" aria-selected="${snippet==='chat'}" class="${snippet==='chat'?'active':''}" data-snippet="chat">Chat Completions</button><button class="code-copy" data-copy="${escape(code)}" aria-label="复制请求示例">${icon('copy',14)}</button></div><pre class="hero-code"><span class="syntax-green">${escape(code.split('\n')[0])}</span>\n${escape(code.split('\n').slice(1).join('\n'))}</pre>`;
 }
+function particleHero() {
+  const categories=[['featured','精选'],['models','模型'],['geometry','几何'],['cosmos','宇宙'],['playful','趣味'],['store','商店']];
+  return `<section class="hero particle-hero"><div class="particle-wordmark" aria-hidden="true">SHINY</div><div class="particle-copy"><div class="eyebrow">为开发者与创作者准备</div><h1>${escape(published.site.headline).split('\n').map((t,i)=>i?`<span>${t}</span>`:t).join('<br>')}</h1><p class="lead">${escape(published.site.intro).replaceAll('\n','<br>')}</p><div class="hero-buttons">${link('开始使用','https://shinyapi.com/sign-up','btn btn-primary')}${link('接入教程','/docs/quickstart','text-link','arrow')}</div><p class="particle-caption">一个接口，连接模型、工具与创作。</p></div>
+  <section class="particle-stage" data-particle-stage data-particle-state="static" aria-label="Shiny 交互粒子"><img class="particle-fallback" data-particle-fallback src="${escape(particleFallback)}" alt="" width="600" height="600" fetchpriority="low"><canvas data-particle-canvas aria-hidden="true"></canvas><p class="particle-scene-title" data-particle-title>Shiny</p><p class="particle-status" data-particle-status role="status">静态品牌图形</p><button class="particle-start" data-particle-start type="button" hidden>播放粒子 ${icon('spark',14)}</button><div class="particle-controls" data-particle-controls hidden><div class="particle-groups" role="group" aria-label="粒子造型分类">${categories.map(([id,name])=>`<button type="button" data-particle-group="${id}" aria-pressed="${id==='featured'}">${name}</button>`).join('')}</div><div class="particle-navigation"><button type="button" data-particle-prev aria-label="上一个粒子造型">←</button><label class="visually-hidden" for="particle-scene">选择粒子造型</label><select id="particle-scene" data-particle-select aria-label="选择粒子造型"></select><button type="button" data-particle-next aria-label="下一个粒子造型">→</button></div><div class="particle-playback"><label><input type="checkbox" data-particle-autoplay checked> 自动轮播</label><button type="button" data-particle-pause aria-pressed="false">暂停</button></div></div></section><a class="particle-continue" href="#connect">开始接入 <span aria-hidden="true">↓</span></a></section>`;
+}
 function home() {
   const notice = published.announcements.find(n => n.pinned) || published.announcements[0];
-  return `<section class="hero"><div class="container hero-grid"><div class="reveal"><div class="eyebrow">为开发者与创作者准备</div><h1>${escape(published.site.headline).split('\n').map((t,i)=>i?`<span>${t}</span>`:t).join('<br>')}</h1><p class="lead">${escape(published.site.intro).replaceAll('\n','<br>')}</p><div class="hero-buttons">${link('开始使用','https://shinyapi.com/sign-up','btn btn-primary')}${link('查看接入教程','/docs/quickstart','btn','book')}</div><div class="hero-detail">兼容常见 API 格式<span></span>按需选择模型<span></span>使用记录可查</div></div><div class="code-demo reveal"><div class="demo-bar"><div class="demo-dots"><i></i><i></i><i></i></div><span class="demo-label">你的第一次 API 调用 ${icon('code',13)}</span></div><div class="demo-inner" id="code-sample">${sampleHTML()}</div><div class="demo-foot"><span>API Base URL</span><strong>${escape(published.site.baseUrl)}</strong><button class="link-button" data-copy="${escape(published.site.baseUrl)}" aria-label="复制接口地址">${icon('copy',13)}</button></div></div></div></section>
+  return `${particleHero()}
   ${notice?`<div class="notice-rail"><div class="container notice-inner"><span class="notice-label">${icon('bell',15)}最新公告</span>${tag(notice.tag)}<a class="notice-title" href="${escape(safeUrl(notice.href))}" ${attrs(notice.href)}>${escape(notice.title)}</a>${link('全部公告','/announcements/')}</div></div>`:''}
+  <section class="particle-connect container" id="connect"><div><div class="kicker">YOUR FIRST REQUEST</div><h2>从这里，开始第一次调用。</h2><p>复制接口地址，选择协议，连接你的工具。</p>${link('查看完整接入教程','/docs/quickstart')}</div><div class="code-demo"><div class="demo-bar"><div class="demo-dots"><i></i><i></i><i></i></div><span class="demo-label">你的第一次 API 调用 ${icon('code',13)}</span></div><div class="demo-inner" id="code-sample">${sampleHTML()}</div><div class="demo-foot"><span>API Base URL</span><strong>${escape(published.site.baseUrl)}</strong><button class="link-button" data-copy="${escape(published.site.baseUrl)}" aria-label="复制接口地址">${icon('copy',13)}</button></div></div></section>
   <section class="section container"><div class="section-heading"><div><div class="kicker">GET STARTED</div><h2>从这里开始，少一点摸索。</h2><p>选好工具，按步骤接入你的工作流。</p></div>${link('全部教程','/docs/')}</div><div class="quick-grid">${[
     ['book','第一次使用','注册、创建令牌，了解模型与分组。','quickstart','01 · 快速开始'],
     ['switch','配置你的客户端','使用 CC Switch 连接常用编程工具。','cc-switch','02 · 工具接入'],
@@ -313,8 +349,10 @@ function adminHome() {
 function notFound(){return `<div class="container loading"><h1 style="font-size:32px">这页还未准备好。</h1><p>可以先从教程文档或下载中心开始。</p>${link('返回首页','/','btn')}</div>`;}
 let renderSequence=0;
 function render({focus=false}={}) {
+  stopParticles();
   const sequence=++renderSequence;
   const path=location.pathname.replace(/\/$/,'')||'/';
+  document.body.classList.toggle('particle-home',path==='/');
   renderHeader();
   if((path==='/docs'||path.startsWith('/docs/'))&&!articleMarkdown){
     $('#main').innerHTML='<div class="container loading" role="status">正在加载文档…</div>';
@@ -335,6 +373,7 @@ function render({focus=false}={}) {
   if(focus)$('#main').focus({preventScroll:true});
   if(location.hash)requestAnimationFrame(()=>{try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}catch{}});
   highlightTOC();
+  if(path==='/')scheduleParticles(sequence);
 }
 function navigate(url) {
   if(uploading){toast('文件正在上传，请完成或取消后再离开');return;}
@@ -414,7 +453,7 @@ document.addEventListener('click',async event=>{
     try{const result=await api('articles/'+encodeURIComponent(slug),{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:serverRevision})});serverRevision=result.revision;draft.articles=draft.articles.filter(a=>a.slug!==slug);if(editingSlug===slug)editingSlug=null;$('#delete-article-dialog').close();deleteArticleSlug=null;render();toast(result.wasPublished?'已从草稿移除，发布后才会下线':'未发布草稿已删除');}catch(error){failure(error);}finally{saving=false;el.disabled=false;}
   }
   else if(action==='menu'){const open=$('#main-nav').classList.toggle('open');el.setAttribute('aria-expanded',String(open));el.setAttribute('aria-label',open?'关闭菜单':'打开菜单');}
-  else if(action==='theme'){document.body.classList.toggle('dark');try{localStorage.setItem(STORAGE+'-theme',document.body.classList.contains('dark')?'dark':'light');}catch{}renderHeader();}
+  else if(action==='theme'){document.body.classList.toggle('dark');try{localStorage.setItem(STORAGE+'-theme',document.body.classList.contains('dark')?'dark':'light');}catch{}renderHeader();particleInstance?.refreshTheme();}
   else if(action==='recover-all-uploads'){recoverUploadedFiles(recoverableFiles);}
   else if(action==='discard-resource'){resourceUnsaved=false;uploadQueue=[];uploadFile=null;completedBatch=null;editingResource=null;render();}
   else if(action==='save-uploaded'){try{await persistUploadBatch(new FormData($('#resource-form')),true);}catch(error){failure(error);}}
