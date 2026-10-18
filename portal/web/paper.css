@@ -22,6 +22,8 @@ body.paper-portal.dark{
 .paper-portal .particle-copy .lead{font-size:15px;line-height:1.9;max-width:36ch}
 .paper-portal .particle-caption{font-size:12px}
 .paper-portal .particle-controls{left:12%}
+.paper-portal .particle-controls button,.paper-portal .particle-controls select,.paper-portal .particle-playback label{font-size:12px}
+.paper-portal .particle-navigation select{text-align:center;text-align-last:center}
 .paper-portal .particle-scene-title,.paper-portal .particle-status{left:12%}
 .paper-portal .btn,.paper-portal .search-box,.paper-portal .select-field,.paper-portal .tool-shortcut{border-radius:5px;box-shadow:none}
 .paper-portal .btn-primary{background:#315ddc;border-color:#315ddc;color:#fff;box-shadow:none}
@@ -135,6 +137,7 @@ body.paper-portal.dark{
   .paper-portal .notice-page-item h2{font-size:21px}
 }
 @media(max-width:600px){
+  .paper-portal .particle-navigation select{width:120px}
   .paper-portal .particle-hero{--poster-gutter:var(--portal-gutter)}
   .paper-portal .particle-copy h1{font-size:clamp(29px,9.1vw,40px);letter-spacing:-.045em;line-height:1.28}
   .paper-portal .particle-copy .lead{font-size:13px;max-width:none}

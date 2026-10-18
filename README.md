@@ -23,6 +23,8 @@ New API：后端 Go1.26；前端 `cd new-api/web && bun install --frozen-lockfil
 
 见 [升级约定](ops/UPGRADES.md) 与 [组件版本](ops/components.json)。升级前固定官方 commit/tag，先在分支解决差异；切勿用官方镜像或二进制直接覆盖 Shiny New API 二开。
 
+`main` 已启用 [PR 与 CI 分支保护](ops/BRANCH_PROTECTION.md)，禁止直接推送、强推和删除；个人维护仍须经 PR 与必需检查合并。
+
 `maintenance/` 保留在本机作为排障工作区并被忽略，其中可能包含私人数据，禁止强制加入版本控制。部署只使用源码构建产物与服务器私有配置，不把生产数据库同步到 Git。
 
 ## 许可

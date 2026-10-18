@@ -288,6 +288,8 @@ try {
 
   let page = await fresh();
   await ready(page);
+  assert.equal(await page.locator('[data-particle-title]').count(), 0, 'Duplicate scene title remains on the poster');
+  assert.equal(await page.locator('[data-particle-select]').evaluate(node => getComputedStyle(node).textAlignLast), 'center');
   await screenshot(page, 'desktop-1440-ready');
   await page.locator('[data-particle-autoplay]').setChecked(false);
   await page.locator('[data-particle-pause]').click();
@@ -321,7 +323,8 @@ try {
     await page.waitForFunction(({id, label}) => {
       const stage = document.querySelector('[data-particle-stage]');
       return document.querySelector('[data-particle-select]')?.value === id && stage.dataset.particleState === 'paused' &&
-        document.querySelector('[data-particle-title]')?.textContent === label;
+        document.querySelector('[data-particle-canvas]')?.dataset.scene === id &&
+        document.querySelector('[data-particle-select]')?.selectedOptions[0]?.textContent === label;
     }, option);
     if (before.selected !== option.id) {
       await page.waitForFunction(before => {
@@ -405,6 +408,17 @@ try {
   await screenshot(page, 'mobile-390-played');
   await page.locator('[data-particle-pause]').click();
   await state(page, 'paused'); await stopped(page); await noOverflow(page);
+  await page.setViewportSize({width: 320, height: 844});
+  await page.locator('[data-particle-select]').selectOption('pelicanBicycle');
+  await page.waitForFunction(() => document.querySelector('[data-particle-canvas]')?.dataset.scene === 'pelicanBicycle');
+  await noOverflow(page);
+  const controlBoxes = await page.evaluate(() => {
+    const box = selector => {const r = document.querySelector(selector).getBoundingClientRect(); return {left: r.left, right: r.right, top: r.top, bottom: r.bottom};};
+    return {navigation: box('.particle-navigation'), pause: box('[data-particle-pause]')};
+  });
+  assert.ok(controlBoxes.navigation.right <= controlBoxes.pause.left || controlBoxes.navigation.bottom <= controlBoxes.pause.top,
+    'The narrow mobile scene selector overlaps the pause button');
+  await screenshot(page, 'mobile-320-controls');
   checks.push('A fresh emulated mobile page stays static until explicit play and can pause the real renderer');
 
   for (const reason of ['reduced-motion', 'save-data']) {
