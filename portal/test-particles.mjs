@@ -211,9 +211,18 @@ try {
   content.site = {headline: 'Fixture published headline\nReal content survives particles.',
     intro: 'Fixture published introduction.\nTutorials and API examples remain available.', baseUrl: 'https://fixture-api.invalid/v1'};
   content.articles = [{...content.articles[0], slug: 'quickstart', title: 'Fixture guide', summary: 'Fixture guide summary.',
-    featured: true, format_version: 2, body_markdown: '# Fixture guide\n\nFixture document remains usable.', sections: []}];
+    featured: true, format_version: 2, body_markdown: '# Fixture guide\n\nFixture document remains usable.\n\n## First section\n\nFirst section body.\n\n## Second section\n\nSecond section body.', sections: []}];
   content.models = [{name: 'Fixture model', mark: 'F', tone: 'navy', subtitle: 'Fixture model summary', tags: ['Fixture']}];
-  content.resources = [];
+  content.resources = [
+    {...content.resources[0], id: 'fixture-client', name: 'Fixture client', version: '1.0', category: '客户端工具',
+      summary: 'Fixture client summary.', platforms: ['Windows'], article: 'quickstart', featured: true,
+      source: 'Fixture publisher', storage: 'r2', url: 'https://fixture-download.invalid/client.zip',
+      file_size: 17100000, architecture: 'x64', sha256: 'a'.repeat(64)},
+    {...content.resources[0], id: 'fixture-template', name: 'Fixture template', version: '1.0', category: '配置模板',
+      summary: 'Fixture template summary.', platforms: ['macOS'], article: 'quickstart', featured: true,
+      source: 'Fixture publisher', storage: 'r2', url: 'https://fixture-download.invalid/template.zip',
+      file_size: 0, architecture: '', sha256: ''}
+  ];
   content.announcements = [{id: 'fixture-notice', title: 'Fixture published announcement', tag: 'Fixture',
     pinned: true, href: '/docs/quickstart', date: '2026-01-01', body: 'Fixture notice.'}];
   server = http.createServer(async (req, res) => {
@@ -427,15 +436,37 @@ try {
     checks.push('Canvas ' + fault + ' failure returns to the fallback while copying and document navigation keep working');
   }
 
-  for (const width of [320, 390, 768, 1440, 2048]) {
+  // Use the current Chinese headline to catch the reported extra line on real fonts.
+  // Earlier checks retain long editable English copy to exercise arbitrary content.
+  content.site.headline = '一个 Key，\n接入你的 AI 工作流。';
+  for (const width of [320, 390, 768, 1024, 1440, 2048]) {
     page = await fresh({context: {viewport: {width, height: width >= 1440 ? 1018 : 900}, reducedMotion: 'reduce'}});
     await controllerSettled(page); await fallback(page); await noOverflow(page);
+    await page.evaluate(() => document.fonts.ready);
+    const layout = await page.evaluate(() => {
+      const headline = document.querySelector('.particle-copy h1'), centers = [];
+      const walk = document.createTreeWalker(headline, NodeFilter.SHOW_TEXT);
+      for (let node; (node = walk.nextNode());) for (let i = 0; i < node.length; i++) {
+        const range = document.createRange(); range.setStart(node, i); range.setEnd(node, i + 1);
+        const rect = range.getBoundingClientRect();
+        // Fallback fonts can have different glyph tops on the same baseline.
+        if (rect.width > 0) {
+          const center = rect.top + rect.height / 2;
+          if (!centers.some(existing => Math.abs(existing - center) < parseFloat(getComputedStyle(headline).lineHeight) / 2)) centers.push(center);
+        }
+      }
+      const left = selector => document.querySelector(selector).getBoundingClientRect().left;
+      return {lines: centers.length, copy: left('.particle-copy'), header: left('.header-inner'), connect: left('#connect')};
+    });
+    assert.equal(layout.lines, 2, 'Chinese headline wrapped beyond its intended two lines at ' + width);
+    assert.ok(Math.abs(layout.copy - layout.header) < 2 && Math.abs(layout.copy - layout.connect) < 2,
+      'Hero copy, navigation and lower content use different alignment at ' + width);
     await screenshot(page, 'responsive-' + width + '-light-static');
     await switchTheme(page);
     await darkGround(page);
     await noOverflow(page);
     await screenshot(page, 'responsive-' + width + '-dark-static');
-    assert.match(await page.locator('.hero h1').innerText(), /Fixture published headline/);
+    assert.match(await page.locator('.hero h1').innerText(), /一个 Key/);
     assert.doesNotMatch(await page.locator('#main').innerText(), /原型|提示词|预览稿|演示版|按住拖动旋转|prototype|mockup/i);
     if (width === 1440) {
       // A 2x browser zoom presents half as many CSS pixels to media queries.
@@ -447,7 +478,60 @@ try {
       await page.setViewportSize({width: 1440, height: 1018});
     }
   }
-  checks.push('Static fallback and published copy fit 320/390/768/1440/2048 widths and an emulated 200% zoom layout; both themes have no overflow or preview hints');
+  checks.push('Chinese headline stays on two lines and aligns with navigation/lower content at 320/390/768/1024/1440/2048; both themes and 200% layout have no overflow');
+
+  content.resources[0].name = 'Fixture client · Windows 与 macOS 多架构安装包_20261018_x86_64_arm64_通用版本';
+  content.resources[0].architecture = 'x64 / ARM64 / Universal build';
+  for (const width of [1440, 390]) {
+    page = await fresh({context: {viewport: {width, height: 1000}, reducedMotion: 'reduce'}});
+    const background = await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor);
+    await switchTheme(page);
+    const darkBackground = await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor);
+    await switchTheme(page);
+    for (const [path, selector] of [['/docs/', '#doc-search'], ['/docs/quickstart', '.markdown-body'],
+      ['/downloads/', '.resource-card'], ['/announcements/', '.notice-page-list']]) {
+      await page.goto(base + path); await page.locator(selector).first().waitFor(); await noOverflow(page);
+      assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor), background,
+        path + ' lost the shared paper color');
+      await screenshot(page, 'paper-' + width + '-' + path.replaceAll('/', '_') + '-light');
+      await switchTheme(page); await noOverflow(page);
+      assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor), darkBackground,
+        path + ' lost the shared dark paper color');
+      await screenshot(page, 'paper-' + width + '-' + path.replaceAll('/', '_') + '-dark');
+      await switchTheme(page);
+    }
+    await page.goto(base + '/downloads/');
+    const client = page.locator('.resource-card').filter({hasText: 'Fixture client'});
+    await client.waitFor();
+    assert.match(await client.innerText(), /文件大小.*适用架构/s);
+    assert.equal(await client.locator('a').last().getAttribute('href'), 'https://fixture-download.invalid/client.zip');
+    await client.locator('.file-checksum summary').click();
+    assert.equal(await client.locator('.file-checksum code').innerText(), 'a'.repeat(64));
+    await page.locator('#platform-filter').selectOption('Windows');
+    assert.equal(await page.locator('.resource-card').count(), 1);
+    await page.locator('#platform-filter').selectOption('全部系统');
+    await page.locator('#resource-search').fill('Fixture template');
+    await page.waitForFunction(() => document.querySelectorAll('.resource-card').length === 1);
+    assert.match(await page.locator('.resource-card h2').innerText(), /Fixture template/);
+    await page.locator('#resource-search').fill('');
+    await page.locator('[data-resource-category="客户端工具"]').click();
+    assert.equal(await page.locator('.resource-card').count(), 1); await noOverflow(page);
+  }
+  checks.push('Docs, reading, downloads and announcements preserve the home paper palette in both themes on desktop/mobile; download URL, checksum, system/category and text filters work');
+
+  page = await fresh({context: {viewport: {width: 1150, height: 1000}, reducedMotion: 'reduce'}});
+  await page.goto(base + '/docs/quickstart'); await page.locator('.markdown-body').waitFor();
+  assert.equal(await page.locator('.reading-layout>.toc').isVisible(), false, 'Tablet TOC fell into a second grid row');
+  assert.equal(await page.locator('.mobile-toc').isVisible(), true, 'Tablet reading page lost its replacement TOC');
+  await page.locator('.mobile-toc summary').click();
+  const directoryLinks = await page.locator('.mobile-toc a').evaluateAll(links => links.map(link => {
+    const rect = link.getBoundingClientRect(); return {top: rect.top, bottom: rect.bottom};
+  }));
+  assert.ok(directoryLinks.length >= 2, 'Tablet directory fixture needs multiple headings');
+  for (let i = 1; i < directoryLinks.length; i++) assert.ok(directoryLinks[i].top >= directoryLinks[i - 1].bottom,
+    'Tablet directory links run together instead of occupying separate rows');
+  await noOverflow(page);
+  checks.push('The two-column reading layout replaces its right TOC with the in-article directory at the same breakpoint');
 
   const attribution = page.locator('a[href*="particle-licenses/"]');
   assert.ok(await attribution.count(), 'A local particle attribution/about entry is required');
