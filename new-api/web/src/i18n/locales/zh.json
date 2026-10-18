@@ -7403,6 +7403,7 @@
     "User details": "用户详情",
     "View details for {{username}}": "查看 {{username}} 的详情",
     "You do not have permission to view this user.": "你没有权限查看此用户。",
-    "Copy order number": "复制订单号"
+    "Copy order number": "复制订单号",
+    "Got it": "我知道了"
   }
 }

@@ -1,0 +1,22 @@
+.site-notice{width:min(580px,calc(100% - 36px));max-height:min(82svh,760px);padding:26px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);box-shadow:0 24px 100px #0002;overflow:hidden}
+.site-notice[open]{display:flex;flex-direction:column;gap:22px}
+.site-notice::backdrop{background:#16121b66}
+.site-notice-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-shrink:0}
+.site-notice-header h2{font-size:25px;font-weight:550;line-height:1.4;margin:6px 0 0;letter-spacing:-.025em}
+.site-notice-header .kicker{font-size:10px}
+.site-notice-header button{font-size:24px;min-width:40px;min-height:40px}
+.site-notice-body{overflow:auto;overscroll-behavior:contain;min-height:0;font-size:14px;line-height:1.9}
+.site-notice-body>:first-child{margin-top:0}
+.site-notice-body>:last-child{margin-bottom:0}
+.site-notice-actions{display:flex;align-items:center;justify-content:space-between;gap:18px;border-top:1px solid var(--line);padding-top:20px;flex-shrink:0}
+.site-notice-actions .text-link{font-size:13px}
+.announcement-detail{max-width:850px;margin-inline:auto;padding-bottom:64px}
+.announcement-detail>header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:28px}
+.announcement-detail>header h1{font-size:clamp(26px,2.5vw,38px);font-weight:550;line-height:1.45;margin-block:12px 18px;letter-spacing:-.035em;overflow-wrap:anywhere}
+.announcement-detail .markdown-body{font-size:15px;line-height:1.95}
+.announcement-cache-note{border-left:2px solid var(--blue);padding:10px 14px;background:var(--soft);font-size:12px}
+.announcement-back{margin-top:36px;padding-top:22px;border-top:1px solid var(--line)}
+.notice-page-item h2,.notice-page-item>div>p{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+.notice-page-item h2{-webkit-line-clamp:2}
+.notice-page-item>div>p{-webkit-line-clamp:3}
+@media(max-width:600px){.site-notice{padding:20px;max-height:86svh}.site-notice[open]{gap:18px}.site-notice-header h2{font-size:23px}.announcement-detail{padding-bottom:42px}.announcement-detail .markdown-body{font-size:14px}}

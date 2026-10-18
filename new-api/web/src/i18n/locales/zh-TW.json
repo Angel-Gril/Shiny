@@ -7361,6 +7361,7 @@
     "User details": "使用者詳情",
     "View details for {{username}}": "檢視 {{username}} 的詳情",
     "You do not have permission to view this user.": "你沒有權限檢視此使用者。",
-    "Copy order number": "複製訂單號"
+    "Copy order number": "複製訂單號",
+    "Got it": "我知道了"
   }
 }

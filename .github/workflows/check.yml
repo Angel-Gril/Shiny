@@ -32,6 +32,10 @@ jobs:
         timeout-minutes: 8
         env:
           PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-browser/node_modules/playwright
+      - run: node portal/test-announcements.mjs
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-browser/node_modules/playwright
   new-api:
     runs-on: ubuntu-latest
     services:
@@ -63,6 +67,8 @@ jobs:
       - run: bun run typecheck
         working-directory: new-api/web
       - run: bunx vitest run src/features/user-insight/__tests__/user-details.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
+        working-directory: new-api/web
+      - run: bunx vitest run src/features/site-announcements src/context/__tests__/theme-preferences.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
         working-directory: new-api/web
       - run: go test ./controller -run '^(TestUserInsight|TestRequestPolicyRetryAvoidsUsedChannelsDatabaseMatrix)' -count=1
         working-directory: new-api
