@@ -52,7 +52,7 @@ def api(path, port=8317):
 def plugins():
     rows = api('/v0/management/plugins')[0]['plugins']
     return {row['id']: {'registered': row['registered'], 'enabled': row['effective_enabled'],
-                        'version': row.get('metadata', {}).get('version')} for row in rows}
+                        'version': (row.get('metadata') or {}).get('version')} for row in rows}
 
 
 def credentials():
