@@ -26,6 +26,10 @@ plugins:
       # Account bindings belong in the installed plugin's own configuration.
       # Verify its version-specific schema; do not add production emails here.
     cpa-account-concurrency:
-      enabled: false
+      enabled: true
+      priority: 50
+      max_concurrency: 5
+      # Omitted options use v0.1.8 defaults: local counting, warm reserve 1.
+      # Key Router still chooses accounts; a busy choice may return 503.
     quota-monitor:
       enabled: false
