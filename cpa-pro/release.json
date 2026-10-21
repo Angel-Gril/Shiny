@@ -1,9 +1,13 @@
 {
   "upstream": "https://github.com/seakee/CPA-Manager-Plus",
-  "version": "v1.14.7",
+  "version": "v1.14.8",
+  "commit": "a6b8e31893bf303d4b15c86141468578f2df1c32",
   "edition": "Full",
-  "asset": "cpa-manager-plus_v1.14.7_linux_amd64.tar.gz",
-  "archive_sha256": "37e357404597ed4e4eca86acad92e61dedf5c350eae29d14c88482c255b88563",
+  "asset": "cpa-manager-plus_v1.14.8_linux_amd64.tar.gz",
+  "url": "https://github.com/seakee/CPA-Manager-Plus/releases/download/v1.14.8/cpa-manager-plus_v1.14.8_linux_amd64.tar.gz",
+  "archive_sha256": "ac71ab9b2d1bdb8376d7ee0f3a958ef140168bef10282fbc33b131a36c5cc5e8",
+  "binary_sha256": "a186e28623b2afa7ace813e18c540f851c4fb9e8bb40376d23ed27640e5c47ff",
+  "embedded_management_sha256": "a613f71dce9cdf5c7aded512af948a1f1a43c45469097180501c8f4ddd1eebc3",
   "local_binary_modifications": false,
   "cpa_minimum_version": "v7.3.4"
 }
