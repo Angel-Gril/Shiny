@@ -1,11 +1,11 @@
 {
   "upstream": "https://github.com/router-for-me/CLIProxyAPI",
-  "version": "v8.0.34",
-  "commit": "e7d4c7316fca3fe0e852866f4e611cb4f2fa0764",
-  "asset": "CLIProxyAPI_8.0.34_linux_amd64.tar.gz",
-  "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.34/CLIProxyAPI_8.0.34_linux_amd64.tar.gz",
-  "archive_sha256": "9a76ded067dfa848cce4976596739ea9844a5816217cce86fd3c666a8242ff32",
-  "binary_sha256": "0588239503a78fc9d1c0e082b02457677ec1e369912dd12e99c55f5822506313",
+  "version": "v8.0.37",
+  "commit": "ce07d189b3de2a39d37fd68ae093b102ce3aabee",
+  "asset": "CLIProxyAPI_8.0.37_linux_amd64.tar.gz",
+  "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.37/CLIProxyAPI_8.0.37_linux_amd64.tar.gz",
+  "archive_sha256": "5fabb7ea9503f823e3a97fef613382422443585fe2b20e5de2bb43f41f90debc",
+  "binary_sha256": "1c48100d35bcd19dea91bc810d51014c53386511c6861bb91553bd9887c731e7",
   "plugin_enabled_build": true,
   "key_router_version": "v0.4.1",
   "kernel_modifications": false

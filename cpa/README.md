@@ -1,8 +1,8 @@
 # CPA 内核与插件集成
 
-本站组件：**CLIProxyAPI v8.0.34**，含插件官方 Linux amd64 构建，Key Router v0.4.1。
+本站组件：**CLIProxyAPI v8.0.37**，含插件官方 Linux amd64 构建，Key Router v0.4.1。
 
-本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.34](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.34)。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
+本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.37](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.37)。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
 
 - [release.json](release.json)：官方产物来源、摘要与版本。
 - [config.example.yaml](config.example.yaml)：不含可用凭据的隔离配置示例，不可覆盖生产配置。
