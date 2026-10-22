@@ -104,7 +104,7 @@ assert not backup.exists(), 'Inspect the existing rollback copy before retrying'
 old_stat = binary.stat()
 before = {'cpa_pid': pid('relay-native-cpa'), 'peer_pids': {name: pid(name) for name in peers},
           'control_files': controls(), 'plugins': plugins(), 'credentials': credentials(),
-          'database': database_summary(), 'cpa_version': api('/v0/management/auth-files')[1]['x-cpa-version']}
+          'database': database_summary(), 'cpa_version': api('/v0/management/auth-files')[1]['x-cpa-version'].removeprefix('v')}
 baseline_status = api('/status', 18318)[0]
 assert baseline_status['collector']['collector'] == 'running' and baseline_status['deadLetters'] == 0
 assert before['database']['quick_check'] == 'ok'
@@ -173,7 +173,7 @@ try:
     while time.monotonic() < end:
         try:
             files, headers = api('/v0/management/auth-files')
-            assert headers.get('x-cpa-version') == args.version
+            assert headers.get('x-cpa-version', '').removeprefix('v') == args.version
             assert len(files['files']) >= len(offline_credentials)
             current_plugins = plugins()
             for name, previous in before['plugins'].items():
@@ -230,7 +230,7 @@ except BaseException as error:
     while time.monotonic() < end:
         try:
             assert sha(binary) == args.from_sha256
-            assert api('/v0/management/auth-files')[1]['x-cpa-version'] == before['cpa_version']
+            assert api('/v0/management/auth-files')[1]['x-cpa-version'].removeprefix('v') == before['cpa_version']
             assert pid('relay-native-cpa') != '0'
             break
         except (OSError, ValueError, AssertionError):

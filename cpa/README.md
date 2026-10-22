@@ -1,8 +1,8 @@
 # CPA 内核与插件集成
 
-本站组件：**CLIProxyAPI v8.0.38**，含插件官方 Linux amd64 构建，Key Router v0.4.1。
+本站组件：**CLIProxyAPI v8.0.39**，使用官方 Linux amd64 OCI 构建提取的原版程序，Key Router v0.4.1。
 
-本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.38](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.38)。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
+本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.39](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.39)。v8.0.39 的 GitHub Release 原生包构建失败且暂未上传；本次使用官方成功 Docker 构建中的 Linux amd64 原版程序，校验值与源码 commit 均已记录。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
 
 - [release.json](release.json)：官方产物来源、摘要与版本。
 - [config.example.yaml](config.example.yaml)：不含可用凭据的隔离配置示例，不可覆盖生产配置。
@@ -16,9 +16,9 @@
 
 CPA 两个 Key 用于隔离账号池。New API 是否在失败后切另一个渠道，取决于 New API 的会话规则和重试预算；升级 CPA 不会自动解除 strict 绑定。
 
-Key Router v0.4.1 已启用，优先级100；账号并发插件v0.1.8也已启用，优先级50，每账号上限5，计数采用local模式；quota-monitor关闭。此组合仍由Key Router选账号，并发插件在选定账号后执行准入限制，不会自动改选同池空闲账号。升级没有改变这一边界。
+Key Router v0.4.1 已启用，优先级100；账号并发插件v0.1.8也已启用，优先级50，每账号上限3，计数采用local模式；quota-monitor关闭。此组合仍由Key Router选账号，并发插件在选定账号后执行准入限制，不会自动改选同池空闲账号。升级没有改变这一边界。
 
-当前max_concurrency=5且暖槽默认保留1个，普通冷请求最多占用4个名额；5是包含保留槽的硬上限。不要把调度器的优先级降低误认为具备同池满额自动换号能力，也不要直接提高并发数掩盖配额或冷却问题。
+当前max_concurrency=3且暖槽默认保留1个，普通冷请求最多占用2个名额；3是包含保留槽的硬上限。本次仅同步升级前已存在的生产值，没有修改并发配置。不要把调度器的优先级降低误认为具备同池满额自动换号能力，也不要直接提高并发数掩盖配额或冷却问题。
 
 ## 升级验收
 
