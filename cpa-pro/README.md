@@ -1,6 +1,6 @@
 # CPA Pro / CPA Manager Plus
 
-本站用户所称的 CPA Pro 管理与统计层是 **CPA Manager Plus Full v1.14.8**，与 CPA 内核是独立服务。
+本站用户所称的 CPA Pro 管理与统计层是 **CPA Manager Plus Full v1.14.9**，与 CPA 内核是独立服务。
 
 官方源码：[seakee/CPA-Manager-Plus v1.14.8](https://github.com/seakee/CPA-Manager-Plus/tree/v1.14.8)。本站使用官方程序，没有修改其二进制；配置、独立统计数据和统一 Nginx 入口构成本地集成。
 

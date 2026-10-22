@@ -21,29 +21,34 @@ import urllib.request
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--archive', required=True)
+artifact = parser.add_mutually_exclusive_group(required=True)
+artifact.add_argument('--archive')
+artifact.add_argument('--binary')
 parser.add_argument('--sha256', required=True)
 parser.add_argument('--version', required=True)
 parser.add_argument('--stage', required=True)
 parser.add_argument('--root', required=True)
 args = parser.parse_args()
-archive, stage, root = Path(args.archive), Path(args.stage), Path(args.root)
+source_artifact, stage, root = Path(args.archive or args.binary), Path(args.stage), Path(args.root)
 assert root.is_absolute() and root.parent == Path('/var/lib/relay-native')
 assert root.name.startswith('cpa-candidate-') and not root.exists()
 assert stage.is_absolute() and stage.parent == Path('/root/shiny-maintenance')
-assert stage.is_dir() and hashlib.sha256(archive.read_bytes()).hexdigest() == args.sha256
+assert stage.is_dir() and hashlib.sha256(source_artifact.read_bytes()).hexdigest() == args.sha256
 unit = 'cpa-kernel-candidate-' + args.version.replace('.', '')
 assert all(c.isdigit() or c == '.' for c in args.version)
 root.mkdir(mode=0o700)
 for name in ['auths', 'plugins', 'logs']:
     (root / name).mkdir(mode=0o700)
-with tarfile.open(archive, 'r:gz') as source:
-    member = source.getmember('cli-proxy-api')
-    assert member.isfile()
-    (root / 'CLIProxyAPI').write_bytes(source.extractfile(member).read())
+if args.binary:
+    shutil.copy2(source_artifact, root / 'CLIProxyAPI')
+else:
+    with tarfile.open(source_artifact, 'r:gz') as source:
+        member = source.getmember('cli-proxy-api')
+        assert member.isfile()
+        (root / 'CLIProxyAPI').write_bytes(source.extractfile(member).read())
 (root / 'CLIProxyAPI').chmod(0o755)
 
-versions = {'key-router': '0.4.1', 'cpa-account-concurrency': '0.1.8', 'cpa-codex-candy-eval': '0.3.15'}
+versions = {'key-router': '0.4.1', 'cpa-account-concurrency': '0.1.8', 'cpa-codex-candy-eval': '0.4.2'}
 for name, version in versions.items():
     source = Path('/var/lib/relay-native/bin/plugins/linux/amd64') / (name + '-v' + version + '.so')
     shutil.copy2(source, root / 'plugins' / source.name)
@@ -254,7 +259,7 @@ try:
     for name, version in versions.items():
         row = next(p for p in plugin_rows if p['id'] == name)
         check(name + ' registered and enabled', row.get('registered') is True and row.get('effective_enabled') is True and version in json.dumps(row['metadata']))
-    check('management reports requested kernel version', call('/v0/management/auth-files')[1].get('x-cpa-version') == args.version)
+    check('management reports requested kernel version', call('/v0/management/auth-files')[1].get('x-cpa-version', '').removeprefix('v') == args.version)
     check('authorized model catalog available', call('/v1/models', key=keys['a'])[0] == 200)
     check('invalid downstream key rejected', call('/v1/models', key='invalid-fixture-key')[0] == 401)
     payload = {'model': 'gpt-6.1-sol', 'input': 'Reply fixture.', 'stream': False}
