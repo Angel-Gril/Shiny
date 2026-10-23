@@ -16,6 +16,11 @@ access:
 observability:
   usage:
     usage-statistics-enabled: true
+upstream:
+  codex:
+    # Hold empty startup frames so early overloads can fail over before output.
+    stream-bootstrap-buffering: true
+    stream-bootstrap-timeout: "20s"
 plugins:
   enabled: true
   dir: /var/lib/relay-native/bin/plugins
