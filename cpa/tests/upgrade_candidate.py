@@ -48,7 +48,7 @@ else:
         (root / 'CLIProxyAPI').write_bytes(source.extractfile(member).read())
 (root / 'CLIProxyAPI').chmod(0o755)
 
-versions = {'key-router': '0.4.1', 'cpa-account-concurrency': '0.1.8', 'cpa-codex-candy-eval': '0.4.2'}
+versions = {'key-router': '0.5.0', 'cpa-account-concurrency': '0.1.8', 'cpa-codex-candy-eval': '0.4.3'}
 for name, version in versions.items():
     source = Path('/var/lib/relay-native/bin/plugins/linux/amd64') / (name + '-v' + version + '.so')
     shutil.copy2(source, root / 'plugins' / source.name)
