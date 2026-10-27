@@ -26,6 +26,8 @@ type TokenParams struct {
 	CR    float64 // cache read (hit) tokens
 	CC    float64 // cache creation tokens (5-min TTL for Claude, generic for others)
 	CC1h  float64 // cache creation tokens — 1-hour TTL (Claude only)
+	CC30m float64 // OpenAI cache creation tokens — 30-minute TTL
+	CC12h float64 // OpenAI cache creation tokens — 12-hour TTL
 	Img   float64 // image input tokens
 	ImgCR float64 // image cache read tokens, separated only when explicitly priced
 	ImgO  float64 // image output tokens

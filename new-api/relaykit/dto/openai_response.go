@@ -268,9 +268,20 @@ type InputTokenDetails struct {
 	// input_tokens_details.cache_write_tokens (Responses). It is billed at the
 	// cache-creation price.
 	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
-	TextTokens       int `json:"text_tokens"`
-	AudioTokens      int `json:"audio_tokens"`
-	ImageTokens      int `json:"image_tokens"`
+	// CacheWriteTokensDetails splits OpenAI cache writes by the requested
+	// minimum retention. The two fields are disjoint and sum to CacheWriteTokens.
+	CacheWriteTokensDetails *CacheWriteTokensDetails `json:"cache_write_tokens_details,omitempty"`
+	TextTokens              int                      `json:"text_tokens"`
+	AudioTokens             int                      `json:"audio_tokens"`
+	ImageTokens             int                      `json:"image_tokens"`
+}
+
+// CacheWriteTokensDetails is returned by Responses for GPT-5.6 and later.
+// A missing details object means the upstream did not expose TTL-specific
+// writes; callers should treat CacheWriteTokens as the default 30-minute tier.
+type CacheWriteTokensDetails struct {
+	TTL30mTokens int `json:"ttl_30m_tokens,omitempty"`
+	TTL12hTokens int `json:"ttl_12h_tokens,omitempty"`
 }
 
 // CachedTokenDetails describes subsets of cached_tokens. Pointers distinguish
@@ -304,6 +315,10 @@ func (d InputTokenDetails) Clone() InputTokenDetails {
 		}
 		d.CachedTokensDetails = &cached
 	}
+	if d.CacheWriteTokensDetails != nil {
+		cacheWrite := *d.CacheWriteTokensDetails
+		d.CacheWriteTokensDetails = &cacheWrite
+	}
 	return d
 }
 
@@ -319,6 +334,20 @@ func (d InputTokenDetails) CacheCreationTokensTotal() int {
 		return 0
 	}
 	return total
+}
+
+func (d InputTokenDetails) CacheWriteTokens30m() int {
+	if d.CacheWriteTokensDetails == nil {
+		return max(d.CacheWriteTokens, d.CachedCreationTokens)
+	}
+	return max(d.CacheWriteTokensDetails.TTL30mTokens, 0)
+}
+
+func (d InputTokenDetails) CacheWriteTokens12h() int {
+	if d.CacheWriteTokensDetails == nil {
+		return 0
+	}
+	return max(d.CacheWriteTokensDetails.TTL12hTokens, 0)
 }
 
 type OutputTokenDetails struct {

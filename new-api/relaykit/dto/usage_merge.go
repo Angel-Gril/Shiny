@@ -319,6 +319,10 @@ func mergeInputTokenDetails(current *InputTokenDetails, incoming InputTokenDetai
 	if incoming.CacheWriteTokens > 0 {
 		current.CacheWriteTokens = incoming.CacheWriteTokens
 	}
+	if incoming.CacheWriteTokensDetails != nil {
+		cacheWrite := *incoming.CacheWriteTokensDetails
+		current.CacheWriteTokensDetails = &cacheWrite
+	}
 	if incoming.TextTokens > 0 {
 		current.TextTokens = incoming.TextTokens
 	}

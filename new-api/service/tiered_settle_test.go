@@ -706,6 +706,24 @@ func TestBuildTieredTokenParams_GPT_WithCache(t *testing.T) {
 	}
 }
 
+func TestBuildTieredTokenParams_GPT_CacheWriteTiers(t *testing.T) {
+	usage := &dto.Usage{
+		PromptTokens: 1_000_000,
+		PromptTokensDetails: dto.InputTokenDetails{
+			CachedTokens:            100_000,
+			CacheWriteTokens:        300_000,
+			CacheWriteTokensDetails: &dto.CacheWriteTokensDetails{TTL30mTokens: 100_000, TTL12hTokens: 200_000},
+		},
+	}
+	expr := `tier("base", p * 2 + cr * 0.1 + cc30m * 2.5 + cc12h * 5)`
+	params := BuildTieredTokenParams(usage, false, billingexpr.UsedVars(expr))
+	assert.Equal(t, float64(600_000), params.P)
+	assert.Equal(t, float64(100_000), params.CR)
+	assert.Equal(t, float64(100_000), params.CC30m)
+	assert.Equal(t, float64(200_000), params.CC12h)
+	assert.Equal(t, float64(300_000), params.CC)
+}
+
 func TestBuildTieredTokenParams_GPT_NoCacheVar(t *testing.T) {
 	usage := &dto.Usage{
 		PromptTokens:     1000,

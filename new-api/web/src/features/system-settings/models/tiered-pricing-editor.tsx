@@ -316,6 +316,7 @@ function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
           <div>
             {t('Variables')}: <code>len</code>, <code>p</code>, <code>c</code>,{' '}
             <code>cr</code>, <code>cc</code>, <code>cc1h</code>,{' '}
+            <code>cc30m</code>, <code>cc12h</code>,{' '}
             <code>img</code>, <code>img_cr</code>, <code>img_o</code>,{' '}
             <code>ai</code>, <code>ao</code>
           </div>
@@ -903,6 +904,8 @@ Input side:
 - cr — cache-hit (read) token count
 - cc — cache-create token count (5-min TTL)
 - cc1h — cache-create token count (1-hour TTL, Claude-specific)
+- cc30m — OpenAI cache-create token count (30-minute TTL)
+- cc12h — OpenAI cache-create token count (12-hour TTL)
 - img — image input token count
 - ai — audio input token count
 

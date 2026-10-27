@@ -29,10 +29,20 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	cr := float64(usage.PromptTokensDetails.CachedTokens)
 	cc5m := float64(usage.PromptTokensDetails.CacheCreationTokensTotal())
 	cc1h := float64(0)
+	cc30m := float64(usage.PromptTokensDetails.CacheWriteTokens30m())
+	cc12h := float64(usage.PromptTokensDetails.CacheWriteTokens12h())
+	if usage.PromptTokensDetails.CacheWriteTokensDetails == nil && usedVars["cc30m"] {
+		// OpenAI's default cache-write tier is 30 minutes. Older upstream
+		// payloads exposed only the aggregate write count, so preserve billing
+		// rather than leaving those tokens in ordinary input.
+		cc30m = cc5m
+	}
 
 	if usage.UsageSemantic == "anthropic" {
 		cc1h = float64(usage.ClaudeCacheCreation1hTokens)
 		cc5m = float64(usage.ClaudeCacheCreation5mTokens)
+		cc30m = 0
+		cc12h = 0
 	}
 
 	img := float64(usage.PromptTokensDetails.ImageTokens)
@@ -95,6 +105,12 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 		if usedVars["cc1h"] {
 			p -= cc1h
 		}
+		if usedVars["cc30m"] {
+			p -= cc30m
+		}
+		if usedVars["cc12h"] {
+			p -= cc12h
+		}
 		if usedVars["img"] {
 			p -= img
 		}
@@ -128,6 +144,8 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 		CR:    cr,
 		CC:    cc5m,
 		CC1h:  cc1h,
+		CC30m: cc30m,
+		CC12h: cc12h,
 		Img:   img,
 		ImgCR: imgCR,
 		ImgO:  imgO,

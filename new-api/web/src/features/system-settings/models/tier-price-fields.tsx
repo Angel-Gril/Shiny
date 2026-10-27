@@ -38,6 +38,7 @@ import { BILLING_EXTRA_VARS } from '@/features/pricing/lib/billing-expr'
 import type { VisualPrice } from '@/features/pricing/lib/billing-expression/visual'
 import {
   CACHE_MODE_GENERIC,
+  CACHE_MODE_OPENAI_TIMED,
   CACHE_MODE_TIMED,
   type CacheMode,
 } from '@/features/pricing/lib/tier-expr'
@@ -241,19 +242,21 @@ export function TierPriceFields(props: TierPriceFieldsProps) {
                     >
                       {t('Time-sliced cache (Claude)')}
                     </TabsTrigger>
+                    <TabsTrigger
+                      value={CACHE_MODE_OPENAI_TIMED}
+                      className='px-2 text-xs'
+                    >
+                      {t('Time-sliced cache (OpenAI)')}
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
             </div>
             <div className='flex flex-wrap gap-x-4 gap-y-2'>
               {CACHE_PRICE_VARS.map((variable) => {
-                if (
-                  variable.key === 'cc1h' &&
-                  props.onCacheModeChange &&
-                  props.cacheMode !== CACHE_MODE_TIMED
-                ) {
-                  return null
-                }
+                if (props.onCacheModeChange && props.cacheMode === CACHE_MODE_GENERIC && (variable.key === 'cc1h' || variable.key === 'cc30m' || variable.key === 'cc12h')) return null
+                if (props.onCacheModeChange && props.cacheMode === CACHE_MODE_TIMED && (variable.key === 'cc30m' || variable.key === 'cc12h')) return null
+                if (props.onCacheModeChange && props.cacheMode === CACHE_MODE_OPENAI_TIMED && variable.key === 'cc1h') return null
                 return renderPriceVariable(variable)
               })}
             </div>

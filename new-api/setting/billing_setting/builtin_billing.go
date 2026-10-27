@@ -12,5 +12,8 @@ var builtinBillingExpr = map[string]string{
 	// Standard pricing; the long-context rates apply to the whole request.
 	// Do not infer service-tier discounts from incoming request parameters:
 	// channels filter service_tier by default, so it may not reach the upstream.
-	"gpt-6-astra": `len <= 272000 ? tier("standard", p * 10 + c * 50 + cr * 1 + cc * 12.5) : tier("long_context", p * 20 + c * 75 + cr * 2 + cc * 25)`,
+	"gpt-6-astra": `len <= 272000 ? tier("standard", p * 10 + cr * 1 + cc30m * 12.5 + cc12h * 25 + c * 50) : tier("long_context", p * 20 + cr * 2 + cc30m * 25 + cc12h * 50 + c * 75)`,
+	// https://developers.openai.com/api/docs/pricing (Standard).
+	"gpt-6.1-sol":   `len <= 272000 ? tier("0_272k", p * 2 + cr * 0.1 + cc30m * 2.5 + cc12h * 5 + c * 10) : tier("272k_plus", p * 4 + cr * 0.2 + cc30m * 5 + cc12h * 10 + c * 15)`,
+	"gpt-6.1-terra": `len <= 272000 ? tier("0_272k", p * 1 + cr * 0.05 + cc30m * 1.25 + cc12h * 2.5 + c * 5) : tier("272k_plus", p * 2 + cr * 0.1 + cc30m * 2.5 + cc12h * 5 + c * 7.5)`,
 }

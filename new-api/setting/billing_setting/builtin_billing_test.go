@@ -110,6 +110,39 @@ func TestGPT6AstraBuiltinBilling(t *testing.T) {
 	}
 }
 
+func TestGPT61BuiltinCacheWriteTiers(t *testing.T) {
+	settings := config.GlobalConfig.Get("billing_setting").(*billing_setting.BillingSetting)
+	saved := *settings
+	t.Cleanup(func() { *settings = saved })
+	*settings = billing_setting.BillingSetting{BillingMode: map[string]string{}, BillingExpr: map[string]string{}}
+	for _, tc := range []struct {
+		model                                   string
+		input, output, read, write30m, write12h float64
+	}{
+		{"gpt-6.1-sol", 2, 10, 0.1, 2.5, 5},
+		{"gpt-6.1-terra", 1, 5, 0.05, 1.25, 2.5},
+	} {
+		expression, ok := billing_setting.GetBillingExpr(tc.model)
+		require.True(t, ok)
+		params := service.BuildTieredTokenParams(&dto.Usage{
+			PromptTokens:     1_000_000,
+			CompletionTokens: 1_000_000,
+			PromptTokensDetails: dto.InputTokenDetails{
+				CachedTokens:            100_000,
+				CacheWriteTokens:        300_000,
+				CacheWriteTokensDetails: &dto.CacheWriteTokensDetails{TTL30mTokens: 100_000, TTL12hTokens: 200_000},
+			},
+		}, false, billingexpr.UsedVars(expression))
+		cost, _, err := billingexpr.RunExpr(expression, params)
+		require.NoError(t, err)
+		expected := float64(600_000*4 + 100_000*0.2 + 100_000*5 + 200_000*10 + 1_000_000*15)
+		if tc.model == "gpt-6.1-terra" {
+			expected = float64(600_000*2 + 100_000*0.1 + 100_000*2.5 + 200_000*5 + 1_000_000*7.5)
+		}
+		assert.InDelta(t, expected, cost, 0.001)
+	}
+}
+
 func TestImageModelBuiltinPricesAndOverrides(t *testing.T) {
 	settings := config.GlobalConfig.Get("billing_setting").(*billing_setting.BillingSetting)
 	saved := *settings

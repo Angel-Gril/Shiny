@@ -26,7 +26,11 @@ import type {
 
 export const CACHE_MODE_TIMED = 'timed'
 export const CACHE_MODE_GENERIC = 'generic'
-export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC
+export const CACHE_MODE_OPENAI_TIMED = 'openai_timed'
+export type CacheMode =
+  | typeof CACHE_MODE_TIMED
+  | typeof CACHE_MODE_GENERIC
+  | typeof CACHE_MODE_OPENAI_TIMED
 
 export type TierConditionInput = {
   var: 'p' | 'c' | 'len'
@@ -45,6 +49,8 @@ export type VisualTier = {
   cache_read_unit_cost?: number
   cache_create_unit_cost?: number
   cache_create_1h_unit_cost?: number
+  cache_create_30m_unit_cost?: number
+  cache_create_12h_unit_cost?: number
   image_unit_cost?: number
   image_output_unit_cost?: number
   audio_input_unit_cost?: number
@@ -60,7 +66,14 @@ function getTierCacheMode(
   tier: Partial<VisualTier> | null | undefined
 ): CacheMode {
   if (tier?.cache_mode === CACHE_MODE_TIMED) return CACHE_MODE_TIMED
+  if (tier?.cache_mode === CACHE_MODE_OPENAI_TIMED) return CACHE_MODE_OPENAI_TIMED
   if (tier?.cache_mode === CACHE_MODE_GENERIC) return CACHE_MODE_GENERIC
+  if (
+    Number(tier?.cache_create_30m_unit_cost) > 0 ||
+    Number(tier?.cache_create_12h_unit_cost) > 0
+  ) {
+    return CACHE_MODE_OPENAI_TIMED
+  }
   return Number(tier?.cache_create_1h_unit_cost) > 0
     ? CACHE_MODE_TIMED
     : CACHE_MODE_GENERIC
@@ -77,6 +90,8 @@ function normalizeVisualTier(tier: Partial<VisualTier> = {}): VisualTier {
     cache_read_unit_cost: Number(tier.cache_read_unit_cost) || 0,
     cache_create_unit_cost: Number(tier.cache_create_unit_cost) || 0,
     cache_create_1h_unit_cost: Number(tier.cache_create_1h_unit_cost) || 0,
+    cache_create_30m_unit_cost: Number(tier.cache_create_30m_unit_cost) || 0,
+    cache_create_12h_unit_cost: Number(tier.cache_create_12h_unit_cost) || 0,
     image_unit_cost: Number(tier.image_unit_cost) || 0,
     image_output_unit_cost: Number(tier.image_output_unit_cost) || 0,
     audio_input_unit_cost: Number(tier.audio_input_unit_cost) || 0,
