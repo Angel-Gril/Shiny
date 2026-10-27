@@ -22,8 +22,9 @@ Responses 的 `input_tokens_details.cache_write_tokens_details.ttl_30m_tokens` �
 - relaykit：`GOWORK=off go test ./...` 通过。
 - 前端：`bun run typecheck` 通过。
 - 价格预览：8 个模型全部通过表达式编译和向量校验，随后使用 `expected_version` 热更新并回读一致。
-- New API 生产程序为 Linux amd64，SHA-256：`47a668530d3a2334aed12b33f735319b9b780c856caa2ebc510aa50a4775b6ec`。
-- New API 从旧 release 切换到 `release-20261027-cache-billing-v1`，恢复耗时约 0.05 秒；CPA、CPAMP、门户和 Nginx 未重启。
+- New API 生产程序为 Linux amd64，最终 SHA-256：`353e60be1ae2cbab4e02c55f52a52229a4b0655fd20ba7c923baae430db6a51e`。
+- New API 从旧 release 切换到 `release-20261027-cache-billing-v1`，最终恢复耗时约 0.05 秒；CPA、CPAMP、门户和 Nginx 未重启。
+- 前端解析器增加 `cc30m`/`cc12h` 结构化价格回归，模型卡片恢复输入/输出主价格及缓存次级价格展示，不再回退到原始特殊表达式。
 - 当前 New API、CPA、CPAMP、门户和 Nginx 均为 active。
 
 价格配置不改变 `Price=1`、现有充值逻辑或分组倍率。未调用付费模型，真实缓存写入是否返回由上游响应决定；表达式会按实际用量结算。
