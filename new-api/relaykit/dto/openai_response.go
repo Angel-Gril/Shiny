@@ -268,20 +268,25 @@ type InputTokenDetails struct {
 	// input_tokens_details.cache_write_tokens (Responses). It is billed at the
 	// cache-creation price.
 	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
-	// CacheWriteTokensDetails splits OpenAI cache writes by the requested
-	// minimum retention. The two fields are disjoint and sum to CacheWriteTokens.
-	CacheWriteTokensDetails *CacheWriteTokensDetails `json:"cache_write_tokens_details,omitempty"`
-	TextTokens              int                      `json:"text_tokens"`
-	AudioTokens             int                      `json:"audio_tokens"`
-	ImageTokens             int                      `json:"image_tokens"`
+	// CacheWriteTokensDetails splits CacheWriteTokens by cache lifetime.
+	CacheWriteTokensDetails *CacheWriteTokenDetails `json:"cache_write_tokens_details,omitempty"`
+	TextTokens              int                     `json:"text_tokens"`
+	AudioTokens             int                     `json:"audio_tokens"`
+	ImageTokens             int                     `json:"image_tokens"`
 }
 
-// CacheWriteTokensDetails is returned by Responses for GPT-5.6 and later.
-// A missing details object means the upstream did not expose TTL-specific
-// writes; callers should treat CacheWriteTokens as the default 30-minute tier.
-type CacheWriteTokensDetails struct {
-	TTL30mTokens int `json:"ttl_30m_tokens,omitempty"`
-	TTL12hTokens int `json:"ttl_12h_tokens,omitempty"`
+// CacheWriteTokenDetails is OpenAI's split of cache writes by lifetime. The
+// two counts do not overlap and sum to cache_write_tokens.
+type CacheWriteTokenDetails struct {
+	TTL30mTokens int `json:"ttl_30m_tokens"`
+	TTL12hTokens int `json:"ttl_12h_tokens"`
+}
+
+// CacheWriteTokensDetails preserves the Shiny field name for callers.
+type CacheWriteTokensDetails = CacheWriteTokenDetails
+
+func (d *CacheWriteTokenDetails) HasTokens() bool {
+	return d != nil && (d.TTL30mTokens != 0 || d.TTL12hTokens != 0)
 }
 
 // CachedTokenDetails describes subsets of cached_tokens. Pointers distinguish
@@ -336,18 +341,19 @@ func (d InputTokenDetails) CacheCreationTokensTotal() int {
 	return total
 }
 
+// CacheWrite12hTokens returns the 12-hour subset of the cache writes, bounded
+// by CacheCreationTokensTotal so it never bills more writes than reported.
 func (d InputTokenDetails) CacheWriteTokens30m() int {
-	if d.CacheWriteTokensDetails == nil {
-		return max(d.CacheWriteTokens, d.CachedCreationTokens)
-	}
-	return max(d.CacheWriteTokensDetails.TTL30mTokens, 0)
+	return d.CacheCreationTokensTotal() - d.CacheWrite12hTokens()
 }
 
-func (d InputTokenDetails) CacheWriteTokens12h() int {
+func (d InputTokenDetails) CacheWriteTokens12h() int { return d.CacheWrite12hTokens() }
+
+func (d InputTokenDetails) CacheWrite12hTokens() int {
 	if d.CacheWriteTokensDetails == nil {
 		return 0
 	}
-	return max(d.CacheWriteTokensDetails.TTL12hTokens, 0)
+	return min(max(d.CacheWriteTokensDetails.TTL12hTokens, 0), d.CacheCreationTokensTotal())
 }
 
 type OutputTokenDetails struct {
@@ -471,6 +477,16 @@ func (r ResponsesOutput) MarshalJSON() ([]byte, error) {
 			Error:             r.ItemError,
 			ApprovalRequestID: r.ApprovalRequestID,
 		})
+	case "reasoning":
+		// summary is required on a reasoning item, even before any summary text exists.
+		type responsesOutputAlias ResponsesOutput
+		if len(r.Summary) > 0 {
+			return kitutil.Marshal(responsesOutputAlias(r))
+		}
+		return kitutil.Marshal(struct {
+			responsesOutputAlias
+			Summary []ResponsesReasoningSummaryPart `json:"summary"`
+		}{responsesOutputAlias(r), []ResponsesReasoningSummaryPart{}})
 	default:
 		type responsesOutputAlias ResponsesOutput
 		return kitutil.Marshal(responsesOutputAlias(r))

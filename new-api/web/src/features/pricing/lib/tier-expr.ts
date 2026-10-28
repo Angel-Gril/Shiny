@@ -269,6 +269,9 @@ export function tryParseVisualConfig(
 // Local cost evaluator (for the estimator preview)
 // ---------------------------------------------------------------------------
 
+const OPENAI_CACHE_CREATION_12H_MULTIPLIER = 2
+const CLAUDE_CACHE_CREATION_1H_MULTIPLIER = 6 / 3.75
+
 const ESTIMATOR_VARS = [
   { var: 'cr', stateKey: 'cacheReadTokens' },
   { var: 'cc', stateKey: 'cacheCreateTokens' },
@@ -305,7 +308,7 @@ export function evalExprLocally(
   const result = evaluateBillingExpression(exprStr, {
     ...context,
     tokens: {
-      ...buildEstimatorTokens(promptTokens, completionTokens, extraTokenValues),
+      ...buildEstimatorTokens(promptTokens, completionTokens, extraTokenValues, exprStr),
       ...context?.tokens,
     },
   })
@@ -325,8 +328,34 @@ export function evalExprLocally(
 export function buildEstimatorTokens(
   promptTokens: number,
   completionTokens: number,
-  extraTokenValues: ExtraTokenValues
+  extraTokenValues: ExtraTokenValues,
+  exprStr = ''
 ): Partial<Record<TokenVariable, number>> {
+  // Like backend token normalization, a long-lived cache write without its
+  // own price joins cc at a fixed multiple. With cc unpriced it stays free.
+  const compiled = compileBillingExpression(exprStr)
+  const usedVars: ReadonlySet<string> =
+    compiled.status === 'ready' ? compiled.variables : new Set()
+  // OpenAI's short-lived cache writes are one billing lane in the backend.
+  // The editor exposes a dedicated 30m field when `cc30m` is referenced; use
+  // that value as the canonical lane and never count the generic field twice.
+  const shortCacheTokens = usedVars.has('cc30m')
+    ? extraTokenValues.cacheCreate30mTokens
+    : extraTokenValues.cacheCreateTokens
+  let cacheCreateTokens = shortCacheTokens
+  let cacheCreate30mTokens = shortCacheTokens
+  if (usedVars.has('cc30m') && !usedVars.has('cc12h')) {
+    cacheCreate30mTokens += extraTokenValues.cacheCreate12hTokens * OPENAI_CACHE_CREATION_12H_MULTIPLIER
+  }
+  if (usedVars.has('cc') && !usedVars.has('cc1h')) {
+    cacheCreateTokens +=
+      extraTokenValues.cacheCreate1hTokens * CLAUDE_CACHE_CREATION_1H_MULTIPLIER
+  }
+  if (usedVars.has('cc') && !usedVars.has('cc12h')) {
+    cacheCreateTokens +=
+      extraTokenValues.cacheCreate12hTokens *
+      OPENAI_CACHE_CREATION_12H_MULTIPLIER
+  }
   return {
     p: promptTokens,
     c: completionTokens,
@@ -336,9 +365,8 @@ export function buildEstimatorTokens(
       extraTokenValues.imageCacheTokens +
       extraTokenValues.imageTokens +
       extraTokenValues.audioInputTokens +
-      extraTokenValues.cacheCreateTokens +
+      shortCacheTokens +
       extraTokenValues.cacheCreate1hTokens +
-      extraTokenValues.cacheCreate30mTokens +
       extraTokenValues.cacheCreate12hTokens,
     ...Object.fromEntries(
       ESTIMATOR_VARS.map((field) => [
@@ -346,6 +374,8 @@ export function buildEstimatorTokens(
         extraTokenValues[field.stateKey],
       ])
     ),
+    cc: usedVars.has('cc30m') ? 0 : cacheCreateTokens,
+    cc30m: usedVars.has('cc30m') ? cacheCreate30mTokens : 0,
   }
 }
 

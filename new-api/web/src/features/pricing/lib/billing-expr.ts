@@ -199,6 +199,10 @@ export const BILLING_CACHE_VAR_MAP = BILLING_EXTRA_VARS.map((v) => ({
   exprVar: v.key,
 }))
 
+/** Long-lived cache writes cost a fixed multiple of the `cc` write price. */
+export const CLAUDE_CACHE_CREATION_1H_MULTIPLIER = 6 / 3.75
+export const OPENAI_CACHE_CREATION_12H_MULTIPLIER = 2
+
 // ---------------------------------------------------------------------------
 // Request rule constants
 // ---------------------------------------------------------------------------

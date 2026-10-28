@@ -749,10 +749,10 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
   )
 
   const tokens = useMemo(() => {
-    const values = buildEstimatorTokens(promptTokens, completionTokens, extras)
+    const values = buildEstimatorTokens(promptTokens, completionTokens, extras, effectiveExpr)
     if (lengthOverride.trim()) values.len = Number(lengthOverride)
     return values
-  }, [promptTokens, completionTokens, extras, lengthOverride])
+  }, [promptTokens, completionTokens, extras, lengthOverride, effectiveExpr])
 
   const result = useMemo(
     () =>
