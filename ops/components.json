@@ -1,24 +1,28 @@
 {
   "as_of": "2026-10-28",
   "new_api": {
-    "upstream_commit": "f7cd34f265341cab766d025887c50eddb6461409",
-    "production_release": "release-20261017-user-insight-v1",
-    "production_version": "shiny-20261017-user-insight-530c918",
-    "source_commit": "530c91846cb1c72a05ed7b4768da77584a975361",
-    "merge_commit": "53d2217542c5e9fe98a479262695fca6792bad7a",
-    "artifact_sha256": "20fa309d66ecae72c9e9b99fb05dce37175ff65b39c71c28b34f342f851cbab5",
-    "frontend_release": "web-announcements-20261019-r2",
+    "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
+    "production_release": "release-20261028-newapi-rc47",
+    "production_version": "shiny-rc47-6750fa7",
+    "source_commit": "6750fa7df5df23787022ca51641a97dbdf14a472",
+    "merge_commit": "6750fa7df5df23787022ca51641a97dbdf14a472",
+    "artifact_sha256": "fd565ac22b06236b88b0181c0a21bbdd4bb591f95594770bdd7fd25323140ac0",
+    "frontend_release": "web-rc47-20261028",
     "custom_source": "new-api/",
-    "frontend_source_commit": "271dd465eda87431d8e622e05338a94fccb0a956",
-    "frontend_bundle": "announcements-20261019-r2",
+    "frontend_source_commit": "6750fa7df5df23787022ca51641a97dbdf14a472",
+    "frontend_bundle": "web-rc47-20261028",
     "upgrade_target": {
       "upstream_release": "v1.0.0-rc.47",
       "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
       "baseline_commit": "f7cd34f265341cab766d025887c50eddb6461409",
       "source_branch": "upgrade/new-api-rc47",
-      "production_deployed": false,
+      "production_deployed": true,
       "candidate_version": "shiny-rc47-candidate",
-      "candidate_artifact_sha256": "d1b185f1ed364cabf0d2b63dff7aa09386217f2737018c3e3c8518d40dd09de4"
+      "candidate_artifact_sha256": "d1b185f1ed364cabf0d2b63dff7aa09386217f2737018c3e3c8518d40dd09de4",
+      "production_release": "release-20261028-newapi-rc47",
+      "production_version": "shiny-rc47-6750fa7",
+      "artifact_sha256": "fd565ac22b06236b88b0181c0a21bbdd4bb591f95594770bdd7fd25323140ac0",
+      "frontend_release": "web-rc47-20261028"
     }
   },
   "cpa": {
