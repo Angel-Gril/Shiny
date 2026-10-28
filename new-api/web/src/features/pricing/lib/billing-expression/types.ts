@@ -23,6 +23,8 @@ export const TOKEN_VARIABLES = [
   'cr',
   'cc',
   'cc1h',
+  'cc30m',
+  'cc12h',
   'img',
   'img_cr',
   'img_o',

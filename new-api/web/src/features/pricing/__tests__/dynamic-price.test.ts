@@ -204,6 +204,29 @@ describe('expression price summaries', () => {
     expect(summary?.secondaryEntries).toEqual([])
   })
 
+  test('parses OpenAI cache write tiers as structured prices', () => {
+    const expression =
+      'len <= 272000 ? tier("0_272k", p * 2 + cr * 0.1 + cc30m * 2.5 + cc12h * 5 + c * 10) : tier("272k_plus", p * 4 + cr * 0.2 + cc30m * 5 + cc12h * 10 + c * 15)'
+    const summary = getDynamicPricingSummary(
+      pricingModel({ billing_mode: 'tiered_expr', billing_expr: expression }),
+      { tokenUnit: 'M' }
+    )
+    expect(summary?.isSpecialExpression).toBe(false)
+    expect(summary?.tiers).toHaveLength(2)
+    expect(summary?.primaryEntries.map((entry) => entry.field)).toEqual([
+      'inputPrice',
+      'outputPrice',
+    ])
+    expect(summary?.secondaryEntries.map((entry) => entry.field)).toEqual([
+      'cacheReadPrice',
+      'cacheCreate30mPrice',
+      'cacheCreate12hPrice',
+    ])
+    expect(summary?.secondaryEntries.map((entry) => entry.value)).toEqual([
+      0.1, 2.5, 5,
+    ])
+  })
+
   test('includes a free task tier in its range', () => {
     const summary = getDynamicPricingSummary(
       pricingModel({
@@ -793,6 +816,7 @@ describe('shared plugin price summaries', () => {
     ).toEqual(['credits', 'images'])
     expect(getCardExamplePrice(model, summaryOptions)).toEqual({
       label: 'Beta sample',
+      total: 3,
       formatted: '$3',
     })
   })

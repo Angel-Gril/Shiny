@@ -586,6 +586,14 @@ func TestCachePresent_StandardTier(t *testing.T) {
 	}
 }
 
+func TestOpenAICacheWriteTiers(t *testing.T) {
+	const expression = `tier("base", p * 2 + cr * 0.1 + cc30m * 2.5 + cc12h * 5 + c * 10)`
+	params := billingexpr.TokenParams{P: 600_000, C: 1_000_000, CR: 100_000, CC30m: 100_000, CC12h: 200_000}
+	cost, _, err := billingexpr.RunExpr(expression, params)
+	require.NoError(t, err)
+	assert.Equal(t, float64(600_000*2+100_000*0.1+100_000*2.5+200_000*5+1_000_000*10), cost)
+}
+
 func TestCachePresent_LongContextTier(t *testing.T) {
 	params := billingexpr.TokenParams{P: 300000, C: 10000, CR: 100000, CC: 20000}
 	cost, trace, err := billingexpr.RunExpr(claudeWithCacheExpr, params)

@@ -1,12 +1,20 @@
 {
   "repository": "https://github.com/QuantumNous/new-api",
-  "commit": "f7cd34f265341cab766d025887c50eddb6461409",
-  "snapshot": "Shiny audit-v4 source; 2026-10-15",
+  "commit": "e835b1bfc43b565d625537830dbfb19328925134",
+  "snapshot": "Shiny reviewed three-way integration of official v1.0.0-rc.47; 2026-10-28",
   "local_features": [
     "audit off/shadow/preflight",
     "keyword signal/block",
     "role-aware long context audit",
     "abuse review false-positive reduction",
     "independent portal full navigation"
+  ],
+  "release": "v1.0.0-rc.47",
+  "baseline_commit": "f7cd34f265341cab766d025887c50eddb6461409",
+  "integration_notes": [
+    "official Responses streaming, provider channel selection, URL credential masking and cache billing retained",
+    "Shiny audit off/shadow/preflight, keyword signal/block, abuse review and long-context coverage retained",
+    "Shiny wallet hard caps, request admission, token group authorization and payment provenance retained",
+    "OpenAI cc30m and cc12h expression billing plus frontend estimator compatibility retained"
   ]
 }

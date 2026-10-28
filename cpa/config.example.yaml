@@ -33,8 +33,8 @@ plugins:
     cpa-account-concurrency:
       enabled: true
       priority: 50
-      max_concurrency: 5
-      # Omitted options use v0.1.8 defaults: local counting, warm reserve 1.
+      max_concurrency: 3
+      # Omitted options use v0.1.8 defaults: local counting.
       # Key Router still chooses accounts; a busy choice may return 503.
     quota-monitor:
-      enabled: false
+      enabled: true

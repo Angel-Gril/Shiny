@@ -108,8 +108,15 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   )
   let priceSummary: ReactNode
   if (dynamicSummary) {
-    const cacheReadEntries = dynamicSummary.secondaryEntries.filter(
-      (entry) => entry.field === 'cacheReadPrice' && entry.unit === 'token'
+    const cacheEntries = dynamicSummary.secondaryEntries.filter(
+      (entry) =>
+        [
+          'cacheReadPrice',
+          'cacheCreatePrice',
+          'cacheCreate1hPrice',
+          'cacheCreate30mPrice',
+          'cacheCreate12hPrice',
+        ].includes(entry.field) && entry.unit === 'token'
     )
     if (dynamicSummary.isSpecialExpression) {
       priceSummary = (
@@ -124,7 +131,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       )
     } else if (
       dynamicSummary.primaryEntries.length > 0 ||
-      cacheReadEntries.length > 0
+      cacheEntries.length > 0
     ) {
       priceSummary = (
         <>
@@ -133,7 +140,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
               0,
               dynamicSummary.providerCount ? 2 : undefined
             ),
-            cacheReadEntries,
+            cacheEntries,
           ]
             .flat()
             .map((entry) => {
@@ -192,6 +199,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
           )}
           {dynamicSummary.isTaskUsage &&
+            dynamicSummary.tierCount > 1 &&
             dynamicSummary.tier?.label &&
             !dynamicSummary.primaryEntries.some(
               (entry) => entry.formattedRange

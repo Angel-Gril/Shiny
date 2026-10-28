@@ -26,7 +26,11 @@ import type {
 
 export const CACHE_MODE_TIMED = 'timed'
 export const CACHE_MODE_GENERIC = 'generic'
-export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC
+export const CACHE_MODE_OPENAI_TIMED = 'openai_timed'
+export type CacheMode =
+  | typeof CACHE_MODE_TIMED
+  | typeof CACHE_MODE_GENERIC
+  | typeof CACHE_MODE_OPENAI_TIMED
 
 export type TierConditionInput = {
   var: 'p' | 'c' | 'len'
@@ -45,6 +49,8 @@ export type VisualTier = {
   cache_read_unit_cost?: number
   cache_create_unit_cost?: number
   cache_create_1h_unit_cost?: number
+  cache_create_30m_unit_cost?: number
+  cache_create_12h_unit_cost?: number
   image_unit_cost?: number
   image_output_unit_cost?: number
   audio_input_unit_cost?: number
@@ -60,7 +66,14 @@ function getTierCacheMode(
   tier: Partial<VisualTier> | null | undefined
 ): CacheMode {
   if (tier?.cache_mode === CACHE_MODE_TIMED) return CACHE_MODE_TIMED
+  if (tier?.cache_mode === CACHE_MODE_OPENAI_TIMED) return CACHE_MODE_OPENAI_TIMED
   if (tier?.cache_mode === CACHE_MODE_GENERIC) return CACHE_MODE_GENERIC
+  if (
+    Number(tier?.cache_create_30m_unit_cost) > 0 ||
+    Number(tier?.cache_create_12h_unit_cost) > 0
+  ) {
+    return CACHE_MODE_OPENAI_TIMED
+  }
   return Number(tier?.cache_create_1h_unit_cost) > 0
     ? CACHE_MODE_TIMED
     : CACHE_MODE_GENERIC
@@ -77,6 +90,8 @@ function normalizeVisualTier(tier: Partial<VisualTier> = {}): VisualTier {
     cache_read_unit_cost: Number(tier.cache_read_unit_cost) || 0,
     cache_create_unit_cost: Number(tier.cache_create_unit_cost) || 0,
     cache_create_1h_unit_cost: Number(tier.cache_create_1h_unit_cost) || 0,
+    cache_create_30m_unit_cost: Number(tier.cache_create_30m_unit_cost) || 0,
+    cache_create_12h_unit_cost: Number(tier.cache_create_12h_unit_cost) || 0,
     image_unit_cost: Number(tier.image_unit_cost) || 0,
     image_output_unit_cost: Number(tier.image_output_unit_cost) || 0,
     audio_input_unit_cost: Number(tier.audio_input_unit_cost) || 0,
@@ -254,10 +269,15 @@ export function tryParseVisualConfig(
 // Local cost evaluator (for the estimator preview)
 // ---------------------------------------------------------------------------
 
+const OPENAI_CACHE_CREATION_12H_MULTIPLIER = 2
+const CLAUDE_CACHE_CREATION_1H_MULTIPLIER = 6 / 3.75
+
 const ESTIMATOR_VARS = [
   { var: 'cr', stateKey: 'cacheReadTokens' },
   { var: 'cc', stateKey: 'cacheCreateTokens' },
   { var: 'cc1h', stateKey: 'cacheCreate1hTokens' },
+  { var: 'cc30m', stateKey: 'cacheCreate30mTokens' },
+  { var: 'cc12h', stateKey: 'cacheCreate12hTokens' },
   { var: 'img', stateKey: 'imageTokens' },
   { var: 'img_cr', stateKey: 'imageCacheTokens' },
   { var: 'img_o', stateKey: 'imageOutputTokens' },
@@ -288,7 +308,7 @@ export function evalExprLocally(
   const result = evaluateBillingExpression(exprStr, {
     ...context,
     tokens: {
-      ...buildEstimatorTokens(promptTokens, completionTokens, extraTokenValues),
+      ...buildEstimatorTokens(promptTokens, completionTokens, extraTokenValues, exprStr),
       ...context?.tokens,
     },
   })
@@ -308,8 +328,34 @@ export function evalExprLocally(
 export function buildEstimatorTokens(
   promptTokens: number,
   completionTokens: number,
-  extraTokenValues: ExtraTokenValues
+  extraTokenValues: ExtraTokenValues,
+  exprStr = ''
 ): Partial<Record<TokenVariable, number>> {
+  // Like backend token normalization, a long-lived cache write without its
+  // own price joins cc at a fixed multiple. With cc unpriced it stays free.
+  const compiled = compileBillingExpression(exprStr)
+  const usedVars: ReadonlySet<string> =
+    compiled.status === 'ready' ? compiled.variables : new Set()
+  // OpenAI's short-lived cache writes are one billing lane in the backend.
+  // The editor exposes a dedicated 30m field when `cc30m` is referenced; use
+  // that value as the canonical lane and never count the generic field twice.
+  const shortCacheTokens = usedVars.has('cc30m')
+    ? extraTokenValues.cacheCreate30mTokens
+    : extraTokenValues.cacheCreateTokens
+  let cacheCreateTokens = shortCacheTokens
+  let cacheCreate30mTokens = shortCacheTokens
+  if (usedVars.has('cc30m') && !usedVars.has('cc12h')) {
+    cacheCreate30mTokens += extraTokenValues.cacheCreate12hTokens * OPENAI_CACHE_CREATION_12H_MULTIPLIER
+  }
+  if (usedVars.has('cc') && !usedVars.has('cc1h')) {
+    cacheCreateTokens +=
+      extraTokenValues.cacheCreate1hTokens * CLAUDE_CACHE_CREATION_1H_MULTIPLIER
+  }
+  if (usedVars.has('cc') && !usedVars.has('cc12h')) {
+    cacheCreateTokens +=
+      extraTokenValues.cacheCreate12hTokens *
+      OPENAI_CACHE_CREATION_12H_MULTIPLIER
+  }
   return {
     p: promptTokens,
     c: completionTokens,
@@ -319,14 +365,17 @@ export function buildEstimatorTokens(
       extraTokenValues.imageCacheTokens +
       extraTokenValues.imageTokens +
       extraTokenValues.audioInputTokens +
-      extraTokenValues.cacheCreateTokens +
-      extraTokenValues.cacheCreate1hTokens,
+      shortCacheTokens +
+      extraTokenValues.cacheCreate1hTokens +
+      extraTokenValues.cacheCreate12hTokens,
     ...Object.fromEntries(
       ESTIMATOR_VARS.map((field) => [
         field.var,
         extraTokenValues[field.stateKey],
       ])
     ),
+    cc: usedVars.has('cc30m') ? 0 : cacheCreateTokens,
+    cc30m: usedVars.has('cc30m') ? cacheCreate30mTokens : 0,
   }
 }
 
