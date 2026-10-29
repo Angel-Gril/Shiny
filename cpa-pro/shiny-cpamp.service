@@ -10,7 +10,7 @@ User=shiny-cpamp
 Group=shiny-cpamp
 WorkingDirectory=/var/lib/shiny-cpamp
 Environment=CPA_MANAGER_CONFIG=/etc/shiny-cpamp/config.json
-ExecStart=/opt/shiny-cpamp/releases/v1.14.8/cpa-manager-plus
+ExecStart=/opt/shiny-cpamp/releases/v1.14.10/cpa-manager-plus
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
