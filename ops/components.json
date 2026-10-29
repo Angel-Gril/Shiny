@@ -53,10 +53,19 @@
     "package_sha256": "2b5111dc6a0dfe0d607457787f794330d1b477bc9daa6337c26b0cd032a7827e"
   },
   "cpamp": {
-    "version": "v1.14.9",
-    "commit": "6d962db680085827cd19a778d2ff05a3d1315672",
+    "version": "v1.14.10",
+    "commit": "a67ed8834a914ab24c36d2490fa6bb6d4166724c",
     "locally_modified_binary": false,
-    "persistent_usage_database": true
+    "persistent_usage_database": true,
+    "binary_sha256": "965c5b9b26df1eb61bbca50a14638b761bc38512e31c6ef726067fc07b9fd074",
+    "embedded_management_sha256": "10c36ce9ef20c664e4caa9a188e0a8cf965e536c629980d1161afd8cf091e980",
+    "migration_required": false,
+    "v8_api_key_config_proxy": "admin read-only; upstream currently returns 404",
+    "candidate_checks_passed": 18,
+    "historical_events_preserved": true,
+    "model_prices_preserved": true,
+    "five_minute_healthy": true,
+    "temporary_backups_removed": true
   },
   "portal": {
     "production_release": "portal-20261017-v14",
