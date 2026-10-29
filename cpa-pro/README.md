@@ -8,6 +8,7 @@
 - [config.example.json](config.example.json)：服务器路径和采集设置示例，无真实管理密钥。
 - [shiny-cpamp.service](shiny-cpamp.service)：独立服务部署配置。
 - [unified-management.conf](unified-management.conf)：CPA/CPAMP共用一个管理入口的示例。
+- [v1.14.10 发布记录](../ops/releases/2026-10-29-cpamp-v1.14.10.md)：升级收益、兼容边界与验收结果。
 
 ## 数据边界
 
