@@ -61,7 +61,11 @@
     "embedded_management_sha256": "10c36ce9ef20c664e4caa9a188e0a8cf965e536c629980d1161afd8cf091e980",
     "migration_required": false,
     "v8_api_key_config_proxy": "admin read-only; upstream currently returns 404",
-    "candidate_checks_passed": 18
+    "candidate_checks_passed": 18,
+    "historical_events_preserved": true,
+    "model_prices_preserved": true,
+    "five_minute_healthy": true,
+    "temporary_backups_removed": true
   },
   "portal": {
     "production_release": "portal-20261017-v14",
