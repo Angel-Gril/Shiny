@@ -50,7 +50,9 @@
     "upgrade_peers_not_restarted": true,
     "upgrade_collector": "running",
     "upgrade_dead_letters": 0,
-    "package_sha256": "15de160e1fd97a0f9f7e0577582c765b14e040ab6a8314f514af9fae8a2c4700"
+    "package_sha256": "15de160e1fd97a0f9f7e0577582c765b14e040ab6a8314f514af9fae8a2c4700",
+    "upgrade_five_minute_healthy": true,
+    "upgrade_temporary_artifacts_removed": true
   },
   "cpamp": {
     "version": "v1.14.10",
