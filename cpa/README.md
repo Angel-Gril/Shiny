@@ -1,8 +1,8 @@
 # CPA 内核与插件集成
 
-本站组件：**CLIProxyAPI v8.0.44**，使用官方 Linux amd64 含插件原生包，Key Router v0.5.0。
+本站组件：**CLIProxyAPI v8.0.51**，使用官方 Linux amd64 含插件原生包，Key Router v0.5.0。
 
-本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.44](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.44)，安装包和程序摘要均已记录。历史来源见 `ops/releases/`。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
+本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.51](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.51)，安装包和程序摘要均已记录。历史来源见 `ops/releases/`。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
 
 - [release.json](release.json)：官方产物来源、摘要与版本。
 - [config.example.yaml](config.example.yaml)：不含可用凭据的隔离配置示例，不可覆盖生产配置。
@@ -33,3 +33,7 @@ Key Router v0.5.0 已启用，优先级100；账号并发插件 v0.1.8 也已启
 先校验官方含插件包摘要；用合成账号验证插件加载、池间隔离、无可用账号时返回503、不串池、Responses/SSE及配置保存。生产只重启 CPA，验证管理接口与一次最小生成，再核对 CPAMP 采集和账号归属。保留短期回滚副本，验收成功后清理。
 
 生产路径为 `/var/lib/relay-native/bin/CLIProxyAPI`；账号目录 `/var/lib/relay-native/cpa-auths`；仅本机监听8317。统一管理入口的集成见 `cpa-pro/`。
+
+## v8.0.51 集成
+
+保留全部五个现有插件和账号池配置。升级回归包含用量队列旧 Token 字段及账号归属与结构化用量元数据；CPA 增加的字段不代表 CPAMP 当前页面已完整展示全部新明细。新增的按 Key 连接池和可见 Codex commentary 均按上游 opt-in 行为处理，本站本次不新增开关。
