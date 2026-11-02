@@ -7,8 +7,9 @@
 - [release.json](release.json)：官方产物来源、摘要与版本。
 - [config.example.yaml](config.example.yaml)：不含可用凭据的隔离配置示例，不可覆盖生产配置。
 - [relay-native-cpa.service](relay-native-cpa.service)：部署单元示例。
-- `ops/UPGRADES.md`：升级及回归要求。
+- [ops/UPGRADES.md](../ops/UPGRADES.md)：升级及回归要求。
 - [deploy/README.md](deploy/README.md)：隔离验证和单组件切换工具。
+- [v8.0.51 发布记录](../ops/releases/2026-11-02-cpa-v8.0.51.md)：本次变更依据、产物摘要与验收。
 
 生产账号认证文件、Key Router 的真实调用 Key/账号绑定、管理密钥、运行日志及冷却数据不进入 Git。管理密钥只能放服务器私有配置；版本控制保存的不是完整生产配置备份。
 
@@ -24,7 +25,7 @@ Key Router v0.5.0 已启用，优先级100；账号并发插件 v0.1.8 也已启
 
 生产已启用 `upstream.codex.stream-bootstrap-buffering: true`，配合 `stream-bootstrap-timeout: "20s"`。它暂存没有生成内容的启动帧，让早期流内过载可在提交下游响应前由 CPA 尝试同池其他获准账号。已经产生有意义的输出或工具事件后不能统一重放；账号全部过载、禁用或冷却时仍可能失败。
 
-统一管理后台进入「配置面板 → 源文件编辑」查看和修改这两个 v8 YAML 字段；服务器配置为 `/var/lib/relay-native/bin/config.yaml`。可视化面板里的「流式传输配置 → Bootstrap 重试次数」是另一项设置，不能替代 Codex 启动缓冲。通过管理接口保存可热加载，本次未重启服务。
+统一管理后台进入「配置面板 → 源文件编辑」查看和修改这两个 v8 YAML 字段；服务器配置为 `/var/lib/relay-native/bin/config.yaml`。可视化面板里的「流式传输配置 → Bootstrap 重试次数」是另一项设置，不能替代 Codex 启动缓冲。通过管理接口保存这两个参数可热加载，无需因参数变更重启服务；内核升级仍需重启 CPA。
 
 20s 是每次上游尝试的启动缓冲设置，检查在收到帧时执行，不能当成请求总耗时或主动断连的硬上限。多次账号尝试会累加等待；生产验证中两次过载后第三个账号成功，总耗时约 26.2 秒。额外重试轮次仍为 0，分池和账号并发限制保持原配置。
 

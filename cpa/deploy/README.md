@@ -10,11 +10,11 @@
 
 ```sh
 python3 upgrade_candidate.py \
-  --archive /root/shiny-maintenance/cpa-kernel-upgrade-20261020/CLIProxyAPI_8.0.34_linux_amd64.tar.gz \
-  --sha256 9a76ded067dfa848cce4976596739ea9844a5816217cce86fd3c666a8242ff32 \
-  --version 8.0.34 \
-  --stage /root/shiny-maintenance/cpa-kernel-upgrade-20261020 \
-  --root /var/lib/relay-native/cpa-candidate-8034
+  --archive /root/shiny-maintenance/cpa-upgrade-20261102-v8051/CLIProxyAPI_8.0.51_linux_amd64.tar.gz \
+  --sha256 15de160e1fd97a0f9f7e0577582c765b14e040ab6a8314f514af9fae8a2c4700 \
+  --version 8.0.51 \
+  --stage /root/shiny-maintenance/cpa-upgrade-20261102-v8051 \
+  --root /var/lib/relay-native/cpa-candidate-8051
 ```
 
 当前检查包含用量队列的旧 Token 字段、账号归属及结构化 accounting 元数据，并覆盖普通/流式/Chat/compact、搜索历史工具声明、分池与Access回退、无权限拒绝、并发准入/结束和取消释放、账号编辑校验/身份稳定，以及配置保存。测试明确保留当前“满账号可能503、不自动换号”的行为。并发5、暖槽1时，普通请求测试达到4即拒绝；不能把它描述为5个普通请求全部可同时准入。
@@ -29,10 +29,10 @@ OCI来源须固定官方仓库、tag、平台manifest与层摘要，验证提取
 
 ```sh
 python3 upgrade_kernel.py \
-  --stage /root/shiny-maintenance/cpa-kernel-upgrade-20261020 \
-  --candidate /var/lib/relay-native/cpa-candidate-8034 \
-  --from-sha256 2851f6e036bb2613dc6ba945d08e08e13a728a386a8c0346183a4eaad5cb93d7 \
-  --version 8.0.34
+  --stage /root/shiny-maintenance/cpa-upgrade-20261102-v8051 \
+  --candidate /var/lib/relay-native/cpa-candidate-8051 \
+  --from-sha256 167fff6edf264f71b7e28923b71f97cf1b49957db1612a6e5e8e570f42aeb112 \
+  --version 8.0.51
 ```
 
 备份路径是本次stage下的`temporary-backup`，含私密信息。若启动、关键校验失败或收到可处理的中断，只回滚程序文件并检查旧版重新就绪，不覆盖可能已刷新或被用户编辑的配置/凭据。新版本正常刷新令牌允许改变认证JSON字节；验收以摘要保护文件存在、账号身份及全部非刷新字段，包括原先不存在而后来新增的控制项。SIGKILL和服务器断电无法由脚本捕获，需使用私有副本人工恢复程序。建议通过独立systemd临时单元运行切换，避免SSH断线终止升级。
