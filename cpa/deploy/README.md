@@ -4,20 +4,20 @@
 
 ## 隔离验证
 
-`../tests/upgrade_candidate.py`要求Linux服务器、已安装的三个固定版本插件，以及校验过SHA-256的官方含插件产物。可以用`--archive`提供官方原生包，也可以用`--binary`提供从官方OCI镜像提取并完成来源核验的原版程序，两者互斥；`--sha256`必须对应实际输入文件。程序创建独立账号目录、随机测试Key和本地TLS模拟上游，通过回环端口18471/18474测试，使用临时systemd单元。当前插件基线为 Key Router v0.5.0、账号并发 v0.1.8、Candy Eval v0.4.3；插件升级后需重新审阅基线。
+`../tests/upgrade_candidate.py`要求Linux服务器、已安装的五个固定版本插件，以及校验过SHA-256的官方含插件产物。可以用`--archive`提供官方原生包，也可以用`--binary`提供从官方OCI镜像提取并完成来源核验的原版程序，两者互斥；`--sha256`必须对应实际输入文件。程序创建独立账号目录、随机测试Key和本地TLS模拟上游，通过回环端口18471/18474测试，使用临时systemd单元。当前插件基线为 Key Router v0.5.0、账号并发 v0.1.8、Candy Eval v0.4.4、Quota Monitor v0.2.2、Kiro-ha v0.9.14；插件升级后需重新审阅基线。
 
 示例参数：
 
 ```sh
 python3 upgrade_candidate.py \
-  --archive /root/shiny-maintenance/cpa-kernel-upgrade-20261020/CLIProxyAPI_8.0.34_linux_amd64.tar.gz \
-  --sha256 9a76ded067dfa848cce4976596739ea9844a5816217cce86fd3c666a8242ff32 \
-  --version 8.0.34 \
-  --stage /root/shiny-maintenance/cpa-kernel-upgrade-20261020 \
-  --root /var/lib/relay-native/cpa-candidate-8034
+  --archive /root/shiny-maintenance/cpa-upgrade-20261102-v8051/CLIProxyAPI_8.0.51_linux_amd64.tar.gz \
+  --sha256 15de160e1fd97a0f9f7e0577582c765b14e040ab6a8314f514af9fae8a2c4700 \
+  --version 8.0.51 \
+  --stage /root/shiny-maintenance/cpa-upgrade-20261102-v8051 \
+  --root /var/lib/relay-native/cpa-candidate-8051
 ```
 
-检查覆盖普通/流式/Chat/compact、搜索历史工具声明、分池与Access回退、无权限拒绝、并发准入/结束和取消释放、账号编辑校验/身份稳定，以及配置保存。测试明确保留当前“满账号可能503、不自动换号”的行为。并发5、暖槽1时，普通请求测试达到4即拒绝；不能把它描述为5个普通请求全部可同时准入。
+当前检查包含用量队列的旧 Token 字段、账号归属及结构化 accounting 元数据，并覆盖普通/流式/Chat/compact、搜索历史工具声明、分池与Access回退、无权限拒绝、并发准入/结束和取消释放、账号编辑校验/身份稳定，以及配置保存。测试明确保留当前“满账号可能503、不自动换号”的行为。并发5、暖槽1时，普通请求测试达到4即拒绝；不能把它描述为5个普通请求全部可同时准入。
 
 测试不会加载生产OAuth文件；全部模型执行由本地模拟上游响应，不产生上游模型费用。成功后保存候选程序摘要和检查回执，并停止临时单元。候选目录须保留到程序切换/最终清理完成。
 
@@ -29,10 +29,10 @@ OCI来源须固定官方仓库、tag、平台manifest与层摘要，验证提取
 
 ```sh
 python3 upgrade_kernel.py \
-  --stage /root/shiny-maintenance/cpa-kernel-upgrade-20261020 \
-  --candidate /var/lib/relay-native/cpa-candidate-8034 \
-  --from-sha256 2851f6e036bb2613dc6ba945d08e08e13a728a386a8c0346183a4eaad5cb93d7 \
-  --version 8.0.34
+  --stage /root/shiny-maintenance/cpa-upgrade-20261102-v8051 \
+  --candidate /var/lib/relay-native/cpa-candidate-8051 \
+  --from-sha256 167fff6edf264f71b7e28923b71f97cf1b49957db1612a6e5e8e570f42aeb112 \
+  --version 8.0.51
 ```
 
 备份路径是本次stage下的`temporary-backup`，含私密信息。若启动、关键校验失败或收到可处理的中断，只回滚程序文件并检查旧版重新就绪，不覆盖可能已刷新或被用户编辑的配置/凭据。新版本正常刷新令牌允许改变认证JSON字节；验收以摘要保护文件存在、账号身份及全部非刷新字段，包括原先不存在而后来新增的控制项。SIGKILL和服务器断电无法由脚本捕获，需使用私有副本人工恢复程序。建议通过独立systemd临时单元运行切换，避免SSH断线终止升级。

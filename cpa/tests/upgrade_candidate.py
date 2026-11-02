@@ -48,7 +48,7 @@ else:
         (root / 'CLIProxyAPI').write_bytes(source.extractfile(member).read())
 (root / 'CLIProxyAPI').chmod(0o755)
 
-versions = {'key-router': '0.5.0', 'cpa-account-concurrency': '0.1.8', 'cpa-codex-candy-eval': '0.4.3'}
+versions = {'key-router': '0.5.0', 'cpa-account-concurrency': '0.1.8', 'cpa-codex-candy-eval': '0.4.4', 'quota-monitor': '0.2.2', 'kiro-ha': '0.9.14'}
 for name, version in versions.items():
     source = Path('/var/lib/relay-native/bin/plugins/linux/amd64') / (name + '-v' + version + '.so')
     shutil.copy2(source, root / 'plugins' / source.name)
@@ -82,6 +82,8 @@ config = {
         'key-router': {'enabled': True, 'priority': 100, 'users': users},
         'cpa-account-concurrency': {'enabled': True, 'priority': 50, 'max_concurrency': 5, 'warm_reserved_slots': 1, 'wait_timeout': '50ms', 'authority': 'local'},
         'cpa-codex-candy-eval': {'enabled': True},
+        'quota-monitor': {'enabled': True},
+        'kiro-ha': {'enabled': True},
     }},
 }
 (root / 'config.yaml').write_text(json.dumps(config))
@@ -266,6 +268,19 @@ try:
     status, _, raw = call('/v1/responses', 'POST', payload, key=keys['a'])
     first = seen[-1]['account']
     check('pool A normal Responses stays in A', status == 200 and first.startswith('a') and b'fixture-a' in raw)
+    queue_rows = []
+    queue_deadline = time.monotonic() + 5
+    while time.monotonic() < queue_deadline and not queue_rows:
+        time.sleep(.1)
+        queue_rows = data('/v0/management/usage-queue?count=100')
+    records = [json.loads(row) if isinstance(row, str) else row for row in queue_rows]
+    usage = next(row for row in records if row.get('model') == payload['model'] and not row.get('failed'))
+    check('usage queue retains legacy token counts and account attribution',
+          usage.get('tokens', {}).get('input_tokens') == 306 and
+          usage.get('tokens', {}).get('output_tokens') == 5 and bool(usage.get('auth_index')))
+    check('usage queue exposes structured accounting details',
+          isinstance(usage.get('accounting_version'), int) and isinstance(usage.get('token_breakdown'), dict))
+
     status, _, raw = call('/v1/responses', 'POST', {**payload, 'stream': True}, key=keys['b'])
     check('pool B SSE stays in B', status == 200 and seen[-1]['account'].startswith('b') and b'data:' in raw)
     status, _, raw = call('/v1/chat/completions', 'POST', {'model': 'gpt-6.1-sol', 'messages': [{'role': 'user', 'content': 'Reply fixture.'}]}, key=keys['a'])
