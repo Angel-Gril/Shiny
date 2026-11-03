@@ -1,16 +1,16 @@
 {
-  "as_of": "2026-11-02",
+  "as_of": "2026-11-04",
   "new_api": {
     "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
-    "production_release": "release-20261028-newapi-rc47",
-    "production_version": "shiny-rc47-6750fa7",
-    "source_commit": "6750fa7df5df23787022ca51641a97dbdf14a472",
-    "merge_commit": "6750fa7df5df23787022ca51641a97dbdf14a472",
-    "artifact_sha256": "fd565ac22b06236b88b0181c0a21bbdd4bb591f95594770bdd7fd25323140ac0",
-    "frontend_release": "web-rc47-20261028",
+    "production_release": "release-20261104-national-billing",
+    "production_version": "shiny-rc47-national-381a62a",
+    "source_commit": "381a62ad2",
+    "merge_commit": "aab52146f66e034a5c1ebc8c658c0b602aaac44b",
+    "artifact_sha256": "d716d89ea658e3166901e2ab0a9ddc8c69a618a2a9995506f2c298d4098a24df",
+    "frontend_release": "web-national-billing-20261104",
     "custom_source": "new-api/",
-    "frontend_source_commit": "6750fa7df5df23787022ca51641a97dbdf14a472",
-    "frontend_bundle": "web-rc47-20261028",
+    "frontend_source_commit": "729237cbe",
+    "frontend_bundle": "web-national-billing-20261104",
     "upgrade_target": {
       "upstream_release": "v1.0.0-rc.47",
       "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
@@ -23,6 +23,26 @@
       "production_version": "shiny-rc47-6750fa7",
       "artifact_sha256": "fd565ac22b06236b88b0181c0a21bbdd4bb591f95594770bdd7fd25323140ac0",
       "frontend_release": "web-rc47-20261028"
+    },
+    "national_billing": {
+      "implementation_pr": "https://github.com/Angel-Gril/Shiny/pull/31",
+      "pricing_reference": "XKRelay 2026-11-04 standard numeric prices",
+      "xkrelay_models": 13,
+      "retained_zerocat_models": [
+        "deepseek-v4-flash",
+        "minimax-m3",
+        "minimax-m3.1-flash"
+      ],
+      "national_group_ratio": 0.35,
+      "recharge_price": 1,
+      "exchange_conversion_in_expression": false,
+      "calendar_version": "cn-2026-state-council-7",
+      "request_arrival_price_lock": true,
+      "kimi_effective_ttl_billing": true,
+      "qwen_cache_creation_alias": true,
+      "candidate_fixture_requests": 20,
+      "old_assets_preserved": true,
+      "peer_processes_preserved": true
     }
   },
   "cpa": {
