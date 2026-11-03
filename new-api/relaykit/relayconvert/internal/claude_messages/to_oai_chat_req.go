@@ -31,6 +31,17 @@ func ClaudeMessagesRequestToOpenAIChat(ctx context.Context, claudeRequest dto.Cl
 		Model:       claudeRequest.Model,
 		Temperature: claudeRequest.Temperature,
 	}
+	if strings.Contains(strings.ToLower(claudeRequest.Model), "kimi-") && len(claudeRequest.CacheControl) > 0 {
+		var control struct {
+			TTL string `json:"ttl"`
+		}
+		if err := kitutil.Unmarshal(claudeRequest.CacheControl, &control); err != nil {
+			return nil, err
+		}
+		if control.TTL == "5m" || control.TTL == "1h" {
+			openAIRequest.PromptCacheOptions, _ = kitutil.Marshal(map[string]string{"mode": "implicit", "ttl": control.TTL})
+		}
+	}
 	if claudeRequest.MaxTokens != nil {
 		openAIRequest.MaxTokens = kitutil.GetPointer(*claudeRequest.MaxTokens)
 	}

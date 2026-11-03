@@ -135,6 +135,15 @@ function describeBillingCondition(
   t: Translate,
   locale: string
 ): Description | null {
+  if (node.kind === 'call' && node.name === 'deepseekPeak') {
+    return {
+      text: t(
+        'Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices'
+      ),
+      kind: 'combined',
+      timezone: 'Asia/Shanghai',
+    }
+  }
   if (node.kind === 'unary' && node.operator === '!') {
     const description = describeBillingCondition(node.operand, t, locale)
     if (!description) return null

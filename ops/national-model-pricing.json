@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "as_of": "2026-11-04",
+  "unit": "site_credits_per_million_tokens",
+  "exchange_conversion": false,
+  "preserve_group_ratios": true,
+  "kimi_k3_cache_reference": "https://platform.kimi.com/docs/pricing/chat",
+  "notes": [
+    "XKRelay standard input/read/output prices; missing aliases retain reviewed ZeroCat numbers.",
+    "Kimi K3 explicitly prices default/1h writes at 20/40; its public standard input rate is 20.",
+    "No credentials, production tokens or expected-version snapshots. Apply through the versioned model-pricing API after reading current configuration."
+  ],
+  "models": [
+    {
+      "model_name": "deepseek-v4-flash",
+      "source": "https://zero.cat/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 3 + cr * 0.1 + c * 9) : tier(\"off_peak\", p * 1.5 + cr * 0.05 + c * 4.5)"
+      }
+    },
+    {
+      "model_name": "deepseek-v4-flash-0731",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 2 + cr * 0.04 + c * 8) : tier(\"off_peak\", p * 1 + cr * 0.02 + c * 4)"
+      }
+    },
+    {
+      "model_name": "deepseek-v4-pro",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 18 + cr * 0.6 + c * 54) : tier(\"off_peak\", p * 9 + cr * 0.3 + c * 27)"
+      }
+    },
+    {
+      "model_name": "deepseek-v4-pro-0813",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 18 + cr * 0.6 + c * 54) : tier(\"off_peak\", p * 9 + cr * 0.3 + c * 27)"
+      }
+    },
+    {
+      "model_name": "deepseek-v4.1-flash",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 2 + cr * 0.04 + c * 8) : tier(\"off_peak\", p * 1 + cr * 0.02 + c * 4)"
+      }
+    },
+    {
+      "model_name": "deepseek-v4.1-flash-1017",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 2 + cr * 0.04 + c * 8) : tier(\"off_peak\", p * 1 + cr * 0.02 + c * 4)"
+      }
+    },
+    {
+      "model_name": "minimax-m3",
+      "source": "https://zero.cat/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "len <= 512000 ? tier(\"standard\", p * 2.1 + c * 8.4 + cr * 0.42) : tier(\"long_context\", p * 4.2 + c * 16.8 + cr * 0.84)"
+      }
+    },
+    {
+      "model_name": "minimax-m3.1-flash",
+      "source": "https://zero.cat/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 1 + c * 4 + cr * 0.1)"
+      }
+    },
+    {
+      "model_name": "kimi-k3",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 20 + cr * 2 + c * 100 + cc * 20 + cc1h * 40)"
+      }
+    },
+    {
+      "model_name": "kimi-k3.1-pro",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 13 + c * 68 + cr * 1.3 + cc * 13 + cc1h * 26)"
+      }
+    },
+    {
+      "model_name": "qwen3.8-max",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 12 + c * 36 + cc * 15 + cr * 1.5)"
+      }
+    },
+    {
+      "model_name": "qwen3.8-max-0902",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 12 + c * 36 + cr * 1.5 + cc * 15)"
+      }
+    },
+    {
+      "model_name": "glm-5.2",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 8 + c * 28 + cr * 2)"
+      }
+    },
+    {
+      "model_name": "glm-5.3",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 8 + c * 28 + cr * 2)"
+      }
+    },
+    {
+      "model_name": "glm-5.3-flash",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 0.8 + c * 2.8 + cr * 0.23)"
+      }
+    },
+    {
+      "model_name": "hy4-preview",
+      "source": "https://xkrelay.com/pricing",
+      "pricing": {
+        "billing_setting.billing_mode": "tiered_expr",
+        "billing_setting.billing_expr": "tier(\"base\", p * 6 + c * 18 + cr * 0.3)"
+      }
+    }
+  ]
+}

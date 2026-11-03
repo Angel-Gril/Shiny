@@ -263,6 +263,8 @@ type InputTokenDetails struct {
 	CachedTokens         int                 `json:"cached_tokens"`
 	CachedTokensDetails  *CachedTokenDetails `json:"cached_tokens_details,omitempty"`
 	CachedCreationTokens int                 `json:"cached_creation_tokens,omitempty"`
+	// Qwen's native OpenAI-compatible cache creation spelling.
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	// CacheWriteTokens is OpenAI's native cache-write count, reported as
 	// prompt_tokens_details.cache_write_tokens (Chat Completions) or
 	// input_tokens_details.cache_write_tokens (Responses). It is billed at the
@@ -278,6 +280,8 @@ type InputTokenDetails struct {
 // CacheWriteTokenDetails is OpenAI's split of cache writes by lifetime. The
 // two counts do not overlap and sum to cache_write_tokens.
 type CacheWriteTokenDetails struct {
+	TTL5mTokens  int `json:"ttl_5m_tokens,omitempty"`
+	TTL1hTokens  int `json:"ttl_1h_tokens,omitempty"`
 	TTL30mTokens int `json:"ttl_30m_tokens"`
 	TTL12hTokens int `json:"ttl_12h_tokens"`
 }
@@ -286,7 +290,7 @@ type CacheWriteTokenDetails struct {
 type CacheWriteTokensDetails = CacheWriteTokenDetails
 
 func (d *CacheWriteTokenDetails) HasTokens() bool {
-	return d != nil && (d.TTL30mTokens != 0 || d.TTL12hTokens != 0)
+	return d != nil && (d.TTL5mTokens != 0 || d.TTL1hTokens != 0 || d.TTL30mTokens != 0 || d.TTL12hTokens != 0)
 }
 
 // CachedTokenDetails describes subsets of cached_tokens. Pointers distinguish
@@ -334,7 +338,7 @@ func (d InputTokenDetails) Clone() InputTokenDetails {
 // value wins so the same tokens are never double-counted. Negative upstream
 // values are clamped to zero so they can never lower a charge.
 func (d InputTokenDetails) CacheCreationTokensTotal() int {
-	total := max(d.CacheWriteTokens, d.CachedCreationTokens)
+	total := max(d.CacheWriteTokens, d.CachedCreationTokens, d.CacheCreationInputTokens)
 	if total < 0 {
 		return 0
 	}
@@ -348,6 +352,13 @@ func (d InputTokenDetails) CacheWriteTokens30m() int {
 }
 
 func (d InputTokenDetails) CacheWriteTokens12h() int { return d.CacheWrite12hTokens() }
+
+func (d InputTokenDetails) CacheWrite1hTokens() int {
+	if d.CacheWriteTokensDetails == nil {
+		return 0
+	}
+	return min(max(d.CacheWriteTokensDetails.TTL1hTokens, 0), d.CacheCreationTokensTotal()-d.CacheWrite12hTokens())
+}
 
 func (d InputTokenDetails) CacheWrite12hTokens() int {
 	if d.CacheWriteTokensDetails == nil {

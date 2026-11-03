@@ -2,9 +2,11 @@ package controller
 
 import (
 	"maps"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
@@ -65,15 +67,30 @@ func GetPricing(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"success":            true,
-		"data":               pricing,
-		"vendors":            model.GetVendors(),
-		"group_ratio":        groupRatio,
-		"usable_group":       usableGroup,
-		"supported_endpoint": model.GetSupportedEndpointMap(),
-		"auto_groups":        service.GetUserAutoGroup(group),
-		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		"peak_offpeak_status": billingexpr.DeepSeekPeriodAt(time.Now()),
+		"success":             true,
+		"data":                pricing,
+		"vendors":             model.GetVendors(),
+		"group_ratio":         groupRatio,
+		"usable_group":        usableGroup,
+		"supported_endpoint":  model.GetSupportedEndpointMap(),
+		"auto_groups":         service.GetUserAutoGroup(group),
+		"pricing_version":     "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
+}
+
+// GetDeepSeekPeriod is read-only and exposes the calendar version used by pricing.
+func GetDeepSeekPeriod(c *gin.Context) {
+	at := time.Now()
+	if value := c.Query("at"); value != "" {
+		parsed, err := time.Parse(time.RFC3339, value)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		at = parsed
+	}
+	common.ApiSuccess(c, billingexpr.DeepSeekPeriodAt(at))
 }
 
 func ResetModelRatio(c *gin.Context) {

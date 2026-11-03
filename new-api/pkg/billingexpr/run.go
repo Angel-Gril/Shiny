@@ -55,6 +55,17 @@ func runProgram(prog *vm.Program, requestRules []RequestRuleTrace, usedVars map[
 		BillingUnit:  BillingUnitToken,
 		RequestRules: append([]RequestRuleTrace(nil), requestRules...),
 	}
+	now := request.BillingTime
+	if now.IsZero() {
+		now = time.Now()
+	}
+	zoneTime := func(tz string) time.Time {
+		loc, err := time.LoadLocation(strings.TrimSpace(tz))
+		if strings.TrimSpace(tz) == "" || err != nil {
+			return now.UTC()
+		}
+		return now.In(loc)
+	}
 	headers := normalizeHeaders(request.Headers)
 	imageCount := 1
 	if usedVars["image_count"] {
@@ -136,11 +147,19 @@ func runProgram(prog *vm.Program, requestRules []RequestRuleTrace, usedVars map[
 			}
 			return strings.Contains(fmt.Sprint(source), substr)
 		},
-		"hour":    func(tz string) int { return timeInZone(tz).Hour() },
-		"minute":  func(tz string) int { return timeInZone(tz).Minute() },
-		"weekday": func(tz string) int { return int(timeInZone(tz).Weekday()) },
-		"month":   func(tz string) int { return int(timeInZone(tz).Month()) },
-		"day":     func(tz string) int { return timeInZone(tz).Day() },
+		"deepseekPeak": func() bool {
+			period := deepSeekPeriodAt(now)
+			if request.DeepSeekPeriod != nil {
+				period = *request.DeepSeekPeriod
+			}
+			trace.DeepSeekPeriod = &period
+			return period.Peak
+		},
+		"hour":    func(tz string) int { return zoneTime(tz).Hour() },
+		"minute":  func(tz string) int { return zoneTime(tz).Minute() },
+		"weekday": func(tz string) int { return int(zoneTime(tz).Weekday()) },
+		"month":   func(tz string) int { return int(zoneTime(tz).Month()) },
+		"day":     func(tz string) int { return zoneTime(tz).Day() },
 		"max":     math.Max,
 		"min":     math.Min,
 		"abs":     math.Abs,
@@ -157,18 +176,6 @@ func runProgram(prog *vm.Program, requestRules []RequestRuleTrace, usedVars map[
 		return 0, trace, fmt.Errorf("expr result is %T, want float64", out)
 	}
 	return f, trace, nil
-}
-
-func timeInZone(tz string) time.Time {
-	tz = strings.TrimSpace(tz)
-	if tz == "" {
-		return time.Now().UTC()
-	}
-	loc, err := time.LoadLocation(tz)
-	if err != nil {
-		return time.Now().UTC()
-	}
-	return time.Now().In(loc)
 }
 
 func normalizeHeaders(headers map[string]string) map[string]string {
