@@ -176,7 +176,9 @@ type RelayInfo struct {
 	// and again before settlement. Non-nil only when billing mode is "tiered_expr".
 	TieredBillingSnapshot *billingexpr.BillingSnapshot
 	BillingRequestInput   *billingexpr.RequestInput
-	BillingImageCount     *int
+	// Effective Kimi TTL from the outbound body after channel overrides.
+	KimiCacheTTL      string
+	BillingImageCount *int
 	// ImageRequestCount is the effective quantity sent on the current attempt;
 	// ImageQuotaBeforeGroup is the frozen legacy estimate before request ratios.
 	ImageRequestCount     int

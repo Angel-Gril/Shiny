@@ -20,6 +20,28 @@ func TestNewGeminiChatBillingUsageRequiresTokenContent(t *testing.T) {
 	assert.False(t, billingUsage.Estimated)
 }
 
+func TestCacheCreationAliasesAndHourSplitSurviveCanonicalUsage(t *testing.T) {
+	for _, raw := range []string{
+		`{"prompt_tokens":10000,"prompt_tokens_details":{"cache_creation_input_tokens":3000}}`,
+		`{"input_tokens":10000,"input_tokens_details":{"cache_write_tokens":3000,"cache_write_tokens_details":{"ttl_1h_tokens":3000}}}`,
+	} {
+		var usage Usage
+		require.NoError(t, kitutil.Unmarshal([]byte(raw), &usage))
+		billing := NewOpenAIChatBillingUsage(&usage)
+		require.NotNil(t, billing)
+		canonical, ok := billing.CanonicalUsage()
+		require.True(t, ok)
+		assert.Equal(t, 3000, canonical.PromptTokensDetails.CacheCreationTokensTotal())
+		merged := MergeUsageNonZero(nil, canonical)
+		assert.Equal(t, 3000, merged.PromptTokensDetails.CacheCreationTokensTotal())
+		if usage.InputTokensDetails != nil {
+			assert.Equal(t, 3000, merged.PromptTokensDetails.CacheWrite1hTokens())
+			canonical.PromptTokensDetails.CacheWriteTokensDetails.TTL1hTokens = 1
+			assert.Equal(t, 3000, usage.InputTokensDetails.CacheWriteTokensDetails.TTL1hTokens)
+		}
+	}
+}
+
 func TestNewClaudeMessagesBillingUsageRequiresTokenContent(t *testing.T) {
 	require.Nil(t, NewClaudeMessagesBillingUsage(nil))
 	require.Nil(t, NewClaudeMessagesBillingUsage(&ClaudeUsage{}))

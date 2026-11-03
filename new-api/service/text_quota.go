@@ -400,6 +400,14 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []*common.Message) {
 	originUsage := usage
 	billingUsage := effectiveBillingUsage(usage)
+	// OpenAI-compatible Kimi reports aggregate cache writes. Its effective
+	// outbound TTL supplies the split when upstream did not provide one.
+	if billingUsage != nil && billingUsage.UsageSemantic != "anthropic" && relayInfo.KimiCacheTTL == "1h" && !billingUsage.PromptTokensDetails.CacheWriteTokensDetails.HasTokens() {
+		copy := *billingUsage
+		copy.PromptTokensDetails = billingUsage.PromptTokensDetails.Clone()
+		copy.PromptTokensDetails.CacheWriteTokensDetails = &dto.CacheWriteTokenDetails{TTL1hTokens: copy.PromptTokensDetails.CacheCreationTokensTotal()}
+		billingUsage = &copy
+	}
 	if usage == nil {
 		extraContent = append(extraContent, common.NewMessage("Upstream returned no usage"))
 	}

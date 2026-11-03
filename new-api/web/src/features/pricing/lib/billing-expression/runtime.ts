@@ -1,3 +1,4 @@
+import { deepSeekPeakAt } from './deepseek-calendar'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -422,6 +423,8 @@ class BillingRuntime {
   private call(node: Extract<ExpressionNode, { kind: 'call' }>): RuntimeValue {
     const args = node.args
     switch (node.name) {
+      case 'deepseekPeak':
+        return { value: deepSeekPeakAt(this.now) }
       case 'fixed': {
         const amount = this.numeric(args[0]).value
         this.billingUnit = 'request'

@@ -87,7 +87,12 @@ func readIncomingBillingExprBody(c *gin.Context) ([]byte, error) {
 
 func cloneRequestInput(src billingexpr.RequestInput) billingexpr.RequestInput {
 	input := billingexpr.RequestInput{
-		Headers: cloneStringMap(src.Headers),
+		BillingTime: src.BillingTime,
+		Headers:     cloneStringMap(src.Headers),
+	}
+	if src.DeepSeekPeriod != nil {
+		period := *src.DeepSeekPeriod
+		input.DeepSeekPeriod = &period
 	}
 	if src.ImageCount != nil {
 		count := *src.ImageCount

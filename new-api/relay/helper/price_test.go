@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
@@ -69,6 +70,33 @@ func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	require.Equal(t, "stream", info.TieredBillingSnapshot.EstimatedTier)
 	require.Equal(t, billing_setting.BillingModeTieredExpr, info.TieredBillingSnapshot.BillingMode)
 	require.Equal(t, common.QuotaPerUnit, info.TieredBillingSnapshot.QuotaPerUnit)
+}
+
+func TestCalendarPriceFreezesArrivalBeforeRetryAndStreamSettlement(t *testing.T) {
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(k, v string) error { saved[k] = v; return nil }))
+	t.Cleanup(func() { require.NoError(t, config.GlobalConfig.LoadFromDB(saved)) })
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode":         `{"calendar-test":"tiered_expr"}`,
+		"billing_setting.billing_expr":         `{"calendar-test":"deepseekPeak() ? tier(\"peak\", p * 2) : tier(\"off_peak\", p * 1)"}`,
+		"group_ratio_setting.group_ratio":      `{"default":0.35}`,
+		"quota_setting.pre_consume_multiplier": "1",
+	}))
+	at, err := time.Parse(time.RFC3339, "2026-11-04T08:59:59+08:00")
+	require.NoError(t, err)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	info := &relaycommon.RelayInfo{OriginModelName: "calendar-test", UserGroup: "default", UsingGroup: "default", StartTime: at, BillingRequestInput: &billingexpr.RequestInput{}}
+	price, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
+	require.NoError(t, err)
+	assert.Equal(t, 175, price.QuotaToPreConsume)
+	require.NotNil(t, info.TieredBillingSnapshot.DeepSeekPeriod)
+	assert.False(t, info.TieredBillingSnapshot.DeepSeekPeriod.Peak)
+	info.StartTime = at.Add(2 * time.Hour)
+	info.BillingRequestInput.BillingTime = info.StartTime
+	ok, quota, result := service.TryTieredSettle(info, billingexpr.TokenParams{P: 2000, Len: 2000})
+	require.True(t, ok)
+	assert.Equal(t, 350, quota)
+	assert.Equal(t, "off_peak", result.MatchedTier)
 }
 
 func TestFixedPricePreConsumeAndRealtimeRejection(t *testing.T) {

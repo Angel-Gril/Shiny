@@ -331,6 +331,9 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
 	ApplyUpstreamBodyMetadata(req, requestBody)
+	if err := captureKimiCacheTTL(req, info); err != nil {
+		return nil, err
+	}
 	headers := req.Header
 	err = a.SetupRequestHeader(c, &headers, info)
 	if err != nil {
@@ -346,6 +349,49 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}
 	return resp, nil
+}
+
+// Read only cache policy from a replay reader; never retain/log prompt bytes.
+// Every attempt resets the value, so channel failover cannot retain an old TTL.
+func captureKimiCacheTTL(req *http.Request, info *common.RelayInfo) error {
+	info.KimiCacheTTL = ""
+	model := strings.ToLower(info.GetUpstreamModelName())
+	if model == "" {
+		model = strings.ToLower(info.OriginModelName)
+	}
+	if !strings.HasPrefix(model[strings.LastIndex(model, "/")+1:], "kimi-") {
+		return nil
+	}
+	if req.GetBody == nil {
+		return errors.New("Kimi cache policy requires a replayable upstream body")
+	}
+	reader, err := req.GetBody()
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	var policy struct {
+		PromptCacheOptions struct {
+			TTL string `json:"ttl"`
+		} `json:"prompt_cache_options"`
+		CacheControl struct {
+			TTL string `json:"ttl"`
+		} `json:"cache_control"`
+	}
+	if err := common2.DecodeJson(reader, &policy); err != nil {
+		return err
+	}
+	ttl := policy.PromptCacheOptions.TTL
+	if info.GetFinalRequestRelayFormat() == types.RelayFormatClaude {
+		ttl = policy.CacheControl.TTL
+	}
+	if ttl == "" {
+		ttl = "5m"
+	}
+	if ttl == "5m" || ttl == "1h" {
+		info.KimiCacheTTL = ttl
+	}
+	return nil
 }
 
 func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {

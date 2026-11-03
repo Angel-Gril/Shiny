@@ -178,6 +178,7 @@ OpenAI 已于 2026-05-12 下线 DALL·E 2/3；其校验、默认值和倍率保�
 | `weekday` | `weekday(tz) → int` | Day of week (0=Sunday, 6=Saturday) |
 | `month` | `month(tz) → int` | Month (1-12) |
 | `day` | `day(tz) → int` | Day of month (1-31) |
+| `deepseekPeak` | `deepseekPeak() → bool` | Beijing weekday peak windows, excluding the versioned Chinese holiday calendar; unknown years use off-peak |
 | `max` | `max(a, b) → float64` | Math max |
 | `min` | `min(a, b) → float64` | Math min |
 | `abs` | `abs(x) → float64` | Absolute value |
@@ -185,6 +186,34 @@ OpenAI 已于 2026-05-12 下线 DALL·E 2/3；其校验、默认值和倍率保�
 | `floor` | `floor(x) → float64` | Floor |
 
 ### Expression Examples
+
+`deepseekPeak()` uses Mon–Fri 09:00–12:00 and 14:00–18:00 in Beijing,
+excluding public holidays. Weekend makeup workdays remain off-peak. The
+versioned calendar in `data/deepseek-calendar.json` is shared with the browser;
+add a year only after its official notice is published. Missing years return
+off-peak with `calendar_ready=false`, never a guessed weekday surcharge.
+
+New host requests freeze `BillingTime` from their server-owned arrival time.
+Every time function uses this single instant. Snapshots also freeze the
+DeepSeek calendar decision/version, so channel retries, delayed streams and
+settlement cannot change the time price. Logs expose `billing_time` and
+`deepseek_period`; the read-only admin `/api/option/peak_offpeak?at=<RFC3339>`
+and pricing response report calendar readiness and the next switch. Historical
+snapshots without these optional fields keep their existing fallback behavior.
+
+Administrator retail overrides may use site-credit amounts as explicitly
+chosen by the operator. The engine's scaling formula stays unchanged; a
+currency symbol does not instruct the evaluator to divide by an exchange rate.
+Built-in official prices still use real USD per million tokens.
+
+OpenAI-compatible input details accept Qwen's `cache_creation_input_tokens`
+alias alongside `cache_write_tokens` and `cached_creation_tokens`; the maximum
+is used to avoid charging aliases twice. `cc1h` also accepts the bounded
+`ttl_1h_tokens` write split. Kimi aggregate writes use the effective outbound
+`prompt_cache_options.ttl` after channel overrides, captured afresh per attempt.
+Kimi 1h writes omitted from an explicit `cc1h` price cost twice its short write
+price. Claude 1h fallback keeps its existing 6/3.75 multiplier. Explicit write
+splits from upstream take precedence over request-based inference.
 
 ```
 # Simple flat pricing
