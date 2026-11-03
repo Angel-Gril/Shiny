@@ -7450,7 +7450,7 @@
     "View details for {{username}}": "檢視 {{username}} 的詳情",
     "You do not have permission to view this user.": "你沒有權限檢視此使用者。",
     "Copy order number": "複製訂單號",
-    "Got it": "我知道了"
-  },
-  "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "週一至週五 09:00–12:00、14:00–18:00，中國法定節假日除外；未收錄日曆的年份按離峰價"
+    "Got it": "我知道了",
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "週一至週五 09:00–12:00、14:00–18:00，中國法定節假日除外；未收錄日曆的年份按離峰價"
+  }
 }

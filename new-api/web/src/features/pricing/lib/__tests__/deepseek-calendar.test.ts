@@ -1,4 +1,5 @@
 import { createInstance } from 'i18next'
+import zh from '@/i18n/locales/zh.json'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -59,5 +60,13 @@ describe('DeepSeek calendar pricing', () => {
     await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })
     const text = formatBillingCondition('deepseekPeak()', i18n.t.bind(i18n))
     expect(text).toContain('Chinese public holidays')
+  })
+
+  test('translates calendar rules from the real Chinese translation namespace', async () => {
+    const i18n = createInstance()
+    await i18n.init({ lng: 'zhCN', nsSeparator: false, resources: { zhCN: zh } })
+    const text = formatBillingCondition('deepseekPeak()', i18n.t.bind(i18n), 'zhCN')
+    expect(text).toContain('法定节假日')
+    expect(text).not.toContain('Chinese public holidays')
   })
 })
