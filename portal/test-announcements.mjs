@@ -188,6 +188,25 @@ try {
   await new Promise(r => server.listen(0, '127.0.0.1', r)); base = 'http://127.0.0.1:' + server.address().port;
   browser = await chromium.launch({headless: true});
 
+  configure('');
+  let loginPage = await fresh(); await homeReady(loginPage);
+  const loginLink = loginPage.locator('#site-header a.login-link');
+  assert.equal(await loginLink.getAttribute('target'), null,
+    'Login must stay in the current tab');
+  assert.equal(await loginLink.getAttribute('href'), 'https://shinyapi.com/sign-in');
+  await loginPage.route('https://shinyapi.com/sign-in', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<!doctype html><html><body><h1>Shiny sign-in fixture</h1></body></html>',
+  }));
+  await Promise.all([
+    loginPage.waitForURL('https://shinyapi.com/sign-in'),
+    loginLink.click(),
+  ]);
+  assert.equal(context.pages().length, 1, 'Login must not create a separate tab');
+  await loginPage.getByRole('heading', {name: 'Shiny sign-in fixture'}).waitFor();
+  checks.push('Homepage login navigates the same tab into the control-panel sign-in flow');
+
   configure(fixtureNotice()); noticeGate = gate();
   let held = noticeGate, page = await fresh(); await homeReady(page);
   await bounded(held.seen, 'Homepage never started its asynchronous notice fetch');
