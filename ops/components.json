@@ -7,10 +7,11 @@
     "source_commit": "381a62ad2",
     "merge_commit": "aab52146f66e034a5c1ebc8c658c0b602aaac44b",
     "artifact_sha256": "d716d89ea658e3166901e2ab0a9ddc8c69a618a2a9995506f2c298d4098a24df",
-    "frontend_release": "web-national-billing-20261104",
+    "frontend_release": "web-login-branding-20261104-r2",
     "custom_source": "new-api/",
-    "frontend_source_commit": "729237cbe",
-    "frontend_bundle": "web-national-billing-20261104",
+    "frontend_source_commit": "ecb1030e99c46d3047dd2c868dcb939dc336da80",
+    "frontend_bundle": "web-login-branding-20261104-r2",
+    "frontend_archive_sha256": "72beffe009137cdb0537e1501dca9cfd0f9f672b48082b34911a64e0c9e4f5c7",
     "upgrade_target": {
       "upstream_release": "v1.0.0-rc.47",
       "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
@@ -91,11 +92,12 @@
   },
   "portal": {
     "production_release": "portal-20261017-v14",
-    "frontend_release": "portal-20261019-v21",
-    "frontend_source_commit": "271dd465eda87431d8e622e05338a94fccb0a956",
+    "frontend_release": "portal-login-navigation-20261104-r7",
+    "frontend_source_commit": "ecb1030e99c46d3047dd2c868dcb939dc336da80",
     "r2_default_limit_mib": 10240,
     "source": "portal/",
-    "frontend_bundle": "announcements-20261019-r2"
+    "frontend_bundle": "portal-login-navigation-20261104-r7",
+    "frontend_archive_sha256": "ba1bb089ecaae7137514757e9896d7e7b957fca1b0ef70832f8662333c307904"
   },
   "frontend_bundle": {
     "release": "announcements-20261019-r2",
