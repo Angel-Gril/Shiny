@@ -40,7 +40,7 @@ import { NavLinkItem } from '../components/nav-link-item'
 vi.mock('@/hooks/use-system-config', () => ({
   useSystemConfig: () => ({
     systemName: 'Test Gateway',
-    logo: '/logo.png',
+    logo: '/shiny-home-assets/portal-20261019-v21/assets/mark.svg',
     loading: false,
   }),
 }))
@@ -86,6 +86,12 @@ it('clicking the sign-in brand loads the homepage document instead of the built-
   const { router } = await renderNavigation(
     <AuthLayout>Sign in form</AuthLayout>
   )
+  const logo = screen.getByRole('img', { name: 'Logo' })
+  expect(logo).toHaveAttribute(
+    'src',
+    '/shiny-home-assets/portal-20261019-v21/assets/mark.svg'
+  )
+  expect(logo).not.toHaveClass('rounded-full')
   const navigate = vi.spyOn(router, 'navigate').mockResolvedValue()
 
   await userEvent.click(

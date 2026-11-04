@@ -31,3 +31,5 @@ CPA Manager Plus 是独立官方服务，长期统计库与 data.key 共同备�
 ## 独立域名入口
 
 `www.shinyapi.com`的HTTP/HTTPS重定向vhost独立于门户与控制台include，源码见`ops/nginx/`。升级时保留该站点启用链接、独立www证书/续期配置以及Certbot的Nginx检查/重载钩子；域名入口修复不需要替换主域名/api证书或放宽默认TLS拒绝规则。变更后分别验收www、主域名与api的SNI及路径/查询保留。
+
+门户与登录页品牌入口的维护约定：门户 Logo 通过 `/shiny-home-assets/<immutable-release>/assets/mark.svg` 提供；New API 系统设置的 `Logo` 可引用当前门户版本路径。发布新版门户后，先确认旧版本 SVG 仍为 HTTP 200，再更新该单一选项。首页登录按钮必须使用当前标签导航到 `/sign-in`，控制台品牌返回链接完整加载静态门户首页。门户与控制台前端分别构建、验收和切换各自的 Nginx include，并保留完整的历史资源回退链。控制台 include 的 root 必须匹配实际包布局，不能假定存在 site 子目录。完成候选浏览器验收后平滑 reload Nginx，单独更新 Logo 选项；不重启门户内容服务或 New API，不替换或删除任何历史不可变资源。回滚时分别恢复原门户 include、控制台 include 与 Logo 字符串。
