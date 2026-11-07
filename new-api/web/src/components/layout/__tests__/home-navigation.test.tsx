@@ -25,11 +25,12 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { beforeEach, expect, it, vi } from 'vitest'
 
+import { TopNav } from '@/components/layout/components/top-nav'
 import { SignOutDialog } from '@/components/sign-out-dialog'
 import { AuthLayout } from '@/features/auth/auth-layout'
 import { api } from '@/lib/api'
@@ -120,6 +121,45 @@ it('clicking Home loads a document while other navigation remains within the app
   await userEvent.click(screen.getByRole('link', { name: 'Models' }))
   expect(navigate).toHaveBeenLastCalledWith(
     expect.objectContaining({ to: '/pricing', reloadDocument: false })
+  )
+})
+
+it('clicking Home in the console top navigation loads the homepage document', async () => {
+  const { router } = await renderNavigation(
+    <TopNav
+      links={[
+        { title: 'Home', href: '/' },
+        { title: 'Models', href: '/pricing' },
+      ]}
+    />
+  )
+  const navigate = vi.spyOn(router, 'navigate').mockResolvedValue()
+
+  await userEvent.click(await screen.findByRole('link', { name: 'Home' }))
+
+  expect(navigate).toHaveBeenLastCalledWith(
+    expect.objectContaining({ to: '/', reloadDocument: true })
+  )
+
+  await userEvent.click(screen.getByRole('link', { name: 'Models' }))
+  expect(navigate).toHaveBeenLastCalledWith(
+    expect.objectContaining({ to: '/pricing', reloadDocument: false })
+  )
+})
+
+it('clicking Home in the mobile console menu loads the homepage document', async () => {
+  const { router } = await renderNavigation(
+    <TopNav links={[{ title: 'Home', href: '/' }]} />
+  )
+  const navigate = vi.spyOn(router, 'navigate').mockResolvedValue()
+  const user = userEvent.setup()
+
+  await user.click(screen.getByRole('button'))
+  const menu = await screen.findByRole('menu')
+  await user.click(within(menu).getByRole('menuitem', { name: 'Home' }))
+
+  expect(navigate).toHaveBeenLastCalledWith(
+    expect.objectContaining({ to: '/', reloadDocument: true })
   )
 })
 
