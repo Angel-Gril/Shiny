@@ -6,6 +6,8 @@
 
 更新步骤：创建 `upgrade/new-api-<version>` 分支；从官方固定版本取源，逐模块对比合并到 `new-api/`，保留所有 Shiny 修改；更新来源清单。计费、鉴权、审计、路由重试、插件宿主、门户身份接口、模型价格和旧标签页入口都要验收。数据库迁移须支持 SQLite/MySQL/PostgreSQL；生产使用 PostgreSQL，不以生产数据做开发夹具。
 
+行为审计独立开关 `BehaviorAuditEnabled` 属于 Shiny 请求策略扩展，缺省为 true。升级合并时保留后端校验和请求完成后的开关检查，以及“请求检查”页的独立保存入口；关闭时不累计行为计数，但内容审核和管理员操作日志继续工作。详情见 `ops/releases/2026-11-10-behavior-audit-switch.md`。
+
 升级不是把新文件无条件覆盖旧目录。若改动规模扩大，可以用上游提交导入为 Git subtree 保留其完整提交关系；当前单仓快照策略以来源固定、代码审查和功能回归为兼容保证，不宣称自动解决冲突。
 
 ## CPA / CPA Manager Plus

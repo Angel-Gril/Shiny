@@ -283,6 +283,53 @@ describe('request policy settings', () => {
     )
   })
 
+  it('behavior audit defaults on and saves independently from content audit and filtering', async () => {
+    await renderPolicies('/system-settings/request-policies/filtering')
+    const toggle = await screen.findByRole('switch', {
+      name: 'Enable behavior audit',
+    })
+    expect(toggle).toBeChecked()
+    toggle.focus()
+    await userEvent.keyboard(' ')
+    expect(toggle).not.toBeChecked()
+    expect(
+      screen.getByRole('switch', { name: 'Enable filtering' })
+    ).toBeChecked()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save behavior audit settings' })
+    )
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledExactlyOnceWith(
+        '/api/option/request_policy',
+        { options: { BehaviorAuditEnabled: 'false' } }
+      )
+    )
+  })
+
+  it('behavior audit loads a saved off value and preserves it after a rejected save', async () => {
+    Object.assign(settings, { BehaviorAuditEnabled: false })
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { success: false, message: 'Save rejected' },
+    })
+    await renderPolicies('/system-settings/request-policies/filtering')
+    const toggle = await screen.findByRole('switch', {
+      name: 'Enable behavior audit',
+    })
+    expect(toggle).not.toBeChecked()
+    await userEvent.click(toggle)
+    const save = screen.getByRole('button', {
+      name: 'Save behavior audit settings',
+    })
+    await userEvent.click(save)
+    await waitFor(() => expect(save).toBeEnabled())
+    expect(toggle).toBeChecked()
+    await userEvent.click(save)
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2))
+    expect(api.patch).toHaveBeenLastCalledWith('/api/option/request_policy', {
+      options: { BehaviorAuditEnabled: 'true' },
+    })
+  })
+
   it('refreshing another policy keeps unsaved filter text', async () => {
     await renderPolicies('/system-settings/request-policies/filtering')
     const keywords = await screen.findByRole('textbox', {

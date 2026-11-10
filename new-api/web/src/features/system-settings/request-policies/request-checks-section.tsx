@@ -65,6 +65,10 @@ const sensitiveSchema = z.object({
   SensitiveWordSignals: z.string().optional(),
 })
 
+const behaviorAuditSchema = z.object({
+  BehaviorAuditEnabled: z.boolean(),
+})
+
 const contentAuditSchema = z.object({
   ContentAuditEnabled: z.boolean(),
   ContentAuditMode: z.enum(['off', 'shadow', 'preflight']),
@@ -86,9 +90,12 @@ const contentAuditSchema = z.object({
 
 type SensitiveFormValues = z.infer<typeof sensitiveSchema>
 type ContentAuditFormValues = z.infer<typeof contentAuditSchema>
+type BehaviorAuditFormValues = z.infer<typeof behaviorAuditSchema>
 
 type RequestChecksSectionProps = {
-  defaultValues: SensitiveFormValues & ContentAuditFormValues
+  defaultValues: SensitiveFormValues &
+    ContentAuditFormValues &
+    BehaviorAuditFormValues
 }
 
 export function RequestChecksSection({
@@ -126,6 +133,7 @@ export function RequestChecksSection({
 
   return (
     <>
+      <BehaviorAuditSection defaultValues={defaultValues} />
       <SettingsSection title={t('Request checks')}>
         <p className='text-muted-foreground text-sm'>
           {t('Source: global settings. Changes take effect after saving.')}
@@ -256,6 +264,75 @@ export function RequestChecksSection({
       </SettingsSection>
       <ContentAuditSection defaultValues={defaultValues} />
     </>
+  )
+}
+
+function BehaviorAuditSection(props: RequestChecksSectionProps) {
+  const { t } = useTranslation()
+  const updateOption = useSavePolicy()
+  const form = useForm<BehaviorAuditFormValues>({
+    resolver: zodResolver(behaviorAuditSchema),
+    defaultValues: props.defaultValues,
+  })
+
+  useEffect(() => {
+    form.reset(props.defaultValues)
+  }, [props.defaultValues, form])
+
+  const onSubmit = async (values: BehaviorAuditFormValues) => {
+    if (
+      values.BehaviorAuditEnabled === props.defaultValues.BehaviorAuditEnabled
+    ) {
+      return
+    }
+    try {
+      await updateOption.mutateAsync({
+        BehaviorAuditEnabled: String(values.BehaviorAuditEnabled),
+      })
+    } catch (error) {
+      handleServerError(error)
+    }
+  }
+
+  return (
+    <SettingsSection title={t('Behavior audit')}>
+      <Form {...form}>
+        <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
+          <SettingsPageFormActions
+            onSave={form.handleSubmit(onSubmit)}
+            isSaving={form.formState.isSubmitting}
+            saveLabel='Save behavior audit settings'
+          />
+          <FormField
+            control={form.control}
+            name='BehaviorAuditEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Enable behavior audit')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.'
+            )}
+          </p>
+        </SettingsForm>
+      </Form>
+    </SettingsSection>
   )
 }
 

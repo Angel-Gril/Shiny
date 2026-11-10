@@ -33,6 +33,7 @@ const POLICY_SECTIONS = [
           CheckSensitiveOnPromptEnabled: settings.CheckSensitiveOnPromptEnabled,
           SensitiveWords: settings.SensitiveWords,
           SensitiveWordSignals: settings.SensitiveWordSignals,
+          BehaviorAuditEnabled: settings.BehaviorAuditEnabled,
           ContentAuditEnabled: settings.ContentAuditEnabled,
           ContentAuditMode: settings.ContentAuditMode,
           ContentAuditPreflightScope: settings.ContentAuditPreflightScope,

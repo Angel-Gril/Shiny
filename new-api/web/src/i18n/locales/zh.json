@@ -7456,6 +7456,11 @@
     "You do not have permission to view this user.": "你没有权限查看此用户。",
     "Copy order number": "复制订单号",
     "Got it": "我知道了",
-    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "周一至周五 09:00–12:00、14:00–18:00，中国法定节假日除外；未录入日历的年份按闲时价"
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "周一至周五 09:00–12:00、14:00–18:00，中国法定节假日除外；未录入日历的年份按闲时价",
+    "Behavior audit": "行为审计",
+    "Enable behavior audit": "启用行为审计",
+    "Save behavior audit settings": "保存行为审计设置",
+    "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "仅记录多令牌使用、网络与模型切换、重试、失败、长请求及频繁令牌操作等行为观察信号。",
+    "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "保存后即时生效。关闭后停止新增行为信号及其计数，保留历史记录；内容审核、关键词过滤、操作日志和请求限流仍由各自设置控制。"
   }
 }

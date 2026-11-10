@@ -7451,6 +7451,11 @@
     "You do not have permission to view this user.": "このユーザーを表示する権限がありません。",
     "Copy order number": "注文番号をコピー",
     "Got it": "わかりました",
-    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "月〜金 09:00–12:00、14:00–18:00（中国の祝日を除く）。年のカレンダー未登録時は閑散時料金"
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "月〜金 09:00–12:00、14:00–18:00（中国の祝日を除く）。年のカレンダー未登録時は閑散時料金",
+    "Behavior audit": "行動監査",
+    "Enable behavior audit": "行動監査を有効にする",
+    "Save behavior audit settings": "行動監査設定を保存",
+    "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "複数トークンの使用、ネットワークやモデルの変更、再試行、失敗、長時間リクエスト、頻繁なトークン操作を観察用に記録します。",
+    "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "保存後すぐに反映されます。無効にすると新しい行動シグナルとその計数を停止します。既存の記録、コンテンツ監査、キーワードフィルター、操作ログ、リクエスト制限は個別に管理されます。"
   }
 }

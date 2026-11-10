@@ -77,6 +77,15 @@ jobs:
         working-directory: new-api/web
       - run: bunx vitest run src/features/site-announcements src/context/__tests__/theme-preferences.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
         working-directory: new-api/web
+      - run: bunx vitest run src/features/system-settings/request-policies/__tests__/settings.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
+        working-directory: new-api/web
+      - run: go test ./middleware -run '^(TestBehaviorAuditSwitch|TestAbuseShadow|TestRecordTokenChurn)' -count=1
+        working-directory: new-api
+      - run: go test ./model -run '^TestRequestPolicyDatabaseMatrix$' -count=1 -v
+        working-directory: new-api
+        env:
+          TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
+          TEST_POSTGRES_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture?sslmode=disable
       - run: go test ./controller -run '^(TestUserInsight|TestRequestPolicyRetryAvoidsUsedChannelsDatabaseMatrix)' -count=1
         working-directory: new-api
         env:

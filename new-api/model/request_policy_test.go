@@ -77,9 +77,14 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			rules := `[{"name":"session","model_regex":[".*"],"key_sources":[{"type":"request_header","key":"X-Session"}],"ttl_seconds":0,"skip_retry_on_failure":false,"include_using_group":false,"param_override_template":{"temperature":0},"future_field":{"enabled":false}}]`
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"RetryTimes": "2", "channel_affinity_setting.rules": rules}))
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditMode": "shadow", "ContentAuditPreflightScope": "signal", "SensitiveWordSignals": "窃取 API 密钥\nbypass billing", "SensitiveWords": ""}))
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "false"}))
 			loadOptionsFromDatabase()
 			loadOptionsFromDatabase()
+			assert.False(t, CurrentRequestPolicy().BehaviorAuditEnabled)
 			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"])
+			require.NoError(t, UpdateOption("BehaviorAuditEnabled", "true"))
+			assert.True(t, CurrentRequestPolicy().BehaviorAuditEnabled)
+			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"], "behavior auditing never changes the content audit mode")
 			assert.Len(t, CurrentRequestPolicy().TextSignals, 2)
 			assert.Empty(t, CurrentRequestPolicy().TextKeywords)
 			assert.Equal(t, 2, CurrentRequestPolicy().RetryTimes)
@@ -99,6 +104,8 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			assert.Equal(t, "strict", CurrentRequestPolicy().Affinity.SessionMode)
 			assert.Equal(t, rules, CurrentRequestPolicy().Options["channel_affinity_setting.rules"], "a global mode never rewrites rule fields")
 			snapshot := CurrentRequestPolicy()
+			assert.Error(t, UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "invalid"}))
+			assert.Same(t, snapshot, CurrentRequestPolicy())
 			assert.Error(t, UpdateRequestPolicyOptions(map[string]string{"channel_affinity_setting.session_mode": "unknown"}))
 			assert.Same(t, snapshot, CurrentRequestPolicy())
 			for _, value := range []string{"-1", "1.5", "bad", strconv.Itoa(math.MaxInt)} {

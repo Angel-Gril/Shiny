@@ -34,9 +34,13 @@ return redis.call('ZCARD',KEYS[1])`)
 // requests or mutate token, user, wallet, or provider state.
 func AbuseShadowMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if !model.CurrentRequestPolicy().BehaviorAuditEnabled {
+			c.Next()
+			return
+		}
 		started := time.Now()
 		c.Next()
-		if !common.RedisEnabled || common.RDB == nil {
+		if !model.CurrentRequestPolicy().BehaviorAuditEnabled || !common.RedisEnabled || common.RDB == nil {
 			return
 		}
 		userID := c.GetInt(string(constant.ContextKeyUserId))
@@ -133,7 +137,7 @@ func AbuseShadowMiddleware() gin.HandlerFunc {
 // RecordTokenChurnSignal aggregates successful token lifecycle operations in
 // a short window. It is a shadow signal only and does not reject the operation.
 func RecordTokenChurnSignal(c *gin.Context, action string) {
-	if c == nil || !common.RedisEnabled || common.RDB == nil || c.GetInt("id") <= 0 {
+	if c == nil || !model.CurrentRequestPolicy().BehaviorAuditEnabled || !common.RedisEnabled || common.RDB == nil || c.GetInt("id") <= 0 {
 		return
 	}
 	ctx := context.Background()
@@ -154,7 +158,7 @@ func RecordTokenChurnSignal(c *gin.Context, action string) {
 }
 
 func emitAbuseSignal(c *gin.Context, prefix, kind string, fields model.AuditFields) {
-	if common.RDB == nil {
+	if !model.CurrentRequestPolicy().BehaviorAuditEnabled || common.RDB == nil {
 		return
 	}
 	cooldownKey := fmt.Sprintf("%s:signal:%s:%d", prefix, kind, time.Now().Unix()/int64(abuseShadowWindow/time.Second))
