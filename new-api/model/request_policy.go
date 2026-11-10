@@ -23,16 +23,17 @@ import (
 // settings API. It is rebuilt from the option map on every option write, so
 // the runtime globals updated by the same write never disagree with it.
 type RequestPolicySnapshot struct {
-	Affinity        operation_setting.ChannelAffinitySetting
-	RetryTimes      int
-	RetryCodes      []operation_setting.StatusCodeRange
-	DisableCodes    []operation_setting.StatusCodeRange
-	DisableKeywords []string
-	CheckText       bool
-	TextKeywords    []string
-	TextSignals     []string
-	AutoDisable     bool
-	Options         map[string]string
+	Affinity             operation_setting.ChannelAffinitySetting
+	RetryTimes           int
+	RetryCodes           []operation_setting.StatusCodeRange
+	DisableCodes         []operation_setting.StatusCodeRange
+	DisableKeywords      []string
+	CheckText            bool
+	TextKeywords         []string
+	TextSignals          []string
+	BehaviorAuditEnabled bool
+	AutoDisable          bool
+	Options              map[string]string
 }
 
 var requestPolicySnapshot atomic.Pointer[RequestPolicySnapshot]
@@ -62,6 +63,7 @@ func requestPolicyDefaultOptions() map[string]string {
 	defaults["CheckSensitiveOnPromptEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnPromptEnabled)
 	defaults["SensitiveWords"] = setting.SensitiveWordsToString()
 	defaults["SensitiveWordSignals"] = ""
+	defaults["BehaviorAuditEnabled"] = "true"
 	defaults["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	defaults["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
 	defaults["ContentAuditEnabled"] = "false"
@@ -78,7 +80,7 @@ func requestPolicyDefaultOptions() map[string]string {
 }
 
 func IsRequestPolicyOption(key string) bool {
-	if key == "ContentAuditPreflightScope" {
+	if key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" {
 		return true
 	}
 	if strings.HasPrefix(key, "channel_affinity_setting.") {
@@ -162,6 +164,10 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 	snapshot.AutoDisable, err = strconv.ParseBool(raw["AutomaticDisableChannelEnabled"])
 	if err != nil {
 		return nil, err
+	}
+	snapshot.BehaviorAuditEnabled, err = strconv.ParseBool(raw["BehaviorAuditEnabled"])
+	if err != nil {
+		return nil, fmt.Errorf("invalid boolean: BehaviorAuditEnabled")
 	}
 	snapshot.RetryCodes, err = operation_setting.ParseHTTPStatusCodeRanges(raw["AutomaticRetryStatusCodes"])
 	if err != nil {

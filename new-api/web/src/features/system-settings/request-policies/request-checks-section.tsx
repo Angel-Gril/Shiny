@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { RefreshCw } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -55,6 +55,7 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
+import { useResetForm } from '../hooks/use-reset-form'
 import { getContentAuditModels } from './api'
 import { useSavePolicy } from './use-save-policy'
 
@@ -63,6 +64,10 @@ const sensitiveSchema = z.object({
   CheckSensitiveOnPromptEnabled: z.boolean(),
   SensitiveWords: z.string().optional(),
   SensitiveWordSignals: z.string().optional(),
+})
+
+const behaviorAuditSchema = z.object({
+  BehaviorAuditEnabled: z.boolean(),
 })
 
 const contentAuditSchema = z.object({
@@ -86,9 +91,12 @@ const contentAuditSchema = z.object({
 
 type SensitiveFormValues = z.infer<typeof sensitiveSchema>
 type ContentAuditFormValues = z.infer<typeof contentAuditSchema>
+type BehaviorAuditFormValues = z.infer<typeof behaviorAuditSchema>
 
 type RequestChecksSectionProps = {
-  defaultValues: SensitiveFormValues & ContentAuditFormValues
+  defaultValues: SensitiveFormValues &
+    ContentAuditFormValues &
+    BehaviorAuditFormValues
 }
 
 export function RequestChecksSection({
@@ -101,9 +109,12 @@ export function RequestChecksSection({
     defaultValues,
   })
 
-  useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+  useResetForm(form, {
+    CheckSensitiveEnabled: defaultValues.CheckSensitiveEnabled,
+    CheckSensitiveOnPromptEnabled: defaultValues.CheckSensitiveOnPromptEnabled,
+    SensitiveWords: defaultValues.SensitiveWords,
+    SensitiveWordSignals: defaultValues.SensitiveWordSignals,
+  })
 
   const onSubmit = async (values: SensitiveFormValues) => {
     const updates = Object.entries(values).filter(
@@ -126,6 +137,7 @@ export function RequestChecksSection({
 
   return (
     <>
+      <BehaviorAuditSection defaultValues={defaultValues} />
       <SettingsSection title={t('Request checks')}>
         <p className='text-muted-foreground text-sm'>
           {t('Source: global settings. Changes take effect after saving.')}
@@ -259,6 +271,75 @@ export function RequestChecksSection({
   )
 }
 
+function BehaviorAuditSection(props: RequestChecksSectionProps) {
+  const { t } = useTranslation()
+  const updateOption = useSavePolicy()
+  const form = useForm<BehaviorAuditFormValues>({
+    resolver: zodResolver(behaviorAuditSchema),
+    defaultValues: props.defaultValues,
+  })
+
+  useResetForm(form, {
+    BehaviorAuditEnabled: props.defaultValues.BehaviorAuditEnabled,
+  })
+
+  const onSubmit = async (values: BehaviorAuditFormValues) => {
+    if (
+      values.BehaviorAuditEnabled === props.defaultValues.BehaviorAuditEnabled
+    ) {
+      return
+    }
+    try {
+      await updateOption.mutateAsync({
+        BehaviorAuditEnabled: String(values.BehaviorAuditEnabled),
+      })
+    } catch (error) {
+      handleServerError(error)
+    }
+  }
+
+  return (
+    <SettingsSection title={t('Behavior audit')}>
+      <Form {...form}>
+        <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
+          <SettingsPageFormActions
+            onSave={form.handleSubmit(onSubmit)}
+            isSaving={form.formState.isSubmitting}
+            saveLabel='Save behavior audit settings'
+          />
+          <FormField
+            control={form.control}
+            name='BehaviorAuditEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Enable behavior audit')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.'
+            )}
+          </p>
+        </SettingsForm>
+      </Form>
+    </SettingsSection>
+  )
+}
+
 function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
   const { t } = useTranslation()
   const updateOption = useSavePolicy()
@@ -270,9 +351,18 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     defaultValues,
   })
 
-  useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+  useResetForm(form, {
+    ContentAuditEnabled: defaultValues.ContentAuditEnabled,
+    ContentAuditMode: defaultValues.ContentAuditMode,
+    ContentAuditPreflightScope: defaultValues.ContentAuditPreflightScope,
+    ContentAuditEndpoint: defaultValues.ContentAuditEndpoint,
+    ContentAuditModel: defaultValues.ContentAuditModel,
+    ContentAuditTimeoutMs: defaultValues.ContentAuditTimeoutMs,
+    ContentAuditSampleRate: defaultValues.ContentAuditSampleRate,
+    ContentAuditPrompt: defaultValues.ContentAuditPrompt,
+    ContentAuditFlaggedThreshold: defaultValues.ContentAuditFlaggedThreshold,
+    ContentAuditReviewThreshold: defaultValues.ContentAuditReviewThreshold,
+  })
 
   const fetchModels = async () => {
     setIsFetchingModels(true)

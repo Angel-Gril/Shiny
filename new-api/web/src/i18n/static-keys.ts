@@ -906,4 +906,9 @@ export const STATIC_I18N_KEYS = [
   'Channel priorities changed. Refresh and try again.',
   'Invalid channel priority move',
   'Channel priority is outside the sortable range',
+  'Behavior audit',
+  'Enable behavior audit',
+  'Save behavior audit settings',
+  'Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.',
+  'Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.',
 ] as const

@@ -7451,6 +7451,11 @@
     "You do not have permission to view this user.": "У вас нет прав на просмотр этого пользователя.",
     "Copy order number": "Копировать номер заказа",
     "Got it": "Понятно",
-    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "Пн–пт 09:00–12:00 и 14:00–18:00, кроме праздников Китая; без календаря года применяется внепиковая цена"
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "Пн–пт 09:00–12:00 и 14:00–18:00, кроме праздников Китая; без календаря года применяется внепиковая цена",
+    "Behavior audit": "Аудит поведения",
+    "Enable behavior audit": "Включить аудит поведения",
+    "Save behavior audit settings": "Сохранить настройки аудита поведения",
+    "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "Записывает для наблюдения использование нескольких токенов, смену сетей и моделей, повторы, ошибки, долгие запросы и частые операции с токенами.",
+    "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "Изменения применяются после сохранения. Отключение прекращает новые сигналы и их подсчёт. История, аудит содержимого, фильтры, журналы операций и ограничения запросов управляются отдельно."
   }
 }

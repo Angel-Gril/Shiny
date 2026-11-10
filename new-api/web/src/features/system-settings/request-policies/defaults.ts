@@ -42,6 +42,7 @@ export type FilteringSettings = Pick<
   'CheckSensitiveEnabled' | 'CheckSensitiveOnPromptEnabled' | 'SensitiveWords'
 > & {
   SensitiveWordSignals: string
+  BehaviorAuditEnabled: boolean
   ContentAuditEnabled: boolean
   ContentAuditMode: 'off' | 'shadow' | 'preflight'
   ContentAuditPreflightScope: 'signal' | 'all'
@@ -82,6 +83,7 @@ export const defaultRequestPolicySettings: RequestPolicySettings = {
   CheckSensitiveOnPromptEnabled: false,
   SensitiveWords: '',
   SensitiveWordSignals: '',
+  BehaviorAuditEnabled: true,
   ContentAuditEnabled: false,
   ContentAuditMode: 'off',
   ContentAuditPreflightScope: 'signal',

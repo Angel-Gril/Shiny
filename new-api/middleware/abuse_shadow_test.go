@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -60,6 +61,85 @@ func TestAbuseShadowRecordsDistinctTokenSignalWithoutRawIP(t *testing.T) {
 	assert.Len(t, signals[0].Ip, 16)
 	assert.NotEqual(t, "192.0.2.10", signals[0].Ip)
 	assert.NotEmpty(t, signals[0].TokenRef)
+}
+
+func TestBehaviorAuditSwitchStopsSignalsWithoutChangingRequestsOrOtherAudits(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousDB, previousLogDB := model.DB, model.LOG_DB
+	common.OptionMapRWMutex.Lock()
+	previousOptions := maps.Clone(common.OptionMap)
+	common.OptionMap = maps.Clone(model.CurrentRequestPolicy().Options)
+	common.OptionMapRWMutex.Unlock()
+	previousPolicy := model.CurrentRequestPolicy().Options["BehaviorAuditEnabled"]
+	if previousPolicy == "" {
+		previousPolicy = "true"
+	}
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.AuditLog{}, &model.AbuseReview{}))
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() {
+		require.NoError(t, model.UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": previousPolicy}))
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousOptions
+		common.OptionMapRWMutex.Unlock()
+		model.DB, model.LOG_DB = previousDB, previousLogDB
+	})
+	mini, _ := useRateLimitMiniRedis(t)
+	router := gin.New()
+	router.Use(AbuseShadowMiddleware())
+	router.GET("/relay", func(c *gin.Context) {
+		userID, _ := strconv.Atoi(c.Query("user"))
+		tokenID, _ := strconv.Atoi(c.Query("token"))
+		c.Set("id", userID)
+		c.Set("token_id", tokenID)
+		c.Set("username", "fixture-user")
+		c.Set("role", common.RoleCommonUser)
+		c.Set("original_model", c.Query("model"))
+		c.Set("channel", 9)
+		for range 3 {
+			service.RequestPolicy(c).BeginAttempt(&model.Channel{Id: 9}, "default")
+		}
+		c.Status(http.StatusBadGateway)
+	})
+	for tokenID := 1; tokenID <= 3; tokenID++ {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, fmt.Sprintf("/relay?user=42&token=%d&model=fixture", tokenID), nil))
+		require.Equal(t, http.StatusBadGateway, rec.Code)
+	}
+	var before int64
+	require.NoError(t, db.Model(&model.AuditLog{}).Count(&before).Error)
+	require.Positive(t, before, "existing installations keep behavior auditing enabled")
+	require.NoError(t, model.UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "false"}))
+	redisBefore := mini.Dump()
+	for i := range 4 {
+		rec := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/relay?user=43&token=%d&model=fixture-%d", i+10, i), nil)
+		request.RemoteAddr = fmt.Sprintf("192.0.2.%d:1234", i+1)
+		router.ServeHTTP(rec, request)
+		require.Equal(t, http.StatusBadGateway, rec.Code, "the toggle does not alter relay results")
+	}
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("id", 43)
+	ctx.Set("username", "fixture-user")
+	ctx.Set("role", common.RoleCommonUser)
+	for range 3 {
+		RecordTokenChurnSignal(ctx, "token.create")
+	}
+	var after int64
+	require.NoError(t, db.Model(&model.AuditLog{}).Count(&after).Error)
+	assert.Equal(t, before, after, "disabled relay and token lifecycle observations create no audit rows")
+	assert.Equal(t, redisBefore, mini.Dump(), "disabled observations do not accumulate or reserve cooldown keys")
+	model.RecordAuditLog(ctx, model.AuditLog{UserId: 43, ActorRole: common.RoleCommonUser, Category: model.AuditCategoryOperation, Action: "token.create", Success: true})
+	model.RecordAbuseSignal(ctx, 43, 10, "content_audit", model.AuditFields{"confidence": 0.96})
+	require.NoError(t, db.Model(&model.AuditLog{}).Count(&after).Error)
+	assert.Equal(t, before+2, after, "operation and content audit records remain independent")
+	require.NoError(t, model.UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "true"}))
+	for tokenID := 20; tokenID < 23; tokenID++ {
+		router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, fmt.Sprintf("/relay?user=44&token=%d&model=fixture", tokenID), nil))
+	}
+	require.NoError(t, db.Model(&model.AuditLog{}).Where("user_id = ? AND action = ?", 44, "abuse.multi_token").Count(&after).Error)
+	assert.Equal(t, int64(1), after, "saving on resumes auditing without rebuilding the router")
 }
 
 func TestAbuseShadowTwoNetworkExitsDoNotCreateReview(t *testing.T) {

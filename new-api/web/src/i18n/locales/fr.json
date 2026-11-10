@@ -7451,6 +7451,11 @@
     "You do not have permission to view this user.": "Vous n’avez pas l’autorisation de consulter cet utilisateur.",
     "Copy order number": "Copier le numéro de commande",
     "Got it": "Compris",
-    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "Lun–ven 09:00–12:00 et 14:00–18:00, hors jours fériés chinois ; tarif creux si le calendrier annuel manque"
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "Lun–ven 09:00–12:00 et 14:00–18:00, hors jours fériés chinois ; tarif creux si le calendrier annuel manque",
+    "Behavior audit": "Audit comportemental",
+    "Enable behavior audit": "Activer l’audit comportemental",
+    "Save behavior audit settings": "Enregistrer l’audit comportemental",
+    "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "Enregistre à titre d’observation l’utilisation de plusieurs jetons, les changements de réseau et de modèle, les nouvelles tentatives, les échecs, les requêtes longues et les opérations fréquentes sur les jetons.",
+    "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "Les modifications prennent effet après enregistrement. La désactivation arrête les nouveaux signaux et leurs compteurs. Les archives, l’audit de contenu, le filtrage, les journaux d’opérations et les limites de requêtes restent gérés séparément."
   }
 }

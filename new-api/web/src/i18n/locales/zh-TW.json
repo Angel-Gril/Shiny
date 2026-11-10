@@ -7451,6 +7451,11 @@
     "You do not have permission to view this user.": "你沒有權限檢視此使用者。",
     "Copy order number": "複製訂單號",
     "Got it": "我知道了",
-    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "週一至週五 09:00–12:00、14:00–18:00，中國法定節假日除外；未收錄日曆的年份按離峰價"
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "週一至週五 09:00–12:00、14:00–18:00，中國法定節假日除外；未收錄日曆的年份按離峰價",
+    "Behavior audit": "行為稽核",
+    "Enable behavior audit": "啟用行為稽核",
+    "Save behavior audit settings": "儲存行為稽核設定",
+    "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "僅記錄多權杖使用、網路與模型切換、重試、失敗、長請求及頻繁權杖操作等行為觀察訊號。",
+    "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "儲存後立即生效。關閉後停止新增行為訊號及其計數，保留歷史記錄；內容審核、關鍵字過濾、操作記錄和請求限流仍由各自設定控制。"
   }
 }

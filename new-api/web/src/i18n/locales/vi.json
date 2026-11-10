@@ -7451,6 +7451,11 @@
     "You do not have permission to view this user.": "Bạn không có quyền xem người dùng này.",
     "Copy order number": "Sao chép mã đơn hàng",
     "Got it": "Đã hiểu",
-    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "Thứ Hai–Sáu 09:00–12:00 và 14:00–18:00, trừ ngày lễ Trung Quốc; dùng giá thấp điểm nếu thiếu lịch năm"
+    "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "Thứ Hai–Sáu 09:00–12:00 và 14:00–18:00, trừ ngày lễ Trung Quốc; dùng giá thấp điểm nếu thiếu lịch năm",
+    "Behavior audit": "Kiểm tra hành vi",
+    "Enable behavior audit": "Bật kiểm tra hành vi",
+    "Save behavior audit settings": "Lưu cài đặt kiểm tra hành vi",
+    "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "Chỉ ghi nhận để theo dõi việc dùng nhiều token, đổi mạng hoặc mô hình, thử lại, lỗi, yêu cầu kéo dài và thao tác token thường xuyên.",
+    "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "Thay đổi có hiệu lực sau khi lưu. Tắt sẽ dừng tín hiệu hành vi mới và bộ đếm của chúng. Lịch sử, kiểm tra nội dung, lọc từ khóa, nhật ký thao tác và giới hạn yêu cầu vẫn được quản lý riêng."
   }
 }
