@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { RefreshCw } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -55,6 +55,7 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
+import { useResetForm } from '../hooks/use-reset-form'
 import { getContentAuditModels } from './api'
 import { useSavePolicy } from './use-save-policy'
 
@@ -108,9 +109,12 @@ export function RequestChecksSection({
     defaultValues,
   })
 
-  useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+  useResetForm(form, {
+    CheckSensitiveEnabled: defaultValues.CheckSensitiveEnabled,
+    CheckSensitiveOnPromptEnabled: defaultValues.CheckSensitiveOnPromptEnabled,
+    SensitiveWords: defaultValues.SensitiveWords,
+    SensitiveWordSignals: defaultValues.SensitiveWordSignals,
+  })
 
   const onSubmit = async (values: SensitiveFormValues) => {
     const updates = Object.entries(values).filter(
@@ -275,9 +279,9 @@ function BehaviorAuditSection(props: RequestChecksSectionProps) {
     defaultValues: props.defaultValues,
   })
 
-  useEffect(() => {
-    form.reset(props.defaultValues)
-  }, [props.defaultValues, form])
+  useResetForm(form, {
+    BehaviorAuditEnabled: props.defaultValues.BehaviorAuditEnabled,
+  })
 
   const onSubmit = async (values: BehaviorAuditFormValues) => {
     if (
@@ -347,9 +351,18 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     defaultValues,
   })
 
-  useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+  useResetForm(form, {
+    ContentAuditEnabled: defaultValues.ContentAuditEnabled,
+    ContentAuditMode: defaultValues.ContentAuditMode,
+    ContentAuditPreflightScope: defaultValues.ContentAuditPreflightScope,
+    ContentAuditEndpoint: defaultValues.ContentAuditEndpoint,
+    ContentAuditModel: defaultValues.ContentAuditModel,
+    ContentAuditTimeoutMs: defaultValues.ContentAuditTimeoutMs,
+    ContentAuditSampleRate: defaultValues.ContentAuditSampleRate,
+    ContentAuditPrompt: defaultValues.ContentAuditPrompt,
+    ContentAuditFlaggedThreshold: defaultValues.ContentAuditFlaggedThreshold,
+    ContentAuditReviewThreshold: defaultValues.ContentAuditReviewThreshold,
+  })
 
   const fetchModels = async () => {
     setIsFetchingModels(true)

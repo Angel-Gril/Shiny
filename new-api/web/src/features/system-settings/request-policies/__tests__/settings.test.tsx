@@ -330,6 +330,68 @@ describe('request policy settings', () => {
     })
   })
 
+  it('saving behavior audit preserves unsaved keyword and content audit edits after refetch', async () => {
+    vi.mocked(api.patch).mockImplementation(async (_url, body) => {
+      const { options } = body as { options: Record<string, string> }
+      settings.BehaviorAuditEnabled = options.BehaviorAuditEnabled === 'true'
+      return { data: { success: true, data: { options } } }
+    })
+    await renderPolicies('/system-settings/request-policies/filtering')
+    const keywords = await screen.findByRole('textbox', {
+      name: 'Blocked keywords',
+    })
+    fireEvent.change(keywords, { target: { value: 'draft-keyword' } })
+    await userEvent.click(
+      screen.getByRole('combobox', { name: 'Content audit mode' })
+    )
+    await userEvent.click(screen.getByRole('option', { name: 'Preflight' }))
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Enable behavior audit' })
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save behavior audit settings' })
+    )
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['system-options'])).toMatchObject({
+        data: expect.arrayContaining([
+          { key: 'BehaviorAuditEnabled', value: 'false' },
+        ]),
+      })
+    )
+    expect(keywords).toHaveValue('draft-keyword')
+    expect(
+      screen.getByRole('combobox', { name: 'Content audit mode' })
+    ).toHaveTextContent('preflight')
+  })
+
+  it('saving keywords preserves an unsaved behavior toggle after refetch', async () => {
+    vi.mocked(api.patch).mockImplementation(async (_url, body) => {
+      const { options } = body as { options: Record<string, string> }
+      settings.SensitiveWords = options.SensitiveWords
+      return { data: { success: true, data: { options } } }
+    })
+    await renderPolicies('/system-settings/request-policies/filtering')
+    const toggle = await screen.findByRole('switch', {
+      name: 'Enable behavior audit',
+    })
+    await userEvent.click(toggle)
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Blocked keywords' }),
+      { target: { value: 'saved-keyword' } }
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save sensitive words' })
+    )
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['system-options'])).toMatchObject({
+        data: expect.arrayContaining([
+          { key: 'SensitiveWords', value: 'saved-keyword' },
+        ]),
+      })
+    )
+    expect(toggle).not.toBeChecked()
+  })
+
   it('refreshing another policy keeps unsaved filter text', async () => {
     await renderPolicies('/system-settings/request-policies/filtering')
     const keywords = await screen.findByRole('textbox', {
