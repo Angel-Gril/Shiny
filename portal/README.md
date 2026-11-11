@@ -58,6 +58,8 @@
 
 前端可以单独发布：仅切换站点 Nginx 的门户 include，保留内容服务的 `current` 链接、数据目录与进程。前端版本与后端版本应分别记录；不能为了更新 JS 无条件重启内容服务或覆盖数据。
 
+首页“控制台”“开始使用”和“登录”使用当前标签页的原生完整跳转，分别交给 New API 的 `/dashboard`、`/sign-up`、`/sign-in` 入口处理；不使用门户 `data-route`，也不指定 `_blank`。跨应用入口应直接生成原生链接，避免公共 `link()` 将 HTTPS 地址默认当成新标签页链接。`node portal/test-console-navigation.mjs` 验证桌面/手机的点击、键盘 Enter、完整页面跳转和标签页数量。
+
 ## Markdown 导入与维护
 
 1. 登录超级管理员后打开 `/site-admin/`，先完整刷新页面。旧编辑器保存请求会收到 409，防止覆盖新格式正文。
