@@ -193,14 +193,14 @@ try {
   const loginLink = loginPage.locator('#site-header a.login-link');
   assert.equal(await loginLink.getAttribute('target'), null,
     'Login must stay in the current tab');
-  assert.equal(await loginLink.getAttribute('href'), 'https://shinyapi.com/sign-in');
-  await loginPage.route('https://shinyapi.com/sign-in', route => route.fulfill({
+  assert.equal(await loginLink.getAttribute('href'), '/sign-in');
+  await loginPage.route(base + '/sign-in', route => route.fulfill({
     status: 200,
     contentType: 'text/html',
     body: '<!doctype html><html><body><h1>Shiny sign-in fixture</h1></body></html>',
   }));
   await Promise.all([
-    loginPage.waitForURL('https://shinyapi.com/sign-in'),
+    loginPage.waitForURL(base + '/sign-in'),
     loginLink.click(),
   ]);
   assert.equal(context.pages().length, 1, 'Login must not create a separate tab');

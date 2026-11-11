@@ -28,6 +28,10 @@ jobs:
         timeout-minutes: 5
         env:
           PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-browser/node_modules/playwright
+      - run: node portal/test-console-navigation.mjs
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-browser/node_modules/playwright
       - run: bun run portal/particles/test-scenes.ts
       - run: node portal/test-particles.mjs
         timeout-minutes: 8
