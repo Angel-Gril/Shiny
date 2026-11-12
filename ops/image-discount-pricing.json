@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "as_of": "2026-11-12",
+  "channel_id": 19,
+  "group": "【GPT】Image分组-优惠渠道",
+  "billing_unit": "site_credits_per_image",
+  "price_per_image": 0.02,
+  "required_group_ratio": 1,
+  "expression": "tier(\"image\", fixed(0.02)) * image_count",
+  "model_mapping": {
+    "gpt-image-2-cdn": "gpt-image-2",
+    "gpt-image-2.5-cdn": "gpt-image-2.5",
+    "gpt-image-2.5-flare-cdn": "gpt-image-2.5-flare",
+    "gpt-image-2.5-sunburst-cdn": "gpt-image-2.5-sunburst",
+    "gpt-image-2.6-cdn": "gpt-image-2.6",
+    "gpt-image-2.6-flare-cdn": "gpt-image-2.6-flare",
+    "gpt-image-2.6-sunburst-cdn": "gpt-image-2.6-sunburst"
+  },
+  "notes": [
+    "Public aliases are the channel model list; mapping values are upstream names, not additional advertised models.",
+    "Keep the channel restricted to this group. Do not attach it to default/vip/svip/ultra/max or the ordinary image group.",
+    "Preserve standard model token expressions and other channels. Price aliases through the versioned model-pricing management API.",
+    "Do not enable raw request-body passthrough, which would bypass model rewriting.",
+    "Keep aliases when checking or synchronizing upstream model lists; do not replace them wholesale with upstream names.",
+    "A successful image response may return more or fewer images than requested; billing follows the validated returned payload count on normal completion.",
+    "This file contains no production key, token, user data or rollback state."
+  ]
+}
