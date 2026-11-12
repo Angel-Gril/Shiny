@@ -8,6 +8,8 @@
 
 行为审计独立开关 `BehaviorAuditEnabled` 属于 Shiny 请求策略扩展，缺省为 true。升级合并时保留后端校验和请求完成后的开关检查，以及“请求检查”页的独立保存入口；关闭时不累计行为计数，但内容审核和管理员操作日志继续工作。详情见 `ops/releases/2026-11-10-behavior-audit-switch.md`。
 
+图片优惠池采用独立`-cdn`模型名、到供应商原名的映射以及`fixed(0.02) * image_count`计费树，配置见`ops/image-discount-pricing.json`。只为`【GPT】Image分组-优惠渠道`开放，不覆盖普通图片模型的Token公式；上游模型同步时不得直接用原始名称替换别名。升级核对JSON和multipart映射、单张/多张结算以及返回图片实际数量。
+
 升级不是把新文件无条件覆盖旧目录。若改动规模扩大，可以用上游提交导入为 Git subtree 保留其完整提交关系；当前单仓快照策略以来源固定、代码审查和功能回归为兼容保证，不宣称自动解决冲突。
 
 ## CPA / CPA Manager Plus
