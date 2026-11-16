@@ -14,7 +14,7 @@ execFileSync(process.env.PYTHON||'python',[resolve(root,'build.py'),'--release',
 const content=JSON.parse(await readFile(resolve(root,'backend/seed.json'),'utf8'));
 const article={...content.articles[0],title:'Fixture guide',slug:'quickstart',source_path:'guides/start.md',body_markdown:'# Fixture guide\n\nBodyOnlyKeyword for search.\n\n## Steps\n\n[Next guide](../next.md)\n\n<script>window.fixtureXss=true</script><img src="x" onerror="window.fixtureXss=true">',format_version:2};
 content.articles=[article,{...content.articles[1],title:'Next guide',slug:'next',source_path:'next.md',body_markdown:'# Next guide\n\nNext document body.',format_version:2}];
-let draft=structuredClone(content),requests=[],uploads=0,batches=0,lastBatch,r2Enabled=false,r2Job,r2Puts=[],appGate=null,markdownGate=null,markdownError=false,contentError=false,contentSeen,markdownSeen;
+let draft=structuredClone(content),requests=[],uploads=0,batches=0,lastBatch,r2Enabled=false,r2Job,r2Puts=[],appGate=null,markdownGate=null,markdownError=false,contentError=false,appError=false,invalidContent=false,contentSeen,markdownSeen;
 const r2FileURL='https://fixture-r2.invalid/downloads/client-r2.zip';
 function gate(){let release;const promise=new Promise(r=>release=r);return {promise,release};}
 async function waitForGate(event,message){
@@ -26,7 +26,7 @@ function answer(res,status,body){res.writeHead(status,{'Content-Type':'applicati
 const server=http.createServer(async(req,res)=>{
  try{
   const p=new URL(req.url,'http://fixture.invalid').pathname;requests.push(p);
-  if(p==='/portal-api/content'){contentSeen?.release();answer(res,contentError?503:200,contentError?{}:content);return;}
+  if(p==='/portal-api/content'){contentSeen?.release();answer(res,contentError?503:200,contentError||invalidContent?{}:content);return;}
   if(p==='/api/notice'){answer(res,200,{success:true,data:''});return;}
   if(p==='/api/user/auth/refresh'){answer(res,200,{success:true,data:{access_token:'fixture-only',access_expires_at:Date.now()/1000+3600}});return;}
   if(p==='/portal-api/admin/session'){answer(res,200,{success:true,data:{id:7,name:'fixture-admin'}});return;}
@@ -57,6 +57,7 @@ const server=http.createServer(async(req,res)=>{
    draft.resources.push(...payload.changes.map(x=>x.resource));answer(res,200,{success:true,data:{draft,published:content,revision:2,history:[]}});return;
   }
   if(p.endsWith('/app.js')&&appGate)await appGate.promise;
+  if(p.endsWith('/app.js')&&appError){res.writeHead(503);res.end('fixture module failure');return;}
   if(p.endsWith('/markdown.js')){
    markdownSeen?.release();if(markdownGate)await markdownGate.promise;
    if(markdownError){res.writeHead(503);res.end('fixture module failure');return;}
@@ -70,8 +71,9 @@ const server=http.createServer(async(req,res)=>{
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true}),checks=[],errors=[];
 let context;
-async function fresh(path='/'){
+async function fresh(path='/',withoutClone=false){
  await context?.close();context=await browser.newContext();const page=await context.newPage();
+ if(withoutClone)await page.addInitScript(()=>{window.structuredClone=undefined;});
  page.on('pageerror',e=>errors.push(e.message));requests=[];
  await page.goto(base+path,{waitUntil:'commit'});return page;
 }
@@ -82,6 +84,13 @@ try{
  appGate.release();appGate=null;await page.locator('.hero h1').waitFor();
  assert.equal(requests.filter(p=>p==='/portal-api/content').length,1);assert.equal(requests.some(optional),false);
  checks.push('Public content starts before the application finishes; homepage fetches no optional modules');
+
+ page=await fresh('/',true);await page.locator('.hero h1').waitFor({timeout:10000});
+ assert.ok(await page.locator('#main-nav').isVisible());
+ await page.locator('#main-nav a[href="/downloads/"]').click();await page.locator('#resource-results').waitFor();
+ await page.locator('#site-header a[href="/"]').first().click();await page.locator('.hero h1').waitFor();
+ assert.equal(requests.some(optional),false);
+ checks.push('Browsers without structuredClone can open the homepage and navigate public pages');
 
  markdownGate=gate();markdownSeen=gate();
  await page.locator('#main-nav a[href="/docs/"]').click();await waitForGate(markdownSeen,'Document navigation did not request Markdown');
@@ -129,8 +138,20 @@ try{
  checks.push('Document module errors retain navigation and a working reload recovery');
 
  contentError=true;page=await fresh();await page.getByRole('heading',{name:'内容暂时无法加载'}).waitFor();contentError=false;
+ assert.ok((await page.locator('#main p').textContent()).includes('检查网络'));
  await page.locator('#portal-retry').click();await page.locator('.hero h1').waitFor();
  checks.push('Public content failure has a working reload recovery');
+
+ appError=true;page=await fresh();await page.getByRole('heading',{name:'内容暂时无法加载'}).waitFor();appError=false;
+ assert.ok((await page.locator('#main p').textContent()).includes('页面资源未能加载'));
+ await page.locator('#portal-retry').click();await page.locator('.hero h1').waitFor();
+ checks.push('Application module failure identifies a resource problem and recovers on reload');
+
+ invalidContent=true;page=await fresh();await page.getByRole('heading',{name:'内容暂时无法加载'}).waitFor();invalidContent=false;
+ assert.ok((await page.locator('#main p').textContent()).includes('页面未能正常启动'));
+ assert.equal((await page.locator('#main p').textContent()).includes('检查网络'),false);
+ await page.locator('#portal-retry').click();await page.locator('.hero h1').waitFor();
+ checks.push('Startup errors after successful requests are not misreported as network failures');
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(errors,[]);checks.push('Homepage remains usable on mobile; no uncaught browser errors');
  console.log(JSON.stringify({passed:checks.length,checks},null,2));
