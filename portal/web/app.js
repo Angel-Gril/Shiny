@@ -67,7 +67,7 @@ function loadAdminModules() {
   if(!adminModulesPromise)adminModulesPromise=Promise.all([loadMarkdown(),import('./upload-queue.js'),import('./storage.js')]).then(([,queue,storage])=>{
     ({createQueue,queueHTML,processQueue}=queue);
     ({storagePage,uploadR2,formatUploadLimit}=storage);
-    storageSettings??=structuredClone(storage.defaultStorage);
+    storageSettings??=clone(storage.defaultStorage);
   }).catch(error=>{adminModulesPromise=null;throw error;});
   return adminModulesPromise;
 }
@@ -98,7 +98,8 @@ const announcementHref = notice => {
 };
 const tag = (text, neutral = false) => `<span class="tag${neutral ? ' tag-neutral' : ''}">${escape(text)}</span>`;
 const meta = (article) => `<span>${escape(article.category)}</span><span>·</span><span>${article.minutes} 分钟阅读</span><span>·</span><span>${escape(article.updated)}</span>`;
-const clone = (data) => structuredClone(data);
+// Portal content and storage defaults are JSON data; older browsers need a fallback.
+const clone = (data) => typeof structuredClone === 'function' ? structuredClone(data) : JSON.parse(JSON.stringify(data));
 const STORAGE = 'shiny-portal-theme';
 let serverRevision = 0, serverHistory = [], adminState = 'idle', adminError = '', accessToken = '', tokenExpires = 0, authPromise = null;
 let saving=false, editorUnsaved=false, pendingImports=[], editorReturnURL='', deleteArticleSlug=null;
