@@ -28,13 +28,9 @@ export const Route = createFileRoute(
   '/_authenticated/system-settings/security/$section'
 )({
   beforeLoad: ({ params }) => {
-    // Shiny keeps signal/block and model auditing in request policy settings.
+    // Official request processing owns the former sensitive-word entry.
     if (params.section === 'sensitive-words') {
-      throw redirect({
-        to: '/system-settings/request-policies/$section',
-        params: { section: 'filtering' },
-        replace: true,
-      })
+      throw redirect({ to: '/request-processing', replace: true })
     }
     const validSections = SECURITY_SECTION_IDS as unknown as string[]
     if (!validSections.includes(params.section)) {

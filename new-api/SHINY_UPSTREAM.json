@@ -17,7 +17,9 @@
     "Shiny wallet hard caps, request admission, token group authorization and payment provenance retained",
     "OpenAI cc30m and cc12h expression billing plus frontend estimator compatibility retained",
     "official request/provider plugins and signed auth caches retained",
-    "Shiny audit options retained; official retired-sensitive-word migration intentionally not run",
-    "cc30m classified as chat usage; legacy filtering settings remain accessible"
+    "official retired-sensitive-word migration adopted; empty/disabled legacy defaults prevent unintended activation",
+    "Shiny signal list remains historical and is not migrated into blocking rules",
+    "official request processing is primary; legacy-audit compatibility entry retained",
+    "cc30m remains classified as chat usage"
   ]
 }

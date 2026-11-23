@@ -7456,5 +7456,7 @@
     "Save behavior audit settings": "儲存行為稽核設定",
     "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "僅記錄多權杖使用、網路與模型切換、重試、失敗、長請求及頻繁權杖操作等行為觀察訊號。",
     "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "儲存後立即生效。關閉後停止新增行為訊號及其計數，保留歷史記錄；內容審核、關鍵字過濾、操作記錄和請求限流仍由各自設定控制。"
-  }
+  },
+  "Legacy Shiny audit": "舊版 Shiny 審計",
+  "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。"
 }

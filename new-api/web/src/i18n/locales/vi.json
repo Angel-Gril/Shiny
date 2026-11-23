@@ -7456,5 +7456,7 @@
     "Save behavior audit settings": "Lưu cài đặt kiểm tra hành vi",
     "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "Chỉ ghi nhận để theo dõi việc dùng nhiều token, đổi mạng hoặc mô hình, thử lại, lỗi, yêu cầu kéo dài và thao tác token thường xuyên.",
     "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "Thay đổi có hiệu lực sau khi lưu. Tắt sẽ dừng tín hiệu hành vi mới và bộ đếm của chúng. Lịch sử, kiểm tra nội dung, lọc từ khóa, nhật ký thao tác và giới hạn yêu cầu vẫn được quản lý riêng."
-  }
+  },
+  "Legacy Shiny audit": "Kiểm tra Shiny cũ",
+  "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu."
 }

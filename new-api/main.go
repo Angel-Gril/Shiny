@@ -364,9 +364,9 @@ func InitResources() error {
 		if err := model.MigrateRetiredFrontendOptions(); err != nil {
 			common.SysError(common.LogText("failed to migrate retired frontend options: %s", err.Error()))
 		}
-		// Shiny still uses these options for its independent signal/block and
-		// DeepSeek audit engine. The official retired-key migration would delete
-		// those settings and introduce a second keyword blocker, so do not run it.
+		if err := model.MigrateSensitiveWords(); err != nil {
+			common.SysError(common.LogText("failed to migrate sensitive words: %s", err.Error()))
+		}
 	}
 	model.InitOptionMap()
 

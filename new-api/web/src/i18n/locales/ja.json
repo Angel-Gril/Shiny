@@ -7456,5 +7456,7 @@
     "Save behavior audit settings": "行動監査設定を保存",
     "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "複数トークンの使用、ネットワークやモデルの変更、再試行、失敗、長時間リクエスト、頻繁なトークン操作を観察用に記録します。",
     "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "保存後すぐに反映されます。無効にすると新しい行動シグナルとその計数を停止します。既存の記録、コンテンツ監査、キーワードフィルター、操作ログ、リクエスト制限は個別に管理されます。"
-  }
+  },
+  "Legacy Shiny audit": "従来の Shiny 監査",
+  "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新しいルールは「リクエスト処理」で設定してください。従来の設定は互換性のために残されています。同じリクエストに両方の監査を有効にしないでください。"
 }

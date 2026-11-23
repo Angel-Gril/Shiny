@@ -24,8 +24,8 @@ import { RoutingPolicySection } from './routing-section'
 
 const POLICY_SECTIONS = [
   {
-    id: 'filtering',
-    titleKey: 'Request checks',
+    id: 'legacy-audit',
+    titleKey: 'Legacy Shiny audit',
     build: (settings: RequestPolicySettings) => (
       <RequestChecksSection
         defaultValues={{

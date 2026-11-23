@@ -106,3 +106,33 @@ func TestMigrateSensitiveWordsWithoutWords(t *testing.T) {
 	assert.Equal(t, "bad", requireOptionValue(t, db, "SensitiveWords"))
 	assert.Equal(t, "{", requireOptionValue(t, db, request_plugin_setting.InstancesOption))
 }
+
+func TestMigrateSensitiveWordsPreservesDisabledShinyAudit(t *testing.T) {
+	db := useFrontendOptionMigrationDB(t)
+	require.NoError(t, db.AutoMigrate(&SystemTask{}))
+	require.NoError(t, db.Create(&[]Option{
+		{Key: "CheckSensitiveEnabled", Value: "false"},
+		{Key: "SensitiveWords", Value: ""},
+		{Key: "SensitiveWordSignals", Value: "signal-one\nsignal-two"},
+		{Key: "ContentAuditEnabled", Value: "true"},
+		{Key: "ContentAuditMode", Value: "off"},
+		{Key: "BehaviorAuditEnabled", Value: "false"},
+	}).Error)
+	for range 2 {
+		require.NoError(t, MigrateSensitiveWords())
+	}
+	requireOptionMissing(t, db, request_plugin_setting.InstancesOption)
+	var options []Option
+	require.NoError(t, db.Find(&options).Error)
+	values := make(map[string]string, len(options))
+	for _, option := range options {
+		values[option.Key] = option.Value
+	}
+	policy, err := BuildRequestPolicy(values)
+	require.NoError(t, err)
+	assert.False(t, policy.CheckText)
+	assert.Empty(t, policy.TextKeywords)
+	assert.Equal(t, []string{"signal-one", "signal-two"}, policy.TextSignals)
+	assert.Equal(t, "off", policy.Options["ContentAuditMode"])
+	assert.False(t, policy.BehaviorAuditEnabled)
+}

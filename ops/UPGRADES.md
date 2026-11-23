@@ -8,7 +8,7 @@
 
 行为审计独立开关 `BehaviorAuditEnabled` 属于 Shiny 请求策略扩展，缺省为 true。升级合并时保留后端校验和请求完成后的开关检查，以及“请求检查”页的独立保存入口；关闭时不累计行为计数，但内容审核和管理员操作日志继续工作。详情见 `ops/releases/2026-11-10-behavior-audit-switch.md`。
 
-rc.51 新增请求处理插件并退役官方旧敏感词检查；Shiny 仍使用这些选项运行 signal/block 和 DeepSeek 审核，因此启动流程不能执行会删除这些选项的 `MigrateSensitiveWords`。官方插件功能保留，但不自动建立重复的关键词拦截实例。回归旧审计入口、403 不扣费/不转发，以及 `cc30m` 在普通/任务表达式中的分类。
+rc.51 新增请求处理插件并退役官方旧敏感词检查。按站长确认，现网旧审计已停用，采用官方 `MigrateSensitiveWords`：仅迁移原硬拦截词，不把 Shiny signal 词转成拦截词；词表为空时不建立实例。旧引擎默认双开关为 false、默认词表为空，防止数据库旧键删除后恢复拦截。新规则入口为 `/request-processing`，兼容入口为 `/system-settings/request-policies/legacy-audit`。发布核对 `ContentAuditMode=off`、`BehaviorAuditEnabled=false`，并将已被 off 覆盖的旧 `ContentAuditEnabled` 归零，避免日后删除 mode 后回退 shadow。官方主动拒绝返回 400、不转发、不重试、不扣费；仍需回归 `cc30m` 的普通/任务计费分类。
 
 图片优惠池采用独立`-cdn`模型名、到供应商原名的映射以及`fixed(0.02) * image_count`计费树，配置见`ops/image-discount-pricing.json`。只为`【GPT】Image分组-优惠渠道`开放，不覆盖普通图片模型的Token公式；上游模型同步时不得直接用原始名称替换别名。升级核对JSON和multipart映射、单张/多张结算以及返回图片实际数量。
 
