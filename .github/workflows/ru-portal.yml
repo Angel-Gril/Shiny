@@ -1,0 +1,32 @@
+name: RU portal checks
+on:
+  push:
+    paths: ['portal-ru/**', 'ops/ru/**', '.github/workflows/ru-portal.yml']
+  pull_request:
+    paths: ['portal-ru/**', 'ops/ru/**', '.github/workflows/ru-portal.yml']
+permissions:
+  contents: read
+jobs:
+  portal-ru:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs
+        working-directory: portal-ru
+      - run: node build.mjs
+        working-directory: portal-ru
+      - run: npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/shiny-ru-browser" playwright@1.58.2
+      - run: '"$RUNNER_TEMP/shiny-ru-browser/node_modules/.bin/playwright" install --with-deps chromium'
+      - run: node tests/browser.mjs
+        working-directory: portal-ru
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-ru-browser/node_modules/playwright
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shiny-ru-portal
+          path: portal-ru/dist
+          retention-days: 14

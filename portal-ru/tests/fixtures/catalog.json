@@ -1,0 +1,56 @@
+{
+  "success": true,
+  "preview": true,
+  "usable_group": { "default": "RU" },
+  "group_ratio": { "default": 1 },
+  "vendors": [
+    { "id": 1, "name": "OpenAI" },
+    { "id": 2, "name": "Anthropic" },
+    { "id": 3, "name": "Google" },
+    { "id": 4, "name": "DeepSeek" }
+  ],
+  "data": [
+    {
+      "model_name": "gpt-4.1",
+      "vendor_id": 1,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai"]
+    },
+    {
+      "model_name": "gpt-4.1-mini",
+      "vendor_id": 1,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai"]
+    },
+    {
+      "model_name": "claude-sonnet-4",
+      "vendor_id": 2,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai", "anthropic"]
+    },
+    {
+      "model_name": "claude-opus-4",
+      "vendor_id": 2,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai", "anthropic"]
+    },
+    {
+      "model_name": "gemini-2.5-pro",
+      "vendor_id": 3,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai", "gemini"]
+    },
+    {
+      "model_name": "gemini-2.5-flash",
+      "vendor_id": 3,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai", "gemini"]
+    },
+    {
+      "model_name": "deepseek-chat",
+      "vendor_id": 4,
+      "enable_groups": ["default"],
+      "supported_endpoint_types": ["openai"]
+    }
+  ]
+}

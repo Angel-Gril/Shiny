@@ -1,0 +1,28 @@
+[Unit]
+Description=Shiny RU New API (independent accounts and billing)
+After=network.target
+
+[Service]
+Type=simple
+User=shiny-ru
+Group=shiny-ru
+WorkingDirectory=/var/lib/shiny-ru
+EnvironmentFile=/etc/shiny/ru-newapi.env
+# Replace the literal release path with the verified Shiny build. Do not point
+# at a mutable main-site executable/symlink or use stock upstream binaries.
+ExecStart=/srv/shiny/new-api/releases/REPLACE_VERIFIED_RELEASE/new-api --log-dir /var/log/shiny-ru
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=60s
+UMask=0077
+StateDirectory=shiny-ru
+LogsDirectory=shiny-ru
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shiny-ru /var/log/shiny-ru
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

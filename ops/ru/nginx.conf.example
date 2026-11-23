@@ -1,0 +1,85 @@
+# Include inside nginx's http {}. Candidate template, not an automatic rollout.
+# Install the built portal at /srv/shiny/ru-portal/current -> immutable release.
+# Keep /srv/shiny/ru-portal/shared/ru-assets/<hash>/ from all retained releases.
+# Certificate paths are examples and must exist before nginx -t.
+map $http_upgrade $shiny_ru_connection_upgrade {
+    default upgrade;
+    '' '';
+}
+
+upstream shiny_ru_newapi {
+    server 127.0.0.1:3001;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name ru.shinyapi.com;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+    location / { return 308 https://ru.shinyapi.com$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    server_name ru.shinyapi.com;
+    ssl_certificate /etc/letsencrypt/live/ru.shinyapi.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ru.shinyapi.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    root /srv/shiny/ru-portal/current;
+    # Required for native ES module imports on nginx installations without mjs.
+    include /etc/nginx/mime.types;
+    types { text/javascript mjs; }
+    default_type application/octet-stream;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    client_max_body_size 64m;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    # Exact public routes only. /models remains New API's admin route.
+    location = / { try_files /index.html =404; add_header Cache-Control "no-cache"; }
+    location = /catalog { return 308 /catalog/$is_args$args; }
+    location = /catalog/ { try_files /catalog/index.html =404; add_header Cache-Control "no-cache"; }
+    location = /docs { return 308 /docs/$is_args$args; }
+    location = /docs/ { try_files /docs/index.html =404; add_header Cache-Control "no-cache"; }
+    location = /legal { return 308 /legal/$is_args$args; }
+    location = /legal/ { try_files /legal/index.html =404; add_header Cache-Control "no-cache"; }
+    location = /robots.txt { try_files $uri =404; }
+    location = /sitemap.xml { try_files $uri =404; }
+
+    location ^~ /ru-assets/ {
+        root /srv/shiny/ru-portal/shared;
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Content-Type-Options nosniff always;
+    }
+
+    # All account, payment, console assets and inference routes go to RU:
+    # /api/*, /v1/*, /v1beta/*, /pricing, /sign-in, /keys, /wallet, etc.
+    # No rewriting, no admin key injection, no cross-site session sharing.
+    location / {
+        proxy_pass http://shiny_ru_newapi;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $shiny_ru_connection_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1800s;
+        proxy_send_timeout 1800s;
+    }
+}
