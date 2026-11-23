@@ -47,13 +47,16 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 						sqlDB.SetMaxOpenConns(1)
 					}
 					previousDB, previousLogDB := DB, LOG_DB
+					previousMainType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
 					DB, LOG_DB = db, db
 					common.SetDatabaseTypes(common.DatabaseType(dialect), common.DatabaseType(dialect))
+					initCol()
 					t.Cleanup(func() {
 						require.NoError(t, db.Migrator().DropTable(&HostedPayment{}, &TopUp{}, &User{}, &Log{}))
 						require.NoError(t, sqlDB.Close())
 						DB, LOG_DB = previousDB, previousLogDB
-						common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+						common.SetDatabaseTypes(previousMainType, previousLogType)
+						initCol()
 					})
 					var version string
 					query := "SELECT version()"
@@ -62,7 +65,43 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					}
 					require.NoError(t, db.Raw(query).Scan(&version).Error)
 					t.Logf("database version: %s", version)
+					if dialect == "mysql" {
+						require.NoError(t, checkMySQLChineseSupport(db))
+					}
 					require.NoError(t, db.AutoMigrate(&User{}, &TopUp{}, &Log{}))
+					// Upgrade runs additionally exercise LOG_SQL_DSN isolation with a
+					// separate real database, including repeated log-table startup.
+					if upgrade {
+						var logDriver gorm.Dialector
+						switch dialect {
+						case "sqlite":
+							logDriver = sqlite.Open(":memory:")
+						case "mysql":
+							logDSN := os.Getenv("TEST_MYSQL_LOG_DSN")
+							require.NotEmpty(t, logDSN, "configure a separate MySQL log database")
+							logDriver = mysql.Open(logDSN)
+						case "postgres":
+							logDSN := os.Getenv("TEST_POSTGRES_LOG_DSN")
+							require.NotEmpty(t, logDSN, "configure a separate PostgreSQL log database")
+							logDriver = postgres.Open(logDSN)
+						}
+						logDB, err := gorm.Open(logDriver, &gorm.Config{NamingStrategy: schema.NamingStrategy{TablePrefix: "hosted_log_matrix_"}})
+						require.NoError(t, err)
+						logSQLDB, err := logDB.DB()
+						require.NoError(t, err)
+						logSQLDB.SetMaxOpenConns(1)
+						t.Cleanup(func() {
+							require.NoError(t, logDB.Migrator().DropTable(&Log{}))
+							require.NoError(t, logSQLDB.Close())
+						})
+						LOG_DB = logDB
+						if dialect == "mysql" {
+							require.NoError(t, checkMySQLChineseSupport(logDB))
+						}
+						for range 2 {
+							require.NoError(t, logDB.AutoMigrate(&Log{}))
+						}
+					}
 					if upgrade {
 						require.NoError(t, db.Create(&TopUp{TradeNo: "legacy-order", PaymentProvider: "epay", Status: common.TopUpStatusPending, Money: 72, Amount: 10}).Error)
 					}
@@ -106,8 +145,12 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					require.NoError(t, db.First(&credited, user.Id).Error)
 					require.Equal(t, 50+12345, credited.Quota)
 					var logs int64
-					require.NoError(t, db.Model(&Log{}).Where("user_id = ?", user.Id).Count(&logs).Error)
+					require.NoError(t, LOG_DB.Model(&Log{}).Where("user_id = ?", user.Id).Count(&logs).Error)
 					require.EqualValues(t, 1, logs)
+					if upgrade {
+						require.NoError(t, db.Model(&Log{}).Where("user_id = ?", user.Id).Count(&logs).Error)
+						require.Zero(t, logs, "separate log DB never writes the main DB log table")
+					}
 					pending, err = HasPendingHostedPayments(order.Provider)
 					require.NoError(t, err)
 					require.False(t, pending)

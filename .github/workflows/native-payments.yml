@@ -35,6 +35,10 @@ jobs:
         options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
+      - name: Configure Unicode payment and separate log databases
+        run: |
+          docker exec "${{ job.services.mysql.id }}" mysql -uroot -pfixture-ci-only -e 'ALTER DATABASE fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE fixture_logs CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+          docker exec "${{ job.services.postgres.id }}" psql -U postgres -d fixture -c 'CREATE DATABASE fixture_logs;'
       - uses: actions/setup-go@v5
         with:
           go-version-file: new-api/go.mod
@@ -46,6 +50,8 @@ jobs:
         env:
           TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
           TEST_POSTGRES_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture?sslmode=disable
+          TEST_MYSQL_LOG_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture_logs?charset=utf8mb4&parseTime=True&loc=Local
+          TEST_POSTGRES_LOG_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture_logs?sslmode=disable
   frontend:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
