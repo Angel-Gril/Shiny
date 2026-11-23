@@ -2957,7 +2957,7 @@
     "Go to settings": "前往設定",
     "Go to Settings": "前往設定",
     "Good": "良好",
-    "Got it": "知道了",
+    "Got it": "我知道了",
     "Gotify Application Token": "Gotify 套用令牌",
     "Gotify Documentation": "Gotify 文件",
     "Gotify Server URL": "Gotify 伺服器 URL",
@@ -7450,12 +7450,13 @@
     "View details for {{username}}": "檢視 {{username}} 的詳情",
     "You do not have permission to view this user.": "你沒有權限檢視此使用者。",
     "Copy order number": "複製訂單號",
-    "Got it": "我知道了",
     "Mon–Fri 09:00–12:00 and 14:00–18:00, excluding Chinese public holidays; unknown calendar years use off-peak prices": "週一至週五 09:00–12:00、14:00–18:00，中國法定節假日除外；未收錄日曆的年份按離峰價",
     "Behavior audit": "行為稽核",
     "Enable behavior audit": "啟用行為稽核",
     "Save behavior audit settings": "儲存行為稽核設定",
     "Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.": "僅記錄多權杖使用、網路與模型切換、重試、失敗、長請求及頻繁權杖操作等行為觀察訊號。",
     "Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.": "儲存後立即生效。關閉後停止新增行為訊號及其計數，保留歷史記錄；內容審核、關鍵字過濾、操作記錄和請求限流仍由各自設定控制。"
-  }
+  },
+  "Legacy Shiny audit": "舊版 Shiny 審計",
+  "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。"
 }

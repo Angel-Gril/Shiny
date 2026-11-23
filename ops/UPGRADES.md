@@ -8,6 +8,8 @@
 
 行为审计独立开关 `BehaviorAuditEnabled` 属于 Shiny 请求策略扩展，缺省为 true。升级合并时保留后端校验和请求完成后的开关检查，以及“请求检查”页的独立保存入口；关闭时不累计行为计数，但内容审核和管理员操作日志继续工作。详情见 `ops/releases/2026-11-10-behavior-audit-switch.md`。
 
+rc.51 新增请求处理插件并退役官方旧敏感词检查。按站长确认，现网旧审计已停用，采用官方 `MigrateSensitiveWords`：仅迁移原硬拦截词，不把 Shiny signal 词转成拦截词；词表为空时不建立实例。旧引擎默认双开关为 false、默认词表为空，防止数据库旧键删除后恢复拦截。新规则入口为 `/request-processing`，兼容入口为 `/system-settings/request-policies/legacy-audit`。发布核对 `ContentAuditMode=off`、`BehaviorAuditEnabled=false`，并将已被 off 覆盖的旧 `ContentAuditEnabled` 归零，避免日后删除 mode 后回退 shadow。官方主动拒绝返回 400、不转发、不重试、不扣费；仍需回归 `cc30m` 的普通/任务计费分类。
+
 图片优惠池采用独立`-cdn`模型名、到供应商原名的映射以及`fixed(0.02) * image_count`计费树，配置见`ops/image-discount-pricing.json`。只为`【GPT】Image分组-优惠渠道`开放，不覆盖普通图片模型的Token公式；上游模型同步时不得直接用原始名称替换别名。升级核对JSON和multipart映射、单张/多张结算以及返回图片实际数量。
 
 升级不是把新文件无条件覆盖旧目录。若改动规模扩大，可以用上游提交导入为 Git subtree 保留其完整提交关系；当前单仓快照策略以来源固定、代码审查和功能回归为兼容保证，不宣称自动解决冲突。
@@ -37,3 +39,5 @@ CPA Manager Plus 是独立官方服务，长期统计库与 data.key 共同备�
 `www.shinyapi.com`的HTTP/HTTPS重定向vhost独立于门户与控制台include，源码见`ops/nginx/`。升级时保留该站点启用链接、独立www证书/续期配置以及Certbot的Nginx检查/重载钩子；域名入口修复不需要替换主域名/api证书或放宽默认TLS拒绝规则。变更后分别验收www、主域名与api的SNI及路径/查询保留。
 
 门户与登录页品牌入口的维护约定：门户 Logo 通过 `/shiny-home-assets/<immutable-release>/assets/mark.svg` 提供；New API 系统设置的 `Logo` 可引用当前门户版本路径。发布新版门户后，先确认旧版本 SVG 仍为 HTTP 200，再更新该单一选项。首页登录按钮必须使用当前标签导航到 `/sign-in`，控制台品牌返回链接完整加载静态门户首页。门户与控制台前端分别构建、验收和切换各自的 Nginx include，并保留完整的历史资源回退链。控制台 include 的 root 必须匹配实际包布局，不能假定存在 site 子目录。完成候选浏览器验收后平滑 reload Nginx，单独更新 Logo 选项；不重启门户内容服务或 New API，不替换或删除任何历史不可变资源。回滚时分别恢复原门户 include、控制台 include 与 Logo 字符串。
+
+New API 新增页面时，使用 `ops/nginx/build-console-routing.py` 从当前 `FileRoutesByFullPath` 扩充控制台路径；根路径 `/` 始终留给独立门户。工具保留既有路由别名和全部旧资产回退链。发布前运行 `python -m unittest discover -s ops/nginx -p 'test_*.py'` 并核验 `nginx -t`。

@@ -137,6 +137,13 @@ export function RequestChecksSection({
 
   return (
     <>
+      <Alert>
+        <AlertDescription>
+          {t(
+            'Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.'
+          )}
+        </AlertDescription>
+      </Alert>
       <BehaviorAuditSection defaultValues={defaultValues} />
       <SettingsSection title={t('Request checks')}>
         <p className='text-muted-foreground text-sm'>

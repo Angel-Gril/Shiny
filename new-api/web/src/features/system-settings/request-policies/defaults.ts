@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ChannelAffinitySettings } from '../general/channel-affinity/types'
-import type { SecuritySettings } from '../types'
 
 export type RetrySettings = {
   RetryTimes: number
@@ -37,10 +36,10 @@ export type HealthSettings = {
     | 'auto_ban_only'
     | 'passive_recovery'
 }
-export type FilteringSettings = Pick<
-  SecuritySettings,
-  'CheckSensitiveEnabled' | 'CheckSensitiveOnPromptEnabled' | 'SensitiveWords'
-> & {
+export type FilteringSettings = {
+  CheckSensitiveEnabled: boolean
+  CheckSensitiveOnPromptEnabled: boolean
+  SensitiveWords: string
   SensitiveWordSignals: string
   BehaviorAuditEnabled: boolean
   ContentAuditEnabled: boolean

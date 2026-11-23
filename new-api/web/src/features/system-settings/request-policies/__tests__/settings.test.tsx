@@ -94,6 +94,10 @@ async function renderPolicies(path: string) {
     }),
     createRoute({
       getParentRoute: () => authenticated,
+      path: '/request-processing',
+    }),
+    createRoute({
+      getParentRoute: () => authenticated,
       path: '/system-settings/operations/$section',
       beforeLoad: OperationsRoute.options.beforeLoad as PolicyBeforeLoad,
     }),
@@ -119,13 +123,13 @@ beforeEach(() => {
   settings = {
     ...defaultRequestPolicySettings,
     RetryTimes: 2,
+    CheckSensitiveEnabled: true,
+    CheckSensitiveOnPromptEnabled: true,
+    SensitiveWords: 'blocked',
     AutomaticRetryStatusCodes: '429,500-503',
     AutomaticDisableChannelEnabled: true,
     AutomaticEnableChannelEnabled: true,
     'monitor_setting.auto_test_channel_enabled': true,
-    CheckSensitiveEnabled: true,
-    CheckSensitiveOnPromptEnabled: true,
-    SensitiveWords: 'blocked',
     'channel_affinity_setting.rules': JSON.stringify([
       {
         name: 'Existing session rule',
@@ -190,7 +194,7 @@ describe('request policy settings', () => {
   it.each([
     ['retry', 'Save Changes'],
     ['health', 'Save Changes'],
-    ['filtering', 'Save sensitive words'],
+    ['legacy-audit', 'Save sensitive words'],
     ['affinity', 'Save Changes'],
   ])(
     'opening %s and saving unchanged values does not write options',
@@ -232,7 +236,7 @@ describe('request policy settings', () => {
   )
 
   it('turning filtering off preserves the prompt switch and keyword list', async () => {
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     await userEvent.click(
       await screen.findByRole('switch', { name: 'Enable filtering' })
     )
@@ -254,7 +258,7 @@ describe('request policy settings', () => {
   })
 
   it('saves signal keywords and preflight mode as separate policy options', async () => {
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     fireEvent.change(
       await screen.findByRole('textbox', { name: 'Signal keywords' }),
       {
@@ -284,7 +288,7 @@ describe('request policy settings', () => {
   })
 
   it('behavior audit defaults on and saves independently from content audit and filtering', async () => {
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     const toggle = await screen.findByRole('switch', {
       name: 'Enable behavior audit',
     })
@@ -311,7 +315,7 @@ describe('request policy settings', () => {
     vi.mocked(api.patch).mockResolvedValue({
       data: { success: false, message: 'Save rejected' },
     })
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     const toggle = await screen.findByRole('switch', {
       name: 'Enable behavior audit',
     })
@@ -336,7 +340,7 @@ describe('request policy settings', () => {
       settings.BehaviorAuditEnabled = options.BehaviorAuditEnabled === 'true'
       return { data: { success: true, data: { options } } }
     })
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     const keywords = await screen.findByRole('textbox', {
       name: 'Blocked keywords',
     })
@@ -370,7 +374,7 @@ describe('request policy settings', () => {
       settings.SensitiveWords = options.SensitiveWords
       return { data: { success: true, data: { options } } }
     })
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     const toggle = await screen.findByRole('switch', {
       name: 'Enable behavior audit',
     })
@@ -393,7 +397,7 @@ describe('request policy settings', () => {
   })
 
   it('refreshing another policy keeps unsaved filter text', async () => {
-    await renderPolicies('/system-settings/request-policies/filtering')
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
     const keywords = await screen.findByRole('textbox', {
       name: 'Blocked keywords',
     })
@@ -489,9 +493,18 @@ describe('request policy settings', () => {
   })
 
   it.each([
+    '/system-settings/security/sensitive-words',
+    '/system-settings/request-policies/filtering',
+  ])('%s opens official request processing', async (path) => {
+    const router = await renderPolicies(path)
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/request-processing')
+    )
+  })
+
+  it.each([
     ['/system-settings/models/channel-affinity', 'routing'],
     ['/system-settings/models/routing-reliability', 'routing'],
-    ['/system-settings/security/sensitive-words', 'filtering'],
     ['/system-settings/operations/monitoring', 'health'],
     ['/system-settings/request-policies/', 'routing'],
     ['/system-settings/request-policies/unknown', 'routing'],
