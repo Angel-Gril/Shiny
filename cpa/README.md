@@ -1,21 +1,21 @@
 # CPA 内核与插件集成
 
-本站组件：**CLIProxyAPI v8.0.51**，使用官方 Linux amd64 含插件原生包，Key Router v0.5.0。
+本站组件：**CLIProxyAPI v8.1.1**，使用官方 Linux amd64 含插件原生包，Key Router v0.5.0。
 
-本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.0.51](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.51)，安装包和程序摘要均已记录。历史来源见 `ops/releases/`。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
+本目录管理部署及升级约束；本站尚未改动 CPA 内核，故不复制整份官方源码或二进制。对应官方源码固定在 [v8.1.1](https://github.com/router-for-me/CLIProxyAPI/tree/v8.1.1)，安装包和程序摘要均已记录。历史来源见 `ops/releases/`。未来需要内核二开时，应从该 tag 建立独立 fork，并在此记录 fork URL 与 commit。
 
 - [release.json](release.json)：官方产物来源、摘要与版本。
 - [config.example.yaml](config.example.yaml)：不含可用凭据的隔离配置示例，不可覆盖生产配置。
 - [relay-native-cpa.service](relay-native-cpa.service)：部署单元示例。
 - [ops/UPGRADES.md](../ops/UPGRADES.md)：升级及回归要求。
 - [deploy/README.md](deploy/README.md)：隔离验证和单组件切换工具。
-- [v8.0.51 发布记录](../ops/releases/2026-11-02-cpa-v8.0.51.md)：本次变更依据、产物摘要与验收。
+- [v8.1.1 发布记录](../ops/releases/2026-11-23-cpa-v8.1.1.md)：本次变更依据、产物摘要与验收。
 
 生产账号认证文件、Key Router 的真实调用 Key/账号绑定、管理密钥、运行日志及冷却数据不进入 Git。管理密钥只能放服务器私有配置；版本控制保存的不是完整生产配置备份。
 
 ## 路由边界
 
-CPA 两个 Key 用于隔离账号池。New API 是否在失败后切另一个渠道，取决于 New API 的会话规则和重试预算；升级 CPA 不会自动解除 strict 绑定。
+CPA 三个 Key 用于隔离账号池。New API 是否在失败后切另一个渠道，取决于 New API 的会话规则和重试预算；升级 CPA 不会自动解除 strict 绑定。
 
 Key Router v0.5.0 已启用，优先级100；账号并发插件 v0.1.8 也已启用，优先级50，每账号上限3；Quota Monitor v0.2.2 已启用。账号并发插件当前使用默认本地计数，未配置 Redis。此组合仍由 Key Router 选账号，并发插件在选定账号后执行准入限制，不会自动改选同池空闲账号。升级没有改变这一边界。
 
@@ -35,6 +35,8 @@ Key Router v0.5.0 已启用，优先级100；账号并发插件 v0.1.8 也已启
 
 生产路径为 `/var/lib/relay-native/bin/CLIProxyAPI`；账号目录 `/var/lib/relay-native/cpa-auths`；仅本机监听8317。统一管理入口的集成见 `cpa-pro/`。
 
-## v8.0.51 集成
+## v8.1.1 集成
+
+官方节点标识 `server.server-id` 首次启动会自动保存。账号身份和人工控制字段需保持原值；OAuth 刷新时间、plan_type 与能力探测缓存属于后台同步元数据，应逐项核对而不是把整个凭据文件当作不可变化。
 
 保留全部五个现有插件和账号池配置。升级回归包含用量队列旧 Token 字段及账号归属与结构化用量元数据；CPA 增加的字段不代表 CPAMP 当前页面已完整展示全部新明细。新增的按 Key 连接池和可见 Codex commentary 均按上游 opt-in 行为处理，本站本次不新增开关。
