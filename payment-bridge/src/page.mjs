@@ -12,6 +12,7 @@ const words = {
     rate: "Курс зафиксирован для этого заказа",
     fee: "Итоговая сумма и возможные комиссии сети указаны на странице платёжного сервиса.",
     pay: "Перейти к оплате",
+    redirect: "Открываем страницу оплаты…",
     back: "Вернуться в кошелёк",
     refresh: "Проверить оплату",
     new: "Подтвердите сумму и продолжите оплату.",
@@ -37,6 +38,7 @@ const words = {
     rate: "Exchange rate fixed for this order",
     fee: "The payment provider displays the final amount and any network fees.",
     pay: "Continue to payment",
+    redirect: "Opening the payment page…",
     back: "Back to wallet",
     refresh: "Check payment",
     new: "Confirm the amount and continue to payment.",
@@ -64,6 +66,16 @@ function escape(value) {
   );
 }
 
+// Commit a same-origin document before navigating to the hosted checkout.
+// Browsers differ in how form-action applies to cross-origin 303 chains.
+export function renderRedirect(url, language = "ru") {
+  const lang = language === "en" ? "en" : "ru";
+  const text = words[lang];
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="refresh" content="0;url=${escape(url)}"><title>${text.title}</title><link rel="stylesheet" href="/style.css"></head>
+    <body><main><section class="card"><h1>${text.redirect}</h1><a href="${escape(url)}">${text.pay} ↗</a></section></main></body></html>`;
+}
+
 export function renderPage(order, config, language = "ru", errorCode) {
   const lang = language === "en" ? "en" : "ru";
   const text = words[lang];
@@ -89,8 +101,8 @@ export function renderPage(order, config, language = "ru", errorCode) {
     <dl><div><dt>${text.source}</dt><dd>${money(order.source_minor)} ${escape(order.source_currency)}</dd></div></dl>
     <p class="muted">${text.rate}: 1 ${escape(order.currency)} = ${escape(order.rate)} ${escape(order.source_currency)}</p>
     <p class="status" role="status">${escape(expired && order.state === "new" ? text.expired : status)}</p>
-    ${canPay ? `<form method="post" action="/checkout/${order.id}/start"><input type="hidden" name="csrf" value="${csrf}"><button>${text.pay} <span aria-hidden="true">↗</span></button></form>` : ""}
-    ${order.state === "pending" ? `<form method="post" action="/checkout/${order.id}/check"><input type="hidden" name="csrf" value="${csrf}"><button class="secondary">${text.refresh}</button></form>` : ""}
+    ${canPay ? `<form method="post" action="/checkout/${order.id}/start?lang=${lang}"><input type="hidden" name="csrf" value="${csrf}"><button>${text.pay} <span aria-hidden="true">↗</span></button></form>` : ""}
+    ${order.state === "pending" ? `<form method="post" action="/checkout/${order.id}/check?lang=${lang}"><input type="hidden" name="csrf" value="${csrf}"><button class="secondary">${text.refresh}</button></form>` : ""}
     <p class="muted">${text.fee}</p><p class="order">${text.support}<br><code>${escape(order.source_ref)}</code></p>`
         : `<p>${text.errorText}</p>`
     }

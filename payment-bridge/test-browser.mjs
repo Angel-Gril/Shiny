@@ -137,7 +137,7 @@ try {
     throw error;
   }
   assert.match(page.url(), /^https:\/\/nowpayments.io\/payment/);
-  // CSP must permit the form's redirect to the provider, not merely its local action.
+  // The local form response must navigate successfully even with form-action self.
   assert.deepEqual(errors, []);
   store.paid(order.id);
   await page.goto(`${config.origin}/checkout/${order.id}`);

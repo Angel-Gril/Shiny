@@ -20,7 +20,7 @@ import {
   readLimited,
   requireValue,
 } from "./core.mjs";
-import { renderPage } from "./page.mjs";
+import { renderPage, renderRedirect } from "./page.mjs";
 
 const css = readFileSync(new URL("./style.css", import.meta.url));
 
@@ -51,20 +51,6 @@ export function acquireLock(database) {
 
 export function createPaymentServer(config, engine) {
   let active = 0;
-  const paymentOrigins = [
-    "https://nowpayments.io",
-    "https://www.paypal.com",
-    "https://paypal.com",
-    "https://www.sandbox.paypal.com",
-    "https://sandbox.paypal.com",
-  ];
-  for (const host of config.providers.lianlian?.checkoutHosts ?? []) {
-    requireValue(
-      /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(host),
-      "invalid_checkout_host",
-    );
-    paymentOrigins.push(`https://${host}`);
-  }
   const server = createServer(async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("Referrer-Policy", "strict-origin");
@@ -72,7 +58,7 @@ export function createPaymentServer(config, engine) {
     response.setHeader("X-Frame-Options", "DENY");
     response.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; style-src 'self'; form-action 'self' ${paymentOrigins.join(" ")}; frame-ancestors 'none'; base-uri 'none'`,
+      "default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
     );
     response.setHeader("X-Robots-Tag", "noindex, nofollow");
     let url;
@@ -186,7 +172,11 @@ export function createPaymentServer(config, engine) {
             403,
           );
           if (match[2] === "start") {
-            redirect(await engine.start(order.id));
+            const checkout = await engine.start(order.id);
+            response.writeHead(200, {
+              "Content-Type": "text/html; charset=utf-8",
+            });
+            response.end(renderRedirect(checkout, language));
             return;
           }
           // Throttle customer refreshes independently of webhook handling.

@@ -29,6 +29,8 @@ ru.shinyapi.com/wallet → RU New API 创建订单、签名
 
 “全部配置”在这里是**组件和配置入口可选择**，并非把所有平台默认开放。原生渠道在 RU `/system-settings/billing/payment` 配置，桥接渠道在服务器私有 `config.json` 配置。`enabled: false` 不加载模块；`acceptNew: false` 停止新订单并继续查单、处理存量付款。存在待处理订单时启动检查禁止直接禁用适配器。移除钱包按钮后仍应保留凭据和 webhook，直至存量订单处理完毕。
 
+本版接入范围是 `/wallet` 余额充值，不包含订阅套餐支付。RU 每个 New API 实例只有一套易支付 `PayAddress`，指向桥接后不能同时指向另一个易支付服务；Stripe/Creem/Waffo 等原生独立入口仍可并存。国内主站可以继续使用自己的易支付配置。
+
 ## New API 设置
 
 仅在 **RU 实例** 的 `/system-settings/billing/payment` 设置，国内主站保持原配置：

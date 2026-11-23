@@ -719,8 +719,15 @@ test("HTTP checkout uses Russian by default, requires CSRF, and return URL canno
       csrf: csrfToken(f.store.get(id), f.config.csrfSecret),
     }),
   });
-  assert.equal(started.status, 303);
-  assert.match(started.headers.get("location"), /^https:\/\/nowpayments.io\//);
+  assert.equal(started.status, 200);
+  assert.match(
+    await started.text(),
+    /href="https:\/\/nowpayments.io\/payment\//,
+  );
+  assert.match(
+    started.headers.get("content-security-policy"),
+    /form-action 'self';/,
+  );
   const oversized = await fetch(`${base}/webhooks/nowpayments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
