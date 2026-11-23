@@ -28,6 +28,7 @@ import { SearchProvider } from '@/context/search-provider'
 import { NoticeBoundary } from '@/features/site-announcements/notice-boundary'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { AppHeader } from './app-header'
 import { AppSidebar } from './app-sidebar'
@@ -46,6 +47,9 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
   const pathname = useLocation({ select: (location) => location.pathname })
   const showSiteNotice = /^\/dashboard(?:\/overview)?\/?$/.test(pathname)
+  const signedIn = useAuthStore((s) => !!s.auth.user)
+  // Stop authenticated queries before the sign-out navigation completes.
+  if (!signedIn) return null
 
   return (
     <LayoutProvider>

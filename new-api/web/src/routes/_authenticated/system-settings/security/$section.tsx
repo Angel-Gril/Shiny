@@ -28,6 +28,7 @@ export const Route = createFileRoute(
   '/_authenticated/system-settings/security/$section'
 )({
   beforeLoad: ({ params }) => {
+    // Shiny keeps signal/block and model auditing in request policy settings.
     if (params.section === 'sensitive-words') {
       throw redirect({
         to: '/system-settings/request-policies/$section',

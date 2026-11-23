@@ -94,6 +94,10 @@ async function renderPolicies(path: string) {
     }),
     createRoute({
       getParentRoute: () => authenticated,
+      path: '/request-processing',
+    }),
+    createRoute({
+      getParentRoute: () => authenticated,
       path: '/system-settings/operations/$section',
       beforeLoad: OperationsRoute.options.beforeLoad as PolicyBeforeLoad,
     }),
@@ -119,13 +123,13 @@ beforeEach(() => {
   settings = {
     ...defaultRequestPolicySettings,
     RetryTimes: 2,
+    CheckSensitiveEnabled: true,
+    CheckSensitiveOnPromptEnabled: true,
+    SensitiveWords: 'blocked',
     AutomaticRetryStatusCodes: '429,500-503',
     AutomaticDisableChannelEnabled: true,
     AutomaticEnableChannelEnabled: true,
     'monitor_setting.auto_test_channel_enabled': true,
-    CheckSensitiveEnabled: true,
-    CheckSensitiveOnPromptEnabled: true,
-    SensitiveWords: 'blocked',
     'channel_affinity_setting.rules': JSON.stringify([
       {
         name: 'Existing session rule',
@@ -489,9 +493,23 @@ describe('request policy settings', () => {
   })
 
   it.each([
+    '/system-settings/security/sensitive-words',
+    '/system-settings/request-policies/filtering',
+  ])(
+    '%s keeps the independent Shiny audit settings accessible',
+    async (path) => {
+      const router = await renderPolicies(path)
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(
+          '/system-settings/request-policies/filtering'
+        )
+      )
+    }
+  )
+
+  it.each([
     ['/system-settings/models/channel-affinity', 'routing'],
     ['/system-settings/models/routing-reliability', 'routing'],
-    ['/system-settings/security/sensitive-words', 'filtering'],
     ['/system-settings/operations/monitoring', 'health'],
     ['/system-settings/request-policies/', 'routing'],
     ['/system-settings/request-policies/unknown', 'routing'],

@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/QuantumNous/new-api",
-  "commit": "e835b1bfc43b565d625537830dbfb19328925134",
-  "snapshot": "Shiny reviewed three-way integration of official v1.0.0-rc.47; 2026-10-28",
+  "commit": "c9c6da2786b6a0912215127e78e28fbc6650c85f",
+  "snapshot": "Shiny reviewed three-way integration of official v1.0.0-rc.51; 2026-11-23",
   "local_features": [
     "audit off/shadow/preflight",
     "keyword signal/block",
@@ -9,12 +9,15 @@
     "abuse review false-positive reduction",
     "independent portal full navigation"
   ],
-  "release": "v1.0.0-rc.47",
-  "baseline_commit": "f7cd34f265341cab766d025887c50eddb6461409",
+  "release": "v1.0.0-rc.51",
+  "baseline_commit": "e835b1bfc43b565d625537830dbfb19328925134",
   "integration_notes": [
     "official Responses streaming, provider channel selection, URL credential masking and cache billing retained",
     "Shiny audit off/shadow/preflight, keyword signal/block, abuse review and long-context coverage retained",
     "Shiny wallet hard caps, request admission, token group authorization and payment provenance retained",
-    "OpenAI cc30m and cc12h expression billing plus frontend estimator compatibility retained"
+    "OpenAI cc30m and cc12h expression billing plus frontend estimator compatibility retained",
+    "official request/provider plugins and signed auth caches retained",
+    "Shiny audit options retained; official retired-sensitive-word migration intentionally not run",
+    "cc30m classified as chat usage; legacy filtering settings remain accessible"
   ]
 }
