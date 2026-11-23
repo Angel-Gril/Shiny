@@ -2,40 +2,55 @@ package controller
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha512"
 	"encoding/base64"
+	"encoding/hex"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func hostedControllerFixture(t *testing.T) setting.HostedPaymentConfig {
 	t.Helper()
 	previousDB, previousLogDB := model.DB, model.LOG_DB
+	previousType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
+	previousMaster, previousCache, previousRedis, previousSQLite := common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled, common.SQLitePath
 	common.OptionMapRWMutex.Lock()
 	previousOptions := common.OptionMap
 	common.OptionMap = map[string]string{}
 	common.OptionMapRWMutex.Unlock()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
+	t.Setenv("SQL_DSN", "local")
+	t.Setenv("LOG_SQL_DSN", "")
+	common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled = false, false, false
+	common.SQLitePath = filepath.Join(t.TempDir(), "hosted-controller.db")
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = previousDB, previousLogDB
+		common.SetDatabaseTypes(previousType, previousLogType)
+		common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled, common.SQLitePath = previousMaster, previousCache, previousRedis, previousSQLite
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousOptions
+		common.OptionMapRWMutex.Unlock()
+	})
+	require.NoError(t, model.InitDB())
+	db := model.DB
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	model.DB, model.LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TopUp{}, &model.HostedPayment{}, &model.User{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TopUp{}, &model.HostedPayment{}, &model.User{}, &model.Log{}, &model.SystemTask{}))
 	t.Cleanup(func() {
-		model.DB, model.LOG_DB = previousDB, previousLogDB
-		common.OptionMapRWMutex.Lock()
-		common.OptionMap = previousOptions
-		common.OptionMapRWMutex.Unlock()
 		require.NoError(t, sqlDB.Close())
 	})
 	t.Setenv("PAYMENTS_ENVIRONMENT", "live")
@@ -50,6 +65,104 @@ func hostedControllerFixture(t *testing.T) setting.HostedPaymentConfig {
 	require.NoError(t, err)
 	common.OptionMap[setting.HostedPaymentOption] = string(raw)
 	return cfg
+}
+
+type hostedControllerTransport func(*http.Request) (*http.Response, error)
+
+func (transport hostedControllerTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return transport(request)
+}
+
+func TestHostedCheckoutAndVerifiedCallbackCreditTheSavedQuoteOnce(t *testing.T) {
+	hostedControllerFixture(t)
+	previousAddress, previousQuota := system_setting.ServerAddress, common.QuotaPerUnit
+	previousDiscounts := operation_setting.GetPaymentSetting().AmountDiscount
+	previousDisplay := operation_setting.GetGeneralSetting().QuotaDisplayType
+	previousTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		system_setting.ServerAddress, common.QuotaPerUnit = previousAddress, previousQuota
+		operation_setting.GetPaymentSetting().AmountDiscount = previousDiscounts
+		operation_setting.GetGeneralSetting().QuotaDisplayType = previousDisplay
+		http.DefaultTransport = previousTransport
+	})
+	system_setting.ServerAddress, common.QuotaPerUnit = "https://ru.example.com", 500000
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	operation_setting.GetPaymentSetting().AmountDiscount = map[int]float64{}
+	user := model.User{Username: "hosted-checkout", Group: "default", Status: common.UserStatusEnabled, Quota: 100}
+	require.NoError(t, model.DB.Create(&user).Error)
+	cfg := setting.DefaultHostedPaymentConfig("nowpayments")
+	cfg.Enabled, cfg.AcceptNew, cfg.UnitPrice = true, true, "0.95"
+	cfg.AccountID, cfg.APIKey, cfg.WebhookSecret = "fixture-account", "fixture-key", "fixture-ipn-secret"
+	writeSettings := func() {
+		raw, err := common.Marshal(setting.HostedPaymentSettings{"nowpayments": cfg})
+		require.NoError(t, err)
+		require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	}
+	writeSettings()
+	tradeNo, remoteAmount := "", "9.51"
+	http.DefaultTransport = hostedControllerTransport(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "api.nowpayments.io", request.URL.Host)
+		var response map[string]any
+		switch request.URL.Path {
+		case "/v1/invoice":
+			var payload map[string]any
+			require.NoError(t, common.DecodeJson(request.Body, &payload))
+			tradeNo = payload["order_id"].(string)
+			require.Equal(t, 9.5, payload["price_amount"])
+			require.Equal(t, "https://ru.example.com/wallet?show_history=true", payload["success_url"])
+			require.Equal(t, "https://ru.example.com/api/payments/nowpayments/webhook/live", payload["ipn_callback_url"])
+			response = map[string]any{"id": 456, "order_id": tradeNo, "price_amount": 9.5, "price_currency": "usd", "invoice_url": "https://nowpayments.io/payment/fixture"}
+		case "/v1/payment/123":
+			response = map[string]any{"payment_id": 123, "invoice_id": 456, "order_id": tradeNo, "price_amount": remoteAmount,
+				"price_currency": "usd", "payment_status": "finished", "pay_amount": 1, "actually_paid": 1}
+		default:
+			t.Fatalf("unexpected provider request: %s", request.URL.Path)
+		}
+		raw, err := common.Marshal(response)
+		require.NoError(t, err)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(raw))}, nil
+	})
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", user.Id)
+	ctx.Params = gin.Params{{Key: "provider", Value: "nowpayments"}}
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(`{"amount":10,"payment_amount":"0.01"}`))
+	RequestHostedPay(ctx)
+	require.Contains(t, recorder.Body.String(), "checkout_url")
+	topup := model.GetTopUpByTradeNo(tradeNo)
+	require.NotNil(t, topup)
+	require.EqualValues(t, 5000000, topup.CreditedQuota)
+	require.Equal(t, 9.5, topup.Money)
+	cfg.UnitPrice = "2"
+	writeSettings() // Later prices do not change this order's payment or quota.
+	body, err := common.Marshal(map[string]any{"order_id": tradeNo, "payment_id": 123})
+	require.NoError(t, err)
+	mac := hmac.New(sha512.New, []byte(cfg.WebhookSecret))
+	mac.Write(body) // This fixed payload is already alphabetically ordered.
+	callback := func() int {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Params = gin.Params{{Key: "provider", Value: "nowpayments"}, {Key: "env", Value: "live"}}
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/webhook/live", bytes.NewReader(body))
+		ctx.Request.Header.Set("x-nowpayments-sig", hex.EncodeToString(mac.Sum(nil)))
+		HostedPaymentWebhook(ctx)
+		return recorder.Code
+	}
+	require.Equal(t, http.StatusServiceUnavailable, callback(), "wrong amount cannot credit")
+	require.Equal(t, common.TopUpStatusPending, model.GetTopUpByTradeNo(tradeNo).Status)
+	remoteAmount = "9.50"
+	require.Equal(t, http.StatusOK, callback())
+	require.Equal(t, http.StatusOK, callback())
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 5000100, credited.Quota)
+	var logs int64
+	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Count(&logs).Error)
+	require.EqualValues(t, 1, logs)
+	order, err := model.GetHostedPayment(tradeNo)
+	require.NoError(t, err)
+	require.Equal(t, "paid", order.State)
+	require.Empty(t, order.CheckoutURL)
 }
 
 func TestHostedSettingsKeepSecretsAndPreservePausedWebhook(t *testing.T) {

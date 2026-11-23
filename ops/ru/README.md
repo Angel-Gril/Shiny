@@ -30,7 +30,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 
 ## 候选安装顺序
 
-1. 从商业分支构建门户，`node --test tests/*.test.mjs`、`node build.mjs`。用现有 **Shiny fork** 的已核验不可变 release 运行第二个 New API 进程，切勿换成官方最新镜像。主站和 RU 可用同一个已验证二进制文件，但服务路径与升级策略独立。
+1. 从商业分支构建门户，`node --test tests/*.test.mjs`、`node build.mjs`。用 **Shiny fork** 的已核验不可变 release 运行第二个 New API 进程。若启用本分支原生国际支付，须同时构建本分支的 Go 二进制及控制台；国内主站继续使用原 release，RU 的服务路径与升级策略独立。
 2. 在现有 PostgreSQL 新建专用 `shiny_ru` 数据库和最小权限账号；不使用主站数据库、日志库、表前缀或数据库账号。配置独立备份。独立 Unix 用户 `shiny-ru`，独立数据/日志目录；实例只监听 `127.0.0.1:3001`。
 3. 将 `newapi.env.example` 复制到服务器私有目录，替换数据库密码和独立随机 `SESSION_SECRET`。核验 `SESSION_COOKIE_SECURE`、精确 HTTPS Origin、代理地址。单进程起步不共享主站 Redis；需要 Redis 时使用隔离实例及 ACL。不要同步主站浏览器 Cookie、会话或 root 账号。
 4. 审阅 systemd 模板的 release 路径、用户名与日志目录。首次初始化在受限候选虚拟主机中完成，创建 RU 管理员后再开放注册；上线前确认 `/api/setup` 不再允许初始化。不要先公开未初始化实例。

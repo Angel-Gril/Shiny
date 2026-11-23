@@ -13,7 +13,7 @@ ru.shinyapi.com/v1 → RU New API 鉴权/扣费/日志 → 内部 Key → 主站
 
 ## 配置位置与顺序
 
-1. 备份 RU 数据库和现有 release，在独立候选环境验证迁移。新增 `hosted_payments` 表保存支付快照；复用原有 `top_ups`、`options` 和钱包事务。不要删除旧订单或用生产库进行测试支付。
+1. 备份 RU 数据库和现有 release，在独立候选环境验证迁移。MySQL 的 RU 主库和独立日志库均须采用 `utf8mb4`，不能使用 Latin1；连接 DSN 同样指定 UTF-8。新增 `hosted_payments` 表保存支付快照；复用原有 `top_ups`、`options` 和钱包事务。不要删除旧订单或用生产库进行测试支付。
 2. RU「系统设置 → 站点设置 → 系统信息」的站点地址 `ServerAddress` 填 `https://ru.shinyapi.com`，只填 HTTPS origin。邮件、回跳、账户 API、支付通知都指向 RU。反向代理将 `/api/*`、控制台路由和 `/v1/*` 发往 RU 实例，参考本目录 Nginx 模板。
 3. 在 RU 进程环境设置 `PAYMENTS_ENVIRONMENT=live`（默认也是 live）。沙箱须单独部署测试实例、域名、数据库，并设置 `PAYMENTS_ENVIRONMENT=test`。实例拒绝启用不匹配的环境，拒绝相应下单、通知及对账入账，避免沙箱付款增加正式余额。NOWPayments 本适配器仅实现正式 USD 发票 API。
 4. 登录 **RU 超级管理员**，进入「系统设置 → 计费设置 → 国际支付」：`/system-settings/billing/international-payments`。先在原支付设置页完成系统已有的支付确认，再配置相应商户。
@@ -74,9 +74,11 @@ RU 收款、赠送、客户消费和主站内部服务账号消耗应分别统�
 
 ## 验证
 
-自动化入口为 `.github/workflows/native-payments.yml`，包括 Go 协议/配置测试、SQLite/MySQL/PostgreSQL 真实数据库新建与升级两次、并发入账/金额拒绝/额度溢出回滚、原易支付回归，以及钱包/管理页测试、typecheck、lint 和构建。
+自动化入口为 `.github/workflows/native-payments.yml`，包括 Go 协议/配置测试、SQLite/MySQL/PostgreSQL 真实数据库新建与升级两次、独立日志库、并发入账/金额拒绝/额度溢出回滚、原易支付回归，以及钱包/管理页测试、typecheck、lint 和构建。
 
 本地验证使用 SQLite 3.50.4；MySQL 5.7.44 与 PostgreSQL 9.6.24 由 CI 服务执行，具体结论及版本以分支工作流日志为准。浏览器验收在 API/供应商网络边界使用 fixture，不发送真实收款。生产开户、真实商户凭据、沙箱及小额付款、俄区网络和双实例模型流量仍须候选环境验收。
+
+2026-11-24 的 [原生支付 CI](https://github.com/Angel-Gril/Shiny/actions/runs/45245713373) 与 [源码回归](https://github.com/Angel-Gril/Shiny/actions/runs/45245713375) 已通过，数据库为 SQLite **3.50.4**、MySQL **5.7.44**、PostgreSQL **9.6.24**。矩阵执行 `go test ./model -run '^(TestHostedPaymentDatabaseMatrix|TestRechargeEpay)' -count=1 -v`，覆盖空库、添加支付表前的既有 User/TopUp/Log、迁移两次、旧易支付记录、独立日志库、8 个并发通知只入账一次，以及额度上限回滚。完整创单/回调回归另执行 `go test ./controller ./service ./model -run '^(TestHosted|TestEpay|TestRechargeEpay)' -count=1`。前端钱包/支付管理相关 **25 项**测试、typecheck、涉及文件 lint 和生产构建通过。Playwright 人工驱动验收覆盖俄语管理页保存暂停、USD/EUR 报价、390px 手机确认框、托管收银台跳转及订单币种显示，最终订单页无浏览器错误。
 
 遵循现有 root 权限和 OriginGuard；敏感配置只走专用接口，服务端重新计算金额，通知验签+查单，原子幂等入账。参考 OWASP 支付/认证/会话指引，未作完整 ASVS 合规认证声明。管理表单复用项目 `SettingsForm`、RHF/Zod、`Form`、`CopyButton`、加载/错误状态和 Query/Mutation，未另建通用交互体系。
 
