@@ -1,6 +1,6 @@
 # RU 商业门户候选部署
 
-此目录是待验收的配置模板，不会自动操作生产。开发分支只新增门户和独立实例配置，保持 `new-api/`、`portal/`、主站渠道和账务代码不变。
+此目录是待验收的配置模板，不会自动操作生产。开发分支新增门户、独立实例和可选支付组件配置，保持 `new-api/`、`portal/`、主站渠道和账务代码不变。
 
 ## 架构
 
@@ -45,7 +45,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 - 可以共用已验证的 `shinyapi.com` 发信域名及邮件供应商；**RU 实例要单独填自己的 SMTP/发信设置、品牌、站点 URL**，可使用 `no-reply@shinyapi.com` 或专用地址。需要辨别“CF 邮箱”：Cloudflare Email Routing 是收信转发，不等于 SMTP 发信服务；若主站使用 Worker/其他发信服务，需核验它允许 RU 站点链接及发件人。
 - Cloudflare Turnstile 是另一项配置；现有 site key 若未授权 `ru.shinyapi.com`，需添加域名或新建独立 key，并填入 RU 实例。验收注册、重置密码、链接域名和验证码。
 - 当前网页已有俄语翻译；后端 `DEFAULT_LANGUAGE` 模板设为 `en`，因为当前支持的系统邮件语言为 en/zh-CN/zh-TW。俄语事务邮件是后续工作，不能仅改前端语言就声称已完成。
-- 未实现新的 PayPal、连连国际或加密货币收款适配器；门户只链接 RU 钱包。商户开通、面向俄罗斯客户的可用性、币种和结算条件需要按供应商当前规则确认，不能把任一渠道视为默认可用。先在 RU 实例启用其已支持且已获商户批准的支付方式；新增供应商需单独实现服务端签名校验、金额/币种校验、订单归属、幂等入账与退款测试，所有 webhook 指向 RU 域名。
+- 可选 [payment-bridge](../../payment-bridge/README.md) 提供 NOWPayments 加密货币、连连全球收单、PayPal 候选适配器，所有渠道默认关闭，商户凭据与受理资格需实际配置/联调。支付组件建议 `pay-ru.shinyapi.com`，供应商 webhook 指向该组件；经验证的入账通知只发往 `ru.shinyapi.com/api/user/epay/notify`。New API 已有 Stripe/Creem/Waffo 等继续独立配置。详细字段、币种换算、逐渠道启用、重试对账和退款边界见支付说明。
 - `/user-agreement`、`/privacy-policy` 复用 RU 控制台，运营方须配置本服务实际条款、支持联系方式及隐私说明后开放收款。
 
 ## 必做候选验收

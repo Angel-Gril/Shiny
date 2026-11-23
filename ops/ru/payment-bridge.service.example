@@ -1,0 +1,24 @@
+[Unit]
+Description=Shiny RU payment bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shiny-payments
+Group=shiny-payments
+WorkingDirectory=/srv/shiny/payment-bridge/current
+EnvironmentFile=/etc/shiny-payments/payments.env
+ExecStart=/usr/bin/node src/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StateDirectory=shiny-payments
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/shiny-payments
+
+[Install]
+WantedBy=multi-user.target

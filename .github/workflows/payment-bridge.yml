@@ -1,0 +1,52 @@
+name: Payment bridge
+on:
+  push:
+    paths:
+      - 'payment-bridge/**'
+      - 'ops/ru/payment-*'
+      - '.github/workflows/payment-bridge.yml'
+  pull_request:
+    paths:
+      - 'payment-bridge/**'
+      - 'ops/ru/payment-*'
+      - '.github/workflows/payment-bridge.yml'
+permissions:
+  contents: read
+jobs:
+  bridge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test --test-timeout=30000 tests/*.test.mjs
+        working-directory: payment-bridge
+      - run: npx --yes prettier@3.10.1 --check 'payment-bridge/src/**/*.{mjs,css}' 'payment-bridge/tests/*.mjs' payment-bridge/test-browser.mjs payment-bridge/config.example.json payment-bridge/package.json
+      - run: npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/shiny-payments-browser" playwright@1.58.2
+      - run: '"$RUNNER_TEMP/shiny-payments-browser/node_modules/.bin/playwright" install --with-deps chromium'
+      - run: node test-browser.mjs
+        working-directory: payment-bridge
+        env:
+          PLAYWRIGHT_PATH: ${{ runner.temp }}/shiny-payments-browser/node_modules/playwright
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payment-bridge-browser
+          path: payment-bridge/output/playwright
+      - run: tar --exclude=output --exclude=config.json --exclude=data --exclude=.env -czf "$RUNNER_TEMP/shiny-payment-bridge.tar.gz" payment-bridge
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shiny-payment-bridge
+          path: ${{ runner.temp }}/shiny-payment-bridge.tar.gz
+  newapi-protocol:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: new-api/go.sum
+      - run: go test ./controller -run '^TestEpay' -count=1
+        working-directory: new-api
+      - run: go test ./model -run '^TestRechargeEpay' -count=1
+        working-directory: new-api

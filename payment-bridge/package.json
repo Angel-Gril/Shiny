@@ -1,0 +1,16 @@
+{
+  "name": "shiny-payment-bridge",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node src/cli.mjs check",
+    "catalog": "node src/cli.mjs catalog"
+  }
+}

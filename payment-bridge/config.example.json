@@ -1,0 +1,62 @@
+{
+  "origin": "https://pay-ru.shinyapi.com",
+  "environment": "test",
+  "host": "127.0.0.1",
+  "port": 3210,
+  "database": "./data/payments.sqlite",
+  "csrfSecretEnv": "PAYMENT_CSRF_SECRET",
+  "maxSourceAmount": "7200.00",
+  "newapi": {
+    "origin": "https://ru.shinyapi.com",
+    "merchantId": "shiny-ru",
+    "currency": "CNY",
+    "signType": "RSA",
+    "publicKeyFile": "./keys/newapi-public.pem",
+    "privateKeyFile": "./keys/bridge-private.pem",
+    "secretEnv": "PAYMENT_EPAY_SECRET"
+  },
+  "providers": {
+    "nowpayments": {
+      "enabled": false,
+      "acceptNew": true,
+      "environment": "live",
+      "currency": "USD",
+      "sourceUnitsPerSettlementUnit": "7.200000",
+      "apiKeyEnv": "NOWPAYMENTS_API_KEY",
+      "ipnSecretEnv": "NOWPAYMENTS_IPN_SECRET",
+      "payCurrency": ""
+    },
+    "lianlian": {
+      "enabled": false,
+      "acceptNew": true,
+      "environment": "test",
+      "currency": "USD",
+      "sourceUnitsPerSettlementUnit": "7.200000",
+      "signatureType": "HMAC-SHA256",
+      "apiKeyEnv": "LIANLIAN_API_KEY",
+      "apiSecretEnv": "LIANLIAN_API_SECRET",
+      "webhookSecretEnv": "LIANLIAN_WEBHOOK_SECRET",
+      "privateKeyFile": "./keys/lianlian-merchant-private.pem",
+      "platformPublicKeyFile": "./keys/lianlian-platform-public.pem",
+      "storeId": "",
+      "userId": "",
+      "developerUserId": "",
+      "onBehalfOf": "",
+      "countryCode": "",
+      "checkoutHosts": [],
+      "goodsURL": "https://ru.shinyapi.com/catalog/",
+      "shippingProvider": ""
+    },
+    "paypal": {
+      "enabled": false,
+      "acceptNew": true,
+      "environment": "sandbox",
+      "currency": "USD",
+      "sourceUnitsPerSettlementUnit": "7.200000",
+      "clientIdEnv": "PAYPAL_CLIENT_ID",
+      "clientSecretEnv": "PAYPAL_CLIENT_SECRET",
+      "merchantId": "",
+      "webhookId": ""
+    }
+  }
+}

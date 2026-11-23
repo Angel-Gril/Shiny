@@ -6,6 +6,7 @@ Shiny 的站点源码、New API 针对性修改与部署维护规范。该仓库
 
 - `portal/`：独立首页、教程、下载与管理员内容服务；按需加载的粒子首屏、R2 分片直传、暂停续传及资源保存恢复。
 - `portal-ru/`：俄语商业门户、模型广场与接入指南；独立发布，连接独立 RU New API 实例。见 [门户说明](portal-ru/README.md) 与 [候选部署](ops/ru/README.md)。
+- `payment-bridge/`：可选的国际支付组件，提供 NOWPayments、连连全球收单和 PayPal 适配器，通过现有易支付协议连接 RU New API；独立配置和发布。见 [支付接入说明](payment-bridge/README.md)。
 - `new-api/`：基于 QuantumNous/new-api 的完整可构建源码与 Shiny 变更。保留上游 LICENSE、NOTICE 及原作者归属。
 - `cpa/`：CPA 官方内核版本、包摘要、配置示例、插件约束与升级验收。
 - `cpa-pro/`：CPA Manager Plus Full 的版本、服务和统一管理入口集成。

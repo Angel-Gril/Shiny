@@ -1,0 +1,21 @@
+# Add the limit_req_zone in the existing http {} context, once.
+limit_req_zone $binary_remote_addr zone=shiny_payments:10m rate=5r/s;
+
+server {
+    listen 443 ssl;
+    server_name pay-ru.shinyapi.com;
+    ssl_certificate /etc/letsencrypt/live/pay-ru.shinyapi.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pay-ru.shinyapi.com/privkey.pem;
+    client_max_body_size 64k;
+
+    # Avoid recording opaque checkout capabilities or provider return parameters.
+    access_log off;
+    location / {
+        limit_req zone=shiny_payments burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3210;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 65s;
+        proxy_redirect off;
+    }
+}
