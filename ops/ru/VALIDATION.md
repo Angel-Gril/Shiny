@@ -10,6 +10,6 @@
 - 人工查看 1440px 桌面首页/目录与 390px 手机长截图；输出在本机 `portal-ru/output/playwright/`，不提交生成物。
 - 提交前执行仓库 `scripts/check-secrets.py` 与 `git diff --cached --check`。
 
-随分支提供 GitHub Actions，配置为运行 Node 22 构建和 Playwright 1.58.2 Chromium 回归并上传构建产物。本次远端推送被现有 GitHub 凭据缺少 `Contents: write` 权限阻止，因此远端 CI 尚未运行；不能将本机通过视为 CI 已通过。
+商业分支 `commercial/ru-portal` 已推送。实现提交 `2e256821bff8db72a74469f3d28c99819b53818f` 的 [RU portal checks](https://github.com/Angel-Gril/Shiny/actions/runs/45192080015) 已通过：Node 22 构建、Playwright 1.58.2 Chromium 回归及构建产物上传成功。后续提交和仓库其他检查以 [该分支的 Actions 记录](https://github.com/Angel-Gril/Shiny/actions?query=branch%3Acommercial%2Fru-portal) 为准。
 
 边界：本机没有运行 Linux Nginx/systemd、PostgreSQL 双实例、主站渠道或支付商户环境。Nginx/systemd 文件是模板，须在候选服务器执行配置检查；真实注册、邮箱、余额隔离、流式双跳计费和支付回调仍须按 [部署验收表](README.md#必做候选验收) 验证。本次未修改 New API 的后端/控制台/账务源码，也未用模拟 UI 冒充真实账号和收款功能。
