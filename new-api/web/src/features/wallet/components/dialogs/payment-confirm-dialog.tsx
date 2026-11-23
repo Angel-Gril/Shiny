@@ -103,11 +103,13 @@ export function PaymentConfirmDialog({
             ) : (
               <div className='flex items-baseline gap-2'>
                 <span className='text-2xl font-semibold'>
-                  {paymentCurrencySymbol}{formatCurrency(paymentAmount)}
+                  {paymentCurrencySymbol}
+                  {formatCurrency(paymentAmount)}
                 </span>
                 {hasDiscount && (
                   <span className='text-muted-foreground text-sm line-through'>
-                    {paymentCurrencySymbol}{formatCurrency(originalAmount)}
+                    {paymentCurrencySymbol}
+                    {formatCurrency(originalAmount)}
                   </span>
                 )}
               </div>
@@ -119,7 +121,8 @@ export function PaymentConfirmDialog({
               <div className='flex items-center justify-between text-sm'>
                 <span className='text-muted-foreground'>{t('You save')}</span>
                 <span className='font-semibold text-green-600'>
-                  {paymentCurrencySymbol}{formatCurrency(discountAmount)}
+                  {paymentCurrencySymbol}
+                  {formatCurrency(discountAmount)}
                 </span>
               </div>
             </div>
@@ -147,7 +150,11 @@ export function PaymentConfirmDialog({
           <AlertDialogCancel disabled={processing}>
             {t('Cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} disabled={processing}>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className='h-auto min-h-8 whitespace-normal'
+            disabled={processing || calculating || paymentAmount <= 0}
+          >
             {processing && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
             {t('Confirm Payment')}
           </AlertDialogAction>

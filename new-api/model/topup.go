@@ -27,6 +27,8 @@ type TopUp struct {
 	CreateTime      int64   `json:"create_time"`
 	CompleteTime    int64   `json:"complete_time"`
 	Status          string  `json:"status"`
+	PaymentCurrency string  `json:"payment_currency,omitempty" gorm:"-"`
+	PaymentState    string  `json:"payment_state,omitempty" gorm:"-"`
 }
 
 const (
@@ -47,10 +49,10 @@ const (
 )
 
 var (
-	ErrPaymentMethodMismatch    = errors.New("payment method mismatch")
-	ErrTopUpAmountMismatch      = errors.New("payment amount mismatch")
-	ErrTopUpNotFound            = errors.New("topup not found")
-	ErrTopUpStatusInvalid       = errors.New("topup status invalid")
+	ErrPaymentMethodMismatch          = errors.New("payment method mismatch")
+	ErrTopUpAmountMismatch            = errors.New("payment amount mismatch")
+	ErrTopUpNotFound                  = errors.New("topup not found")
+	ErrTopUpStatusInvalid             = errors.New("topup status invalid")
 	ErrInvalidTopUpQuota        error = common.NewMessage("Invalid top-up quota")
 	ErrTopUpQuotaLimitExceeded  error = common.NewMessage("Top-up quota limit exceeded")
 	ErrWalletQuotaLimitExceeded error = common.NewMessage("Wallet quota limit exceeded")
@@ -744,5 +746,3 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 
 	return nil
 }
-
-

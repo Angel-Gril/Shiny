@@ -1,0 +1,64 @@
+name: Native international payments
+on:
+  push:
+    paths:
+      - 'new-api/**'
+      - 'ops/ru/payment-native*'
+      - '.github/workflows/native-payments.yml'
+  pull_request:
+    paths:
+      - 'new-api/**'
+      - 'ops/ru/payment-native*'
+      - '.github/workflows/native-payments.yml'
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:5.7.44
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-ci-only
+          MYSQL_DATABASE: fixture
+        ports:
+          - 13316:3306
+        options: --health-cmd="mysqladmin ping -h localhost" --health-interval=5s --health-timeout=5s --health-retries=30
+      postgres:
+        image: postgres:9.6.24
+        env:
+          POSTGRES_PASSWORD: fixture-ci-only
+          POSTGRES_DB: fixture
+        ports:
+          - 15321:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: new-api/go.mod
+          cache-dependency-path: new-api/go.sum
+      - run: go test ./service ./controller -run '^(TestHosted|TestEpay)' -count=1
+        working-directory: new-api
+      - run: go test ./model -run '^(TestHostedPaymentDatabaseMatrix|TestRechargeEpay)' -count=1 -v
+        working-directory: new-api
+        env:
+          TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
+          TEST_POSTGRES_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture?sslmode=disable
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: new-api/web
+      - run: bun run typecheck
+        working-directory: new-api/web
+      - run: bunx vitest run src/features/wallet src/features/system-settings/integrations/__tests__/hosted-payments.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
+        working-directory: new-api/web
+      - run: bunx oxlint -c .oxlintrc.json src/features/system-settings/integrations/hosted-* src/features/system-settings/integrations/__tests__/hosted-payments.test.tsx src/features/wallet
+        working-directory: new-api/web
+      - run: bun run build
+        working-directory: new-api/web

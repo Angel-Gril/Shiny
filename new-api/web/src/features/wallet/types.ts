@@ -100,6 +100,8 @@ export interface PaymentMethod {
   min_topup?: number
   /** Optional react-icons component name or safe icon URL */
   icon?: string
+  currency?: string
+  unit_price?: number
 }
 
 /**
@@ -261,6 +263,8 @@ export interface TopupRecord {
   amount: number
   /** Payment amount (actual money paid) */
   money: number
+  payment_currency?: string
+  payment_state?: string
   /** Trade/order number */
   trade_no: string
   /** Payment method type */

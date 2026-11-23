@@ -136,7 +136,8 @@ export function RechargeFormCard({
     topupInfo?.enable_online_topup ||
     topupInfo?.enable_stripe_topup ||
     enableWaffoTopup ||
-    enableWaffoPancakeTopup
+    enableWaffoPancakeTopup ||
+    (topupInfo?.pay_methods?.length || 0) > 0
   const hasAnyTopup = hasConfigurableTopup || enableCreemTopup
   const hasStandardPaymentMethods =
     Array.isArray(topupInfo?.pay_methods) && topupInfo.pay_methods.length > 0
@@ -318,7 +319,8 @@ export function RechargeFormCard({
                       <Skeleton className='h-5 w-16' />
                     ) : (
                       <span className='text-sm font-semibold'>
-                        {paymentCurrencySymbol}{formatCurrency(paymentAmount)}
+                        {paymentCurrencySymbol}
+                        {formatCurrency(paymentAmount)}
                       </span>
                     )}
                   </div>
@@ -334,7 +336,7 @@ export function RechargeFormCard({
                     {topupInfo?.pay_methods?.map((method) => {
                       const minTopup = Math.max(
                         method.min_topup || 0,
-                        getMinTopupAmount(topupInfo)
+                        getMinTopupAmount(topupInfo, method)
                       )
                       const disabled = minTopup > topupAmount
                       const disabledReason = disabled

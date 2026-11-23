@@ -86,7 +86,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" || k == "ResendKeyConfigured" {
+		if k == setting.HostedPaymentOption || k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" || k == "ResendKeyConfigured" {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -189,6 +189,10 @@ func UpdateOption(c *gin.Context) {
 	err := common.DecodeJson(c.Request.Body, &option)
 	if err != nil {
 		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	if option.Key == setting.HostedPaymentOption {
+		common.ApiErrorT(c, "Use the hosted payment settings form to update these credentials")
 		return
 	}
 	switch option.Value.(type) {

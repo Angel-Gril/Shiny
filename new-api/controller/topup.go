@@ -97,6 +97,7 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	payMethods = appendHostedPaymentMethods(payMethods)
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
@@ -562,6 +563,10 @@ func GetUserTopUps(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
+	if err := model.AttachHostedPaymentDetails(topups); err != nil {
+		common.ApiErrorT(c, "Failed to load payment settings")
+		return
+	}
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)
 }
@@ -587,6 +592,10 @@ func GetAllTopUps(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
+	if err := model.AttachHostedPaymentDetails(topups); err != nil {
+		common.ApiErrorT(c, "Failed to load payment settings")
+		return
+	}
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)
 }

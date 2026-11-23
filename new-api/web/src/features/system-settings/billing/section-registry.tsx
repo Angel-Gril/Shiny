@@ -21,6 +21,7 @@ import { parseCurrencyDisplayType } from '@/lib/currency'
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
+import { HostedPaymentSettingsSection } from '../integrations/hosted-payment-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
@@ -203,6 +204,15 @@ const BILLING_SECTIONS = [
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
         }}
+      />
+    ),
+  },
+  {
+    id: 'international-payments',
+    titleKey: 'International payments',
+    build: (settings: BillingSettings) => (
+      <HostedPaymentSettingsSection
+        serverAddress={settings.ServerAddress || ''}
       />
     ),
   },

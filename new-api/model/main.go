@@ -354,6 +354,7 @@ func migrateDB() error {
 		&Log{},
 		&Midjourney{},
 		&TopUp{},
+		&HostedPayment{},
 		&QuotaData{},
 		&Task{},
 		&TaskPlugin{},

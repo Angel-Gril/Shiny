@@ -25,6 +25,7 @@ import {
   DEFAULT_MIN_TOPUP,
 } from '../constants'
 import type { PaymentMethod, PresetAmount, TopupInfo } from '../types'
+import { isHostedPayment } from './hosted-payment'
 
 // ============================================================================
 // Payment Processing Functions
@@ -168,28 +169,39 @@ export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
 /**
  * Get minimum topup amount from topup info
  */
-export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
+export function getMinTopupAmount(
+  topupInfo: TopupInfo | null,
+  method?: PaymentMethod
+): number {
+  if (method && isHostedPayment(method.type)) {
+    return method.min_topup || DEFAULT_MIN_TOPUP
+  }
   if (!topupInfo) {
     return DEFAULT_MIN_TOPUP
   }
 
+  const hostedMinimums =
+    topupInfo.pay_methods
+      ?.filter((payment) => isHostedPayment(payment.type))
+      .map((payment) => payment.min_topup || DEFAULT_MIN_TOPUP) || []
+  let minimum = DEFAULT_MIN_TOPUP
   if (topupInfo.enable_online_topup) {
-    return topupInfo.min_topup
+    minimum = topupInfo.min_topup
+  } else if (topupInfo.enable_stripe_topup) {
+    minimum = topupInfo.stripe_min_topup
+  } else if (topupInfo.enable_waffo_topup) {
+    minimum = topupInfo.waffo_min_topup || DEFAULT_MIN_TOPUP
+  } else if (topupInfo.enable_waffo_pancake_topup) {
+    minimum = topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
+  } else if (topupInfo.pay_methods?.length > 0) {
+    minimum = Math.min(
+      ...topupInfo.pay_methods.map(
+        (method) => method.min_topup || DEFAULT_MIN_TOPUP
+      )
+    )
   }
 
-  if (topupInfo.enable_stripe_topup) {
-    return topupInfo.stripe_min_topup
-  }
-
-  if (topupInfo.enable_waffo_topup) {
-    return topupInfo.waffo_min_topup || DEFAULT_MIN_TOPUP
-  }
-
-  if (topupInfo.enable_waffo_pancake_topup) {
-    return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
-  }
-
-  return DEFAULT_MIN_TOPUP
+  return method ? minimum : Math.min(minimum, ...hostedMinimums)
 }
 
 /**

@@ -148,7 +148,7 @@ export function BillingHistoryDialog({
           </div>
 
           {/* Records List */}
-          <div className='min-h-0 max-h-[min(54vh,520px)] flex-1 overflow-y-auto overscroll-contain pr-1'>
+          <div className='max-h-[min(54vh,520px)] min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1'>
             {loading && (
               <div className='space-y-3'>
                 {['first', 'second', 'third', 'fourth', 'fifth'].map(
@@ -262,6 +262,9 @@ export function BillingHistoryDialog({
                             {t('Payment')}
                           </Label>
                           <div className='text-sm font-semibold text-red-600'>
+                            {record.payment_currency
+                              ? `${record.payment_currency} `
+                              : ''}
                             {formatNumber(record.money)}
                           </div>
                         </div>

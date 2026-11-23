@@ -271,6 +271,7 @@ export type ModelSettings = {
 }
 
 export type BillingSettings = {
+  ServerAddress?: string
   QuotaForNewUser: number
   QuotaForInviter: number
   QuotaForInvitee: number

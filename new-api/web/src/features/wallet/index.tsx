@@ -47,6 +47,7 @@ import {
   getMinTopupAmount,
   dispatchSelectedPayment,
 } from './lib'
+import { isHostedPayment } from './lib/hosted-payment'
 import type {
   UserWalletData,
   PaymentMethod,
@@ -141,7 +142,7 @@ export function Wallet(props: WalletProps) {
   useEffect(() => {
     if (topupInfo && !topupAmountInitializedRef.current) {
       topupAmountInitializedRef.current = true
-      const minTopup = getMinTopupAmount(topupInfo)
+      const minTopup = getMinTopupAmount(topupInfo, topupInfo.pay_methods?.[0])
       setTopupAmount(minTopup)
 
       // Calculate initial payment amount with default payment type
@@ -177,7 +178,7 @@ export function Wallet(props: WalletProps) {
 
     try {
       // Validate minimum topup
-      const minTopup = getMinTopupAmount(topupInfo)
+      const minTopup = getMinTopupAmount(topupInfo, method)
       if (topupAmount < minTopup) {
         return
       }
@@ -282,6 +283,12 @@ export function Wallet(props: WalletProps) {
     []
   )
 
+  const activeMethod = selectedPaymentMethod || topupInfo?.pay_methods?.[0]
+  const activeHosted = isHostedPayment(activeMethod?.type || '')
+  const paymentCurrencySymbol = activeHosted
+    ? `${activeMethod?.currency || 'USD'} `
+    : '¥'
+
   return (
     <>
       <SectionPageLayout>
@@ -315,9 +322,13 @@ export function Wallet(props: WalletProps) {
                   redeeming={redeeming}
                   topupLink={topupInfo?.topup_link}
                   loading={topupLoading}
-                  priceRatio={(status?.price as number) || 1}
+                  priceRatio={
+                    activeHosted
+                      ? activeMethod?.unit_price || 1
+                      : (status?.price as number) || 1
+                  }
                   usdExchangeRate={effectiveUsdExchangeRate}
-                  paymentCurrencySymbol='¥'
+                  paymentCurrencySymbol={paymentCurrencySymbol}
                   onOpenBilling={() => setBillingDialogOpen(true)}
                   creemProducts={topupInfo?.creem_products}
                   enableCreemTopup={topupInfo?.enable_creem_topup}
@@ -364,7 +375,7 @@ export function Wallet(props: WalletProps) {
         processing={processing || waffoProcessing || pancakeProcessing}
         discountRate={getDiscountRate()}
         usdExchangeRate={effectiveUsdExchangeRate}
-        paymentCurrencySymbol='¥'
+        paymentCurrencySymbol={paymentCurrencySymbol}
       />
 
       <TransferDialog

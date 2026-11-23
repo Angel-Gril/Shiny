@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
@@ -37,6 +37,12 @@ import {
   isWaffoPancakePayment,
   submitPaymentForm,
 } from '../lib'
+import {
+  calculateHostedAmount,
+  hostedCheckoutURL,
+  isHostedPayment,
+  requestHostedPayment,
+} from '../lib/hosted-payment'
 import type { AmountRequest, AmountResponse } from '../types'
 
 // ============================================================================
@@ -64,6 +70,10 @@ export async function requestPaymentAmount(
   paymentType: string,
   calculators: PaymentAmountCalculators = defaultPaymentAmountCalculators
 ): Promise<number> {
+  if (isHostedPayment(paymentType)) {
+    const response = await calculateHostedAmount(topupAmount, paymentType)
+    return isApiSuccess(response) ? Number.parseFloat(response.data || '0') : 0
+  }
   let calculator = calculators.regular
   if (isStripePayment(paymentType)) {
     calculator = calculators.stripe
@@ -85,23 +95,29 @@ export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const quoteSequence = useRef(0)
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
     async (topupAmount: number, paymentType: string) => {
+      const sequence = ++quoteSequence.current
+      setAmount(0)
       try {
         setCalculating(true)
         const calculatedAmount = await requestPaymentAmount(
           topupAmount,
           paymentType
         )
-        setAmount(calculatedAmount)
+        if (sequence === quoteSequence.current) {
+          setAmount(calculatedAmount)
+        }
         return calculatedAmount
       } catch {
-        setAmount(0)
         return 0
       } finally {
-        setCalculating(false)
+        if (sequence === quoteSequence.current) {
+          setCalculating(false)
+        }
       }
     },
     []
@@ -115,6 +131,21 @@ export function usePayment() {
 
         const isStripe = isStripePayment(paymentType)
         const amount = Math.floor(topupAmount)
+
+        if (isHostedPayment(paymentType)) {
+          const response = await requestHostedPayment(amount, paymentType)
+          if (!isApiSuccess(response)) {
+            handleServerError(response, i18next.t('Payment request failed'))
+            return false
+          }
+          const checkoutURL = hostedCheckoutURL(response.data?.checkout_url)
+          if (!checkoutURL) {
+            toast.error(i18next.t('Payment request failed'))
+            return false
+          }
+          window.location.assign(checkoutURL)
+          return true
+        }
 
         const response = isStripe
           ? await requestStripePayment({
