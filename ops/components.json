@@ -1,29 +1,45 @@
 {
   "as_of": "2026-11-23",
   "new_api": {
-    "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
-    "production_release": "release-20261104-national-billing",
-    "production_version": "shiny-rc47-national-381a62a",
-    "source_commit": "381a62ad2",
-    "merge_commit": "aab52146f66e034a5c1ebc8c658c0b602aaac44b",
-    "artifact_sha256": "d716d89ea658e3166901e2ab0a9ddc8c69a618a2a9995506f2c298d4098a24df",
-    "frontend_release": "web-login-branding-20261104-r2",
+    "upstream_commit": "c9c6da2786b6a0912215127e78e28fbc6650c85f",
+    "production_release": "release-20261123-rc51-r2",
+    "production_version": "shiny-rc51-50f7591",
+    "source_commit": "50f7591e68d5751f0ca00e983273b8a906e20fd0",
+    "merge_commit": "fa18742503da15973dd0f1cc20bf8a2852277c1d",
+    "artifact_sha256": "048d92dece17e44e27c515f45a41522d7b8f50cd89966608e11190a9c5e0c9cc",
+    "frontend_release": "web-rc51-20261123-r2",
     "custom_source": "new-api/",
-    "frontend_source_commit": "ecb1030e99c46d3047dd2c868dcb939dc336da80",
-    "frontend_bundle": "web-login-branding-20261104-r2",
-    "frontend_archive_sha256": "72beffe009137cdb0537e1501dca9cfd0f9f672b48082b34911a64e0c9e4f5c7",
+    "frontend_source_commit": "50f7591e68d5751f0ca00e983273b8a906e20fd0",
+    "frontend_bundle": "web-rc51-20261123-r2",
+    "frontend_archive_sha256": "3f71987b9d57322d381c1957ce933d1e2859512db818be1301767fe84e326aa0",
     "upgrade_target": {
-      "upstream_release": "v1.0.0-rc.47",
-      "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
-      "baseline_commit": "f7cd34f265341cab766d025887c50eddb6461409",
-      "source_branch": "upgrade/new-api-rc47",
+      "upstream_release": "v1.0.0-rc.51",
+      "upstream_commit": "c9c6da2786b6a0912215127e78e28fbc6650c85f",
+      "baseline_commit": "e835b1bfc43b565d625537830dbfb19328925134",
+      "source_branch": "upgrade/components-20261123",
+      "source_pr": "https://github.com/Angel-Gril/Shiny/pull/45",
       "production_deployed": true,
-      "candidate_version": "shiny-rc47-candidate",
-      "candidate_artifact_sha256": "d1b185f1ed364cabf0d2b63dff7aa09386217f2737018c3e3c8518d40dd09de4",
-      "production_release": "release-20261028-newapi-rc47",
-      "production_version": "shiny-rc47-6750fa7",
-      "artifact_sha256": "fd565ac22b06236b88b0181c0a21bbdd4bb591f95594770bdd7fd25323140ac0",
-      "frontend_release": "web-rc47-20261028"
+      "production_release": "release-20261123-rc51-r2",
+      "production_version": "shiny-rc51-50f7591",
+      "artifact_sha256": "048d92dece17e44e27c515f45a41522d7b8f50cd89966608e11190a9c5e0c9cc",
+      "frontend_release": "web-rc51-20261123-r2",
+      "production_changed": "2026-11-23T12:51:42Z",
+      "audit_mode": "off",
+      "behavior_audit_enabled": false,
+      "official_request_processing": true,
+      "legacy_signal_words_made_blocking": false,
+      "restart_to_verified_seconds": 5.12,
+      "five_minute_healthy": true,
+      "health_observation_seconds": 303.79,
+      "temporary_artifacts_removed": true,
+      "temporary_bytes_removed": 863022053,
+      "rolling_transition_drained": true,
+      "max_request_body_mib": 256,
+      "legacy_enabled_normalized_false": true,
+      "public_browser_widths": [
+        1440,
+        390
+      ]
     },
     "national_billing": {
       "implementation_pr": "https://github.com/Angel-Gril/Shiny/pull/31",
@@ -44,7 +60,23 @@
       "candidate_fixture_requests": 20,
       "old_assets_preserved": true,
       "peer_processes_preserved": true
-    }
+    },
+    "upgrade_history": [
+      {
+        "upstream_release": "v1.0.0-rc.47",
+        "upstream_commit": "e835b1bfc43b565d625537830dbfb19328925134",
+        "baseline_commit": "f7cd34f265341cab766d025887c50eddb6461409",
+        "source_branch": "upgrade/new-api-rc47",
+        "production_deployed": true,
+        "candidate_version": "shiny-rc47-candidate",
+        "candidate_artifact_sha256": "d1b185f1ed364cabf0d2b63dff7aa09386217f2737018c3e3c8518d40dd09de4",
+        "production_release": "release-20261028-newapi-rc47",
+        "production_version": "shiny-rc47-6750fa7",
+        "artifact_sha256": "fd565ac22b06236b88b0181c0a21bbdd4bb591f95594770bdd7fd25323140ac0",
+        "frontend_release": "web-rc47-20261028"
+      }
+    ],
+    "upstream_release": "v1.0.0-rc.51"
   },
   "cpa": {
     "version": "v8.1.1",
