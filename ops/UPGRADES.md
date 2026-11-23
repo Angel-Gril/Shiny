@@ -41,3 +41,5 @@ CPA Manager Plus 是独立官方服务，长期统计库与 data.key 共同备�
 门户与登录页品牌入口的维护约定：门户 Logo 通过 `/shiny-home-assets/<immutable-release>/assets/mark.svg` 提供；New API 系统设置的 `Logo` 可引用当前门户版本路径。发布新版门户后，先确认旧版本 SVG 仍为 HTTP 200，再更新该单一选项。首页登录按钮必须使用当前标签导航到 `/sign-in`，控制台品牌返回链接完整加载静态门户首页。门户与控制台前端分别构建、验收和切换各自的 Nginx include，并保留完整的历史资源回退链。控制台 include 的 root 必须匹配实际包布局，不能假定存在 site 子目录。完成候选浏览器验收后平滑 reload Nginx，单独更新 Logo 选项；不重启门户内容服务或 New API，不替换或删除任何历史不可变资源。回滚时分别恢复原门户 include、控制台 include 与 Logo 字符串。
 
 New API 新增页面时，使用 `ops/nginx/build-console-routing.py` 从当前 `FileRoutesByFullPath` 扩充控制台路径；根路径 `/` 始终留给独立门户。工具保留既有路由别名和全部旧资产回退链。发布前运行 `python -m unittest discover -s ops/nginx -p 'test_*.py'` 并核验 `nginx -t`。
+
+Nginx reload 返回不代表新 worker 已可服务，入口校验应轮询等待新版本，而不是立即比较一次 HTML。New API 重启前通过管理员 `/api/status/test` 的 `http_stats.active_connections` 等待请求排空；持续有长请求时，可用仅监听本机的同版本 slave 临时承接新请求，再更新主进程。临时节点使用同一数据与认证配置、独立 NODE_NAME、较小连接池，流量收回后须等临时请求排空才停止并删除含密钥的环境文件。禁止为切换而自动恢复整库备份覆盖已发生的新消费。
