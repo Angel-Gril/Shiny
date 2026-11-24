@@ -1,6 +1,6 @@
 # RU 原生国际支付候选接入
 
-推荐使用本分支 `new-api/` 的原生接入：cisPay、NOWPayments、连连全球收单、PayPal 和 ZPAY 均作为可独立启用的支付方式，默认关闭。[支付模块分组](../payments/README.md) 保存供应商清单和部署组合。商户提供托管收银台，RU New API 负责创单、验签、查单和余额入账；不需要另建第三方支付平台、进程或 `pay-ru` 子域名。
+本分支 `new-api/` 已提供 13 个可独立启用、默认关闭的托管钱包支付接入。当前预选为国际结账 **Creem / Waffo Pancake**，以及加密支付 **TryBit（原 CryptoCloud）/ NOWPayments / OxaPay / Apirone**；cisPay、Platega、FreeKassa、Lava.top、连连、PayPal 和 ZPAY 保留为备选。[支付模块分组](../payments/README.md) 保存供应商清单和部署组合。商户提供收银台，RU New API 负责创单、通知验证、官方查单和余额入账；不需要另建第三方支付平台、进程或 `pay-ru` 子域名。
 
 ```text
 ru.shinyapi.com/wallet → RU New API 创单 → 支付商托管收银台
@@ -13,13 +13,13 @@ ru.shinyapi.com/v1 → RU New API 鉴权/扣费/日志 → 内部 Key → 主站
 
 ## 配置位置与顺序
 
-1. 备份 RU 数据库和现有 release，在独立候选环境验证迁移。MySQL 的 RU 主库和独立日志库均须采用 `utf8mb4`，不能使用 Latin1；连接 DSN 同样指定 UTF-8。新增 `hosted_payments` 表保存支付快照；复用原有 `top_ups`、`options` 和钱包事务。不要删除旧订单或用生产库进行测试支付。
+1. 备份 RU 数据库和现有 release，在独立候选环境验证迁移。MySQL 的 RU 主库和独立日志库均须采用 `utf8mb4`，不能使用 Latin1；连接 DSN 同样指定 UTF-8。`hosted_payments` 保存不可变支付/商品/币价快照，`hosted_payment_claims` 阻止一个远端发票重复用于不同本地订单，`hosted_payment_sequences` 保存 FreeKassa 跨进程递增 nonce；复用原有 `top_ups`、`options` 和钱包事务。不要删除旧订单或用生产库进行测试支付。
 2. RU「系统设置 → 站点设置 → 系统信息」的站点地址 `ServerAddress` 填 `https://ru.shinyapi.com`，只填 HTTPS origin。邮件、回跳、账户 API、支付通知都指向 RU。反向代理将 `/api/*`、控制台路由和 `/v1/*` 发往 RU 实例，参考本目录 Nginx 模板。
-3. 在 RU 进程环境设置 `PAYMENTS_ENVIRONMENT=live`（默认也是 live），`PAYMENTS_PROVIDERS` 选择已批准的原生渠道，例如 `cispay,nowpayments`。模板以 `none` 起步，关闭全部原生新充值；不影响已启用的旧单回调，也不控制原有 Stripe/易支付等入口。空值或未知模块导致启动失败。沙箱须单独部署测试实例、域名、数据库，并设置 `PAYMENTS_ENVIRONMENT=test`。实例拒绝启用不匹配的环境，拒绝相应下单、通知及对账入账，避免沙箱付款增加正式余额。NOWPayments/ZPAY 本适配器只实现正式 API；cisPay 沙箱只允许已有测试订单的通知验证和查单恢复，不从 API 创建沙箱充值。
+3. 在 RU 进程环境设置 `PAYMENTS_ENVIRONMENT=live`（默认也是 live），`PAYMENTS_PROVIDERS` 选择已批准的原生渠道，例如 `creem_native,oxapay`。六家预选合并组合见 [preselected.env.example](../payments/preselected.env.example)，只把需要的变量合并进完整 RU 环境文件。RU 默认模板以 `none` 起步，关闭全部原生新充值；不影响已启用的旧单回调，也不控制原有 Stripe/易支付等入口。空值或未知模块导致启动失败。沙箱须单独部署测试实例、域名、商户凭据及数据库，并设置 `PAYMENTS_ENVIRONMENT=test`。实例拒绝不匹配的环境，避免沙箱付款增加正式余额。NOWPayments、ZPAY、Platega、FreeKassa、Lava.top、Apirone 本适配器只实现正式 API；cisPay 沙箱只允许已有测试订单的通知验证和查单恢复，不从 API 创建沙箱充值。
 4. 登录 **RU 超级管理员**，进入「系统设置 → 计费设置 → 国际支付」：`/system-settings/billing/international-payments`。先在原支付设置页完成系统已有的支付确认，再配置相应商户。
 5. 分别填写每个支付商的环境、结算币种、单价、最低充值及凭据。凭据留空表示保留已保存值；读取设置只返回是否已配置，不回传密钥。凭据保存在 RU 数据库既有 options 表，数据库和备份均需严格限制访问，本版未引入独立密钥保险库。每个渠道还有 `enabled`、`accept_new` 开关，须同时在部署清单内才能接受新充值；只开户并配置实际要收款的渠道，其他渠道继续关闭。
-6. 将页面展示的 webhook URL 填入对应环境的商户后台，完成供应商联调后开启「启用支付接入」和「接受新付款」，保存。钱包自动显示对应按钮，**不用手填易支付 PayMethods**。
-7. 暂停某渠道时关闭「接受新付款」，保留「启用支付接入」、凭据和回调，以便处理存量订单。可以再从部署清单移除并重启 RU 服务，旧单仍可回调及人工恢复。不同渠道可同时启用，互相独立；原有易支付、Stripe、Creem、Waffo 等继续使用各自入口，原生 ZPAY 不要与旧易支付重复开放同一商户。
+6. 将页面展示的 webhook URL 填入对应环境的商户后台，或由支持逐单回调的创单接口自动发送。Apirone 使用逐单带令牌 URL，不复制一个固定回调地址；代理/CDN 对支付回调关闭访问日志，参考 [Nginx 模板](nginx.conf.example)。完成供应商联调后开启「启用支付接入」和「接受新付款」，保存。钱包自动显示对应按钮，**不用手填易支付 PayMethods**。
+7. 暂停某渠道时关闭「接受新付款」，保留「启用支付接入」、凭据和回调，以便处理存量订单。可以再从部署清单移除并重启 RU 服务，旧单仍可回调及人工恢复。不同渠道可同时启用，互相独立；原有易支付、Stripe、Creem/Waffo Pancake 套餐和订阅等继续使用各自入口。原生钱包使用 `creem_native`、`waffo_pancake_native`，不会覆盖旧处理器；避免同时开放同商户同方式的重复入口。
 
 原生模式不改 `PayAddress`、`EpayId` 或易支付签名密钥。以前的 [payment-bridge](../../payment-bridge/README.md) 留作不升级 New API 的可选替代方案；不必部署，同一个支付商不要同时从桥接和原生模式开放。
 
@@ -27,7 +27,9 @@ ru.shinyapi.com/v1 → RU New API 鉴权/扣费/日志 → 内部 Key → 主站
 
 最低充值以 **USD 钱包额度**计；「每 USD 额度所需的支付币种金额」是固定商业报价，不自动获取汇率。例如无折扣、用户组充值倍率为 1 时，充值 10 USD 额度，币种 USD、单价 `1`，收取 `10.00 USD`；币种 EUR、单价 `0.95`，收取 `9.50 EUR`。
 
-服务端使用精确 decimal 计算，并应用 RU 现有充值分组倍率和金额折扣。`QuotaPerUnit` 与额度显示方式沿用该实例设置；下单即保存实际应付金额/币种、精确入账 quota、商户环境标识。后来修改单价/折扣不改变旧单。钱包和订单记录展示支付币种，付款成功只有在服务器验签、查单、比对订单/商户/币种/金额后才能入账。重复/并发通知最多入账一次。
+服务端使用精确 decimal 计算，并应用 RU 现有充值分组倍率和金额折扣。`QuotaPerUnit` 与额度显示方式沿用该实例设置；下单即保存实际应付金额/币种、精确入账 quota、商户环境标识。后来修改单价/折扣不改变旧单。钱包和订单记录展示支付币种，付款成功只有在服务器验证通知、查单、比对订单/商户/币种/金额后才能入账。重复/并发通知最多入账一次，远端发票也不能被用于另一笔本地订单。
+
+Apirone 的 USD 报价另用官方实时 ticker 转为指定币/网络最小单位，并向上取整；币种、整数币量和当时 USD 汇率在创建远端发票前保存。不能假设 USDT/USDC 永远等于 1 USD，也不能把 18 位币精度经过 float 或 int64。开售前将服务费、网络费、税额和实际结算净额纳入定价；Creem/Pancake 的含税实付不是商户净收入。
 
 RU 收款、赠送、客户消费和主站内部服务账号消耗应分别统计。主站内部 Key 的额度不是第二笔零售收款；不能从聚合余额反推可退款现金。
 
@@ -51,13 +53,68 @@ RU 收款、赠送、客户消费和主站内部服务账号消耗应分别统�
 
 | 支付商 | 商户必须提供 | 正式 webhook |
 | --- | --- | --- |
+| Creem | 稳定商户标识、API Key、Webhook Secret、含税单次商品 `prod_…` | `https://ru.shinyapi.com/api/payments/creem_native/webhook/live` |
+| Waffo Pancake | `MER_…`、`STO_…`、单次商品 `PROD_…`、对应环境商户 RSA 私钥、税务类别；可选固定平台 webhook 公钥 | `https://ru.shinyapi.com/api/payments/waffo_pancake_native/webhook/live` |
+| TryBit / CryptoCloud | Shop ID、项目 API Key、JWT Secret、明确 API 版本、批准的精确收银台域名；可选币/网络代码 | `https://ru.shinyapi.com/api/payments/cryptocloud/webhook/live` |
+| OxaPay | 稳定商户标识、Merchant API Key；商户后台启用币/网络 | `https://ru.shinyapi.com/api/payments/oxapay/webhook/live` |
+| Apirone | `apr-…` 账户 ID、Transfer Key、本地生成至少 32 字符回调密钥、明确币/网络代码（默认 `usdt@trx`） | 创单自动发送逐单 URL：`/api/payments/apirone/webhook/live?ref=…&token=…`，禁止记录该 query |
 | cisPay | Merchant API Shop ID、API Key；可选固定 `CARD`、`SBP` 或 `CRYPTO`；批准/核实的收银台域名 | `https://ru.shinyapi.com/api/payments/cispay/webhook/live` |
+| Platega | 商户 UUID、`X-Secret`；可选已开通 method ID | `https://ru.shinyapi.com/api/payments/platega/webhook/live` |
+| FreeKassa | Shop ID、API Key、独立 Secret Word 2、已批准 method ID、精确收银台域名 | `https://ru.shinyapi.com/api/payments/freekassa/webhook/live` |
+| Lava.top | 稳定商户标识、API Key、独立 webhook Service API Key、允许 API 自定义价格的 Offer UUID、精确收银台域名 | `https://ru.shinyapi.com/api/payments/lava/webhook/live` |
 | 连连全球收单 | 已开通 Open Platform v1 acquiring CHECKOUT 的 API Key、签名凭据、Store ID、Merchant User ID、Developer User ID、受理国、批准的商品 URL/物流代码、精确收银台域名；代客场景另填 On Behalf Of | `https://ru.shinyapi.com/api/payments/lianlian/webhook/live` |
 | NOWPayments | Merchant account reference（自定义稳定商户标识）、API Key、独立 IPN Secret、结算钱包；可选明确币和网络代码 | `https://ru.shinyapi.com/api/payments/nowpayments/webhook/live` |
 | PayPal | Client ID、Client Secret、Merchant ID、对应 App 的 Webhook ID | `https://ru.shinyapi.com/api/payments/paypal/webhook/live` |
 | ZPAY | 商户 ID、商户 MD5 密钥、`alipay` / `wxpay`、核实的精确收银台域名 | `https://ru.shinyapi.com/api/payments/zpay/webhook/live`（GET） |
 
-测试地址将最后的 `live` 改成 `test`，同时换成独立测试站域名。页面会按 `ServerAddress` 和所选环境生成地址。
+支持沙箱的接入将最后的 `live` 改成 `test`，同时换成独立测试站域名。页面按 `ServerAddress` 和所选环境生成地址。Creem/Pancake、PayPal/连连、TryBit/OxaPay 可创建测试订单；live-only 平台不能通过改路径获得不存在的沙箱。
+
+### Creem
+
+- 使用 [官方 REST v1](https://docs.creem.io/api-reference/endpoint/create-checkout)，正式 `https://api.creem.io`，测试 `https://test-api.creem.io`，`x-api-key` 鉴权。先 `GET /v1/products/{id}` 检查 active、onetime、inclusive tax，禁止 business net pricing；再 `POST /v1/checkouts` 传商品、本地 `request_id`、用户 metadata、账户邮箱和整数分 `custom_price`，支持 `1.00–999999.99`。
+- 商户后台订阅 `checkout.completed`，填对应 `creem_native` 地址及独立 Webhook Secret。原始请求 HMAC-SHA256 验签后，`GET /v1/checkouts?checkout_id=…` 再核对模式、商品、用户、份数、自定义价、实付金额和无订阅/折扣，才增加固定 USD 钱包额度。
+- 获取商品/API Key 与正式审核分开。开通前确认你的模型 API 额度商品、目标付款地区、税务类别、结算和退款规则已获准。旧 Creem 套餐/订阅继续使用原设置，新增原生钱包不共享处理路由。
+
+### Waffo Pancake
+
+- 使用 [官方 RSA 请求签名](https://docs.waffo.ai/api-reference/authentication)：`POST\nPATH\n秒时间戳\nBase64(SHA256(原始JSON))`，再 RSA-SHA256；请求携带 `X-Merchant-Id`、`X-Timestamp`、`X-Signature`，环境绑定到商户密钥并传 `X-Environment`。
+- `POST /v1/actions/checkout/create-session` 固定单次商品、精确含税价、`ru-RU`、关闭优惠码输入；随后 `issue-session-token` 为当前用户签发买家令牌。跳转令牌在 URL fragment，只发给立即跳转的浏览器，**不保存到订单或日志**。`cs_…` Session、`ORD_…` Order 和 `PAY_…` Payment 不混用。
+- 平台 webhook 选择对应环境公钥，RSA-SHA256 验证 `timestamp.rawBody` 并允许官方重试所需的 **45 分钟**时窗。安装的 Go SDK 默认仍为 5 分钟，本适配器显式覆盖；超时通知需商户重新发送或官方查单恢复。只处理 `order.completed` 钱包购买，核对 store/mode/buyer，然后通过 `/v1/graphql` 按 `orderMerchantExternalId` 查单，验证单次商品、测试模式、用户、精确金额和成功且未退款的 Payment。
+- 原生钱包与已有套餐/订阅入口分开。商户获准的商品与受理地区、正式密钥、平台公钥、支付方式和结算费率仍须商户后台确认。
+
+### TryBit（原 CryptoCloud）
+
+- 稳定模块名仍是 `cryptocloud`。管理页显式选择 `trybit`（`https://api.trybit.com/v2`，默认）或 `cryptocloud`（`https://api.cryptocloud.plus/v2`），凭据不会跟随重定向传到另一站。`Authorization: Token …`，`POST /invoice/create` 使用 USD、Shop ID、本地 order_id；项目后台设置成功/失败回跳和 POSTBACK 地址。
+- 项目 `test_mode` 必须对应实例环境；不能仅改本地开关而仍用正式项目。通知验证 HS256 JWT、必需 exp 及不超过 5 分钟的有效期上限，再 `POST /invoice/merchant/info` 查询；原始 `fiat_currency` / `amount_in_fiat`、订单、模式都匹配，paid/overpaid + invoice_status success，币款足额且无待补款才入账。
+- 公开查单字段表包含 `fiat_currency`，但示例省略了它。本实现缺失币种时拒绝入账，不擅自把 `amount_usd` 当原报价。商户联调必须确认实际查单响应；若正式账号确实省略该字段，应先取得供应商确定的协议规则再改，暂停上线该渠道。
+
+### OxaPay
+
+- 使用 [当前 REST v1 Invoice](https://docs.oxapay.com/api-reference/payment/generate-invoice)，`merchant_api_key` 鉴权，`POST /payment/invoice`。传明确 `sandbox`、USD 和本地 order_id，逐单 callback/return URL；`under_paid_coverage=0`、`mixed_payment=false`、商户承担费用。币和网络由 Merchant API Key 对应的商户配置选择。
+- 原始通知 `HMAC` 头使用同一 Merchant API Key 计算 HMAC-SHA512；paid 通知触发 `GET /payment/{track_id}`。核对金额/币种、invoice 类型、本地订单、零欠付容忍、保存的 callback URL hash，且 paid 并有 confirmed 交易才能入账；paying、欠付和 manual_accept 不自动入账。成功回调响应字面量 `ok`。
+- v1 官方查单未定义 sandbox 字段，因此环境来源通过创单前保存的完整 callback URL hash 固定，测试域名和数据库须独立；仍需实际商户验收 sandbox 行为。只接充值，不调用 payout、transfer 或自动提现接口。
+
+### Apirone
+
+- 使用 [REST v2 私有 Invoice](https://apirone.com/docs/invoices/)。预先在平台获得账户 `apr-…` 和 Transfer Key，接入不自动创建账户或操作热钱包。`POST /auth/login` 用 HTTPS 请求体交换短期 Bearer token，不把 Transfer Key 放进查询 URL，不持久化 access/refresh token。
+- 创单前通过 `OPTIONS /accounts` 获取官方 `units-factor`、ticker 获取 USD 币价，以 decimal 精确向上取整为最小单位，先保存后 `POST /accounts/{account}/invoices`。例如 `usdt@trx` 为 6 位，`usdt@bnb` 为 18 位；不得按字符串都叫 USDT 就套同一精度。
+- 官方未定义 HMAC/RSA 通知签名。本地至少 32 字符随机回调密钥派生逐单 `ref/token`，作为 `callback-url` 发送，订单只保存 URL 的 SHA256。通知令牌只准许发起查单；私有 `GET /accounts/{account}/invoices/{id}` 必须核对 account、reference、币/网络、精确币量和 callback hash，completed 且唯一 txid 的足额 history 才增加原定钱包额度。paid/overpaid 仍可能未确认，不提前入账。回调成功体是官方字面量 `*ok*`。
+- live-only。不存在本适配器的沙箱、币自动兑换、链上自行监听或提现模块。关闭新销售保留回调密钥与 Transfer Key；有 pending 发票时不能变更币/网络或回调密钥。代理/CDN 禁止记录该回调 query。
+
+### Platega
+
+- `X-MerchantId` / `X-Secret` REST 鉴权；支付方式留空走 `POST /v2/transaction/process` 托管页，固定文档 method ID 走 `/transaction/process`。账户真实邮箱/用户标识作为 buyer metadata，本地订单作为 payload。
+- 通知恒时比较商户和 secret，再 `GET /transaction/{id}`；按官方 schema 的 `mechantId` 字段检查商户，CONFIRMED 且金额/币种/订单一致才入账。可用 method 与受理方式必须在商户实际开通后选择。
+
+### FreeKassa
+
+- REST `https://api.fk.life/v1` 使用按键排序后的值连接 HMAC-SHA256。API Key 与 SCI 回调 Secret Word 2 分开；跨进程数据库锁保护单调递增 nonce，HTTP 失败也不复用 nonce。
+- 选择已获准且只需邮箱/IP 的 method ID；回调/回跳在商户后台配置。SCI 通知先拒绝重复字段及文件，验 MD5，再 REST `/orders` 查单；原始订单/远端 ID/金额/币种和成功状态一致才入账，返回 `YES`。不伪造额外银行卡或付款人数据。
+
+### Lava.top
+
+- [官方 V3 Invoice](https://developers.lava.top/en) 的 Offer 必须开启 `Price on request via API`，以 `X-Api-Key` 创建精确金额单次购买；webhook 另配置 Service API Key，不复用创单 Key。
+- `payment.success` 后 `GET /api/v1/invoices/{id}` 核对单次 invoice、offer、账户邮箱 hash 和精确 receipt。退款、续费或 parent invoice 通知不用于新充值。V3 未公开 merchant order reference：创单结果丢失必须先从商户后台核实 invoice ID，再人工恢复；不会用同邮箱同金额猜配订单。
 
 ### cisPay
 
@@ -104,7 +161,7 @@ RU 收款、赠送、客户消费和主站内部服务账号消耗应分别统�
 - 成功通知可能早于官方查单状态更新。通知声称支付成功或 PayPal 已批准，但查单尚未确认/完成 capture 时返回可重试错误，不提前确认通知，以便后续到账；其他未完成状态不增加余额。
 - 关停渠道先暂停新付款。存在 pending 订单时，禁止直接禁用或切换商户/环境；更换凭据必须保持原商户和旧单查单/验签能力。本版没有自动关闭未付款订单或取消流程，长期 pending 单需查明并在正式增加取消功能前保留原配置，不能通过数据库强改状态绕过检查。
 - 每个支付商每实例只配置一个有效商户/环境。初期使用单个 RU Go 进程：配置更新与创单的互斥是进程内的；多副本入账事务仍幂等，但多副本配置刷新/切换商户需要后续协调设计。
-- `hosted_payments` 含收银台 URL，应按订单数据保护；不把 URL/原始第三方响应/密钥写进日志或 Git。卡号和 CVV 由托管收银台处理，RU 站不采集。
+- `hosted_payments` 可能含收银台 URL，应按订单数据保护；完成入账即清除收银台 URL。Pancake 的买家会话令牌 URL 从不保存；Apirone 的回调 URL 只保存 hash。代理/CDN 的访问与错误日志均不能记录回调 query，应用只保留脱敏诊断；不把 URL/原始第三方响应/密钥写进日志或 Git。卡号和 CVV 由托管收银台处理，RU 站不采集。
 - 范围为钱包充值，**不含原生订阅购买、自动退款、拒付/争议扣款、税务开票**。退款先核实实际收退款，再按已有账务流程记录并调整，不能把成功回调反向改成未经设计的扣余额。
 - 回滚代码前先暂停新付款并处理存量单。旧 release 不处理新 webhook；有存量原生订单时应保留能处理该回调的 release。保留新增表及订单，回滚前备份，不删除资金记录。
 
@@ -120,11 +177,17 @@ RU 收款、赠送、客户消费和主站内部服务账号消耗应分别统�
 
 遵循现有 root 权限和 OriginGuard；敏感配置只走专用接口，服务端重新计算金额，通知验签+查单，原子幂等入账。参考 OWASP 支付/认证/会话指引，未作完整 ASVS 合规认证声明。管理表单复用项目 `SettingsForm`、RHF/Zod、`Form`、`CopyButton`、加载/错误状态和 Query/Mutation，未另建通用交互体系。
 
-官方协议核对：2026-11-24。
+官方协议核对：2026-11-25。完整地址清单见 [providers.json](../payments/providers.json)。
 
 - [连连 CHECKOUT API](https://global.lianlianpay.com/docs/api_docs#op-createOrder)、[查单](https://global.lianlianpay.com/docs/api_docs#op-queryOrder)、[签名及幂等指南](https://global.lianlianpay.com/docs/guide/getting_started)（1.0.0，生效 2026-09-09）。
 - [NOWPayments 官方 API 文档](https://documenter.getpostman.com/view/7907941/S1a32n38)。
 - [PayPal Orders v2](https://developer.paypal.com/docs/api/orders/v2/)、[官方 API schemas](https://github.com/paypal/paypal-rest-api-specifications)。
 - [cisPay 开发文档](https://cispay.app/developers)、[Merchant OpenAPI](https://cispay.app/api/merchant/v1/openapi.json)。
 - [ZPAY 易支付兼容接口](https://z-pay.cn/doc.html)。
+- [Creem Checkout](https://docs.creem.io/api-reference/endpoint/create-checkout)、[Webhook](https://docs.creem.io/code/webhooks)。
+- [Pancake 请求签名](https://docs.waffo.ai/api-reference/authentication)、[结账会话](https://docs.waffo.ai/api-reference/endpoints/checkout/create-session)、[查单](https://docs.waffo.ai/api-reference/queries/orders-payments)、[45 分钟重试验签](https://docs.waffo.ai/api-reference/webhooks)。
+- [TryBit 创单](https://docs.trybit.com/api-reference-v2/create-invoice)、[查单字段](https://docs.trybit.com/api-reference-v2/invoice-information)、[POSTBACK](https://docs.trybit.com/api-reference-v2/postback)。
+- [OxaPay v1 Invoice](https://docs.oxapay.com/api-reference/payment/generate-invoice)、[查单](https://docs.oxapay.com/api-reference/payment/payment-information)、[原始 HMAC 通知](https://docs.oxapay.com/webhook)。
+- [Apirone Invoice](https://apirone.com/docs/invoices/)、[授权](https://apirone.com/docs/authorization/)、[回调](https://apirone.com/docs/callbacks/)、[币精度](https://apirone.com/docs/service/)、[实时汇率](https://apirone.com/docs/rate/)。
+- [Platega](https://docs.platega.io/)、[FreeKassa](https://docs.freekassa.net/)、[Lava.top](https://developers.lava.top/en)。
 - [OWASP 支付集成](https://cheatsheetseries.owasp.org/cheatsheets/Third_Party_Payment_Gateway_Integration_Cheat_Sheet.html)、[认证](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)、[会话](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)。

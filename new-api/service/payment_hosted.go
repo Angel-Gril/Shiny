@@ -25,23 +25,26 @@ type HostedPaymentClient struct {
 }
 
 type HostedCheckout struct {
-	RemoteID string
-	URL      string
+	RemoteID  string
+	SessionID string
+	URL       string
 }
 
 // Customer facts are supplied by the authenticated request and never inferred
 // from an order number or supplied by an untrusted checkout payload.
 type HostedCheckoutOptions struct {
-	ReturnURL  string
-	WebhookURL string
-	CustomerID string
-	ClientIP   string
+	ReturnURL     string
+	WebhookURL    string
+	CustomerID    string
+	CustomerEmail string
+	ClientIP      string
 }
 
 type HostedPaymentEvent struct {
-	Reference string
-	RemoteID  string
-	PaymentID string
+	Reference  string
+	RemoteID   string
+	PaymentID  string
+	CustomerID string
 	// A successful notification must be retried if the authoritative query has
 	// not caught up; acknowledging it early can leave a paid order uncredited.
 	ExpectsPaid bool
@@ -75,6 +78,22 @@ func (client *HostedPaymentClient) Create(ctx context.Context, order *model.Host
 		return client.createNOWPayments(ctx, order, options.ReturnURL, options.WebhookURL)
 	case "paypal":
 		return client.createPayPal(ctx, order, options.ReturnURL)
+	case setting.HostedProviderCreem:
+		return client.createCreem(ctx, order, options)
+	case setting.HostedProviderPancake:
+		return client.createPancake(ctx, order, options)
+	case "platega":
+		return client.createPlatega(ctx, order, options)
+	case "freekassa":
+		return client.createFreeKassa(ctx, order, options)
+	case "lava":
+		return client.createLava(ctx, order, options)
+	case "cryptocloud":
+		return client.createCryptoCloud(ctx, order, options)
+	case "oxapay":
+		return client.createOxaPay(ctx, order, options)
+	case "apirone":
+		return client.createApirone(ctx, order, options)
 	default:
 		return nil, errors.New("unsupported payment provider")
 	}
@@ -92,6 +111,22 @@ func (client *HostedPaymentClient) VerifyWebhook(ctx context.Context, body []byt
 		return client.verifyNOWPayments(body, headers)
 	case "paypal":
 		return client.verifyPayPal(ctx, body, headers)
+	case setting.HostedProviderCreem:
+		return client.verifyCreem(body, headers)
+	case setting.HostedProviderPancake:
+		return client.verifyPancake(body, headers)
+	case "platega":
+		return client.verifyPlatega(body, headers)
+	case "freekassa":
+		return client.verifyFreeKassa(body, headers)
+	case "lava":
+		return client.verifyLava(body, headers)
+	case "cryptocloud":
+		return client.verifyCryptoCloud(body, headers)
+	case "oxapay":
+		return client.verifyOxaPay(body, headers)
+	case "apirone":
+		return client.verifyApirone(body, headers)
 	default:
 		return nil, errors.New("unsupported payment provider")
 	}
@@ -109,6 +144,22 @@ func (client *HostedPaymentClient) Query(ctx context.Context, order *model.Hoste
 		return client.queryNOWPayments(ctx, paymentID)
 	case "paypal":
 		return client.queryPayPal(ctx, order)
+	case setting.HostedProviderCreem:
+		return client.queryCreem(ctx, order, remoteID)
+	case setting.HostedProviderPancake:
+		return client.queryPancake(ctx, order, remoteID, paymentID)
+	case "platega":
+		return client.queryPlatega(ctx, order, remoteID)
+	case "freekassa":
+		return client.queryFreeKassa(ctx, order, remoteID)
+	case "lava":
+		return client.queryLava(ctx, order, remoteID)
+	case "cryptocloud":
+		return client.queryCryptoCloud(ctx, order, remoteID)
+	case "oxapay":
+		return client.queryOxaPay(ctx, order, remoteID)
+	case "apirone":
+		return client.queryApirone(ctx, order, remoteID)
 	default:
 		return nil, errors.New("unsupported payment provider")
 	}

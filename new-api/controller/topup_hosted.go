@@ -2,11 +2,14 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"slices"
 	"strings"
@@ -80,6 +83,12 @@ func SaveHostedPaymentSettings(c *gin.Context) {
 	}
 	if request.Provider == "lianlian" && request.Config.Enabled {
 		if err := service.ValidateHostedSigningKeys(request.Config); err != nil {
+			common.ApiErrorT(c, "Payment configuration is incomplete or invalid")
+			return
+		}
+	}
+	if request.Provider == setting.HostedProviderPancake && request.Config.Enabled {
+		if err := service.ValidateHostedPancakeKeys(request.Config); err != nil {
 			common.ApiErrorT(c, "Payment configuration is incomplete or invalid")
 			return
 		}
@@ -171,6 +180,7 @@ func RequestHostedAmount(c *gin.Context) {
 }
 
 func RequestHostedPay(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	hostedSettingsMutex.RLock()
 	locked := true
 	defer func() {
@@ -195,8 +205,40 @@ func RequestHostedPay(c *gin.Context) {
 		return
 	}
 	tradeNo := "HP-" + common.GetRandomString(24)
+	options := service.HostedCheckoutOptions{
+		ReturnURL: origin + "/wallet?show_history=true", WebhookURL: origin + "/api/payments/" + provider + "/webhook/" + cfg.Environment,
+		CustomerID: "user-" + fmt.Sprint(c.GetInt("id")), ClientIP: c.ClientIP(),
+	}
+	if provider == "apirone" {
+		callback, _ := url.Parse(options.WebhookURL)
+		query := callback.Query()
+		query.Set("ref", tradeNo)
+		query.Set("token", service.HostedApironeCallbackToken(cfg.WebhookSecret, tradeNo))
+		callback.RawQuery = query.Encode()
+		options.WebhookURL = callback.String()
+	}
+	callbackHash := sha256.Sum256([]byte(options.WebhookURL))
 	order := &model.HostedPayment{TradeNo: tradeNo, Provider: provider, Identity: cfg.Identity(provider),
-		Currency: cfg.Currency, Amount: money.StringFixed(2), State: "creating", CreatedAt: time.Now().Unix()}
+		Currency: cfg.Currency, Amount: money.StringFixed(2), State: "creating", CreatedAt: time.Now().Unix(),
+		ProductID: cfg.ProductID, CustomerID: options.CustomerID, CallbackHash: hex.EncodeToString(callbackHash[:])}
+	email := ""
+	if slices.Contains([]string{setting.HostedProviderCreem, setting.HostedProviderPancake, "platega", "freekassa", "lava"}, provider) {
+		email, err = model.GetUserEmail(c.GetInt("id"))
+		parsed, parseErr := mail.ParseAddress(email)
+		if err != nil || parseErr != nil || parsed.Address != email || len(email) > 254 {
+			paymentError(c, common.NewMessage("Add a valid email address to your account before using this payment method"))
+			return
+		}
+		emailHash := sha256.Sum256([]byte(strings.ToLower(email)))
+		order.CustomerHash = hex.EncodeToString(emailHash[:])
+	}
+	if provider == setting.HostedProviderCreem {
+		minor, err := service.HostedMinorAmount(order.Amount)
+		if err != nil || minor < 100 || minor > 99999999 {
+			paymentError(c, common.NewMessage("Invalid top-up amount"))
+			return
+		}
+	}
 	topUp := &model.TopUp{UserId: c.GetInt("id"), Amount: units, CreditedQuota: int64(quota), Money: money.InexactFloat64(),
 		TradeNo: tradeNo, PaymentMethod: provider, PaymentProvider: provider, CreateTime: order.CreatedAt, Status: common.TopUpStatusPending}
 	if err := model.CreateHostedPayment(topUp, order); err != nil {
@@ -207,17 +249,32 @@ func RequestHostedPay(c *gin.Context) {
 	locked = false
 	// The order and immutable quote exist before any external create request.
 	client := service.NewHostedPaymentClient(provider, cfg)
-	checkout, err := client.Create(c.Request.Context(), order, service.HostedCheckoutOptions{
-		ReturnURL: origin + "/wallet?show_history=true", WebhookURL: origin + "/api/payments/" + provider + "/webhook/" + cfg.Environment,
-		CustomerID: "user-" + fmt.Sprint(c.GetInt("id")), ClientIP: c.ClientIP(),
-	})
+	options.CustomerEmail = email
+	if provider == "apirone" {
+		if err := client.PrepareApironeQuote(c.Request.Context(), order); err != nil {
+			_ = model.MarkHostedCreationUnknown(tradeNo)
+			paymentError(c, common.NewMessage("Payment creation could not be confirmed. Check this order before starting another payment."))
+			return
+		}
+		if err := model.SaveHostedCoinQuote(order); err != nil {
+			paymentError(c, common.NewMessage("Payment creation could not be confirmed. Check this order before starting another payment."))
+			return
+		}
+	}
+	checkout, err := client.Create(c.Request.Context(), order, options)
 	if err != nil {
 		_ = model.MarkHostedCreationUnknown(tradeNo)
 		logger.LogWarn(c.Request.Context(), common.LogText("Hosted checkout creation uncertain provider=%s trade_no=%s", provider, tradeNo))
 		paymentError(c, common.NewMessage("Payment creation could not be confirmed. Check this order before starting another payment."))
 		return
 	}
-	if err := model.SaveHostedCheckout(tradeNo, checkout.RemoteID, checkout.URL); err != nil {
+	checkoutToSave := checkout.URL
+	if provider == setting.HostedProviderPancake {
+		// The buyer session token is needed only for the immediate redirect.
+		// Never retain a usable session credential in the order table.
+		checkoutToSave = ""
+	}
+	if err := model.SaveHostedCheckout(tradeNo, checkout.RemoteID, checkoutToSave, checkout.SessionID); err != nil {
 		paymentError(c, common.NewMessage("Payment creation could not be confirmed. Check this order before starting another payment."))
 		return
 	}
@@ -247,7 +304,7 @@ func verifyHostedPayment(ctx context.Context, callerIP string, cfg setting.Hoste
 		paymentID = order.PaymentID
 	}
 	if (order.Provider == "nowpayments" && paymentID == "") ||
-		((order.Provider == "lianlian" || order.Provider == "paypal") && remoteID == "") {
+		(slices.Contains([]string{"lianlian", "paypal", setting.HostedProviderCreem, "platega", "lava", "cryptocloud", "oxapay", "apirone"}, order.Provider) && remoteID == "") {
 		checkStatus = "needs_reference"
 		return false, errors.New("payment reference requires operator recovery")
 	}
@@ -307,7 +364,17 @@ func HostedPaymentWebhook(c *gin.Context) {
 		return
 	}
 	client := service.NewHostedPaymentClient(provider, cfg)
-	event, err := client.VerifyWebhook(c.Request.Context(), body, c.Request.Header)
+	headers := c.Request.Header.Clone()
+	if provider == "apirone" {
+		values := c.Request.URL.Query()
+		if len(values["ref"]) != 1 || len(values["token"]) != 1 {
+			c.String(http.StatusUnauthorized, "invalid payment notification")
+			return
+		}
+		headers.Set("X-Shiny-Apirone-Reference", values.Get("ref"))
+		headers.Set("X-Shiny-Apirone-Token", values.Get("token"))
+	}
+	event, err := client.VerifyWebhook(c.Request.Context(), body, headers)
 	if err != nil {
 		c.String(http.StatusUnauthorized, "invalid payment notification")
 		return
@@ -315,6 +382,12 @@ func HostedPaymentWebhook(c *gin.Context) {
 	acknowledgement := "OK"
 	if provider == "zpay" {
 		acknowledgement = "success"
+	} else if provider == "freekassa" {
+		acknowledgement = "YES"
+	} else if provider == "oxapay" {
+		acknowledgement = "ok"
+	} else if provider == "apirone" {
+		acknowledgement = "*ok*"
 	}
 	if event == nil {
 		c.String(http.StatusOK, acknowledgement)
@@ -330,6 +403,10 @@ func HostedPaymentWebhook(c *gin.Context) {
 	}
 	if err != nil || order.Provider != provider {
 		c.String(http.StatusServiceUnavailable, "retry")
+		return
+	}
+	if event.CustomerID != "" && event.CustomerID != order.CustomerID {
+		c.String(http.StatusUnauthorized, "payment customer mismatch")
 		return
 	}
 	LockOrder(order.TradeNo)
@@ -378,7 +455,9 @@ func appendHostedPaymentMethods(payMethods []map[string]string) []map[string]str
 	if err != nil || !isPaymentComplianceConfirmed() {
 		return payMethods
 	}
-	names := map[string]string{"cispay": "cisPay", "lianlian": "LianLian", "nowpayments": "Crypto · NOWPayments", "paypal": "PayPal", "zpay": "ZPAY"}
+	names := map[string]string{"cispay": "cisPay", "lianlian": "LianLian", "nowpayments": "Crypto · NOWPayments", "paypal": "PayPal", "zpay": "ZPAY",
+		setting.HostedProviderCreem: "Creem", setting.HostedProviderPancake: "Waffo Pancake", "platega": "Platega",
+		"freekassa": "FreeKassa", "lava": "Lava.top", "cryptocloud": "TryBit", "oxapay": "OxaPay", "apirone": "Apirone"}
 	for _, provider := range setting.HostedPaymentProviders {
 		cfg := settings[provider]
 		if setting.HostedPaymentSelected(provider) && cfg.Enabled && cfg.AcceptNew && cfg.Validate(provider) == nil && cfg.Environment == setting.HostedPaymentsEnvironment() {

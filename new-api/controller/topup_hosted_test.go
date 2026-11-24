@@ -3,17 +3,26 @@ package controller
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/hmac"
+	"crypto/md5"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -57,7 +66,7 @@ func hostedControllerFixture(t *testing.T) setting.HostedPaymentConfig {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	model.DB, model.LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TopUp{}, &model.HostedPayment{}, &model.User{}, &model.Log{}, &model.SystemTask{}, &model.SystemTaskLock{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TopUp{}, &model.HostedPayment{}, &model.HostedPaymentClaim{}, &model.HostedPaymentSequence{}, &model.User{}, &model.Log{}, &model.SystemTask{}, &model.SystemTaskLock{}))
 	t.Cleanup(func() {
 		require.NoError(t, sqlDB.Close())
 	})
@@ -585,4 +594,343 @@ func TestHostedReconciliationWorkerBoundsTheQueueCreditsVerifiedPaymentsAndRelea
 	var leases int64
 	require.NoError(t, model.DB.Model(&model.SystemTaskLock{}).Count(&leases).Error)
 	assert.Zero(t, leases)
+}
+
+func TestHostedFreeKassaSignsIncreasingRequestsAndAcknowledgesOnlyVerifiedPayments(t *testing.T) {
+	hostedControllerFixture(t)
+	previousTransport, previousAddress, previousDisplay := http.DefaultTransport, system_setting.ServerAddress, operation_setting.GetGeneralSetting().QuotaDisplayType
+	t.Cleanup(func() {
+		http.DefaultTransport, system_setting.ServerAddress = previousTransport, previousAddress
+		operation_setting.GetGeneralSetting().QuotaDisplayType = previousDisplay
+	})
+	system_setting.ServerAddress = "https://ru.example.com"
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	cfg := setting.DefaultHostedPaymentConfig("freekassa")
+	cfg.Enabled, cfg.AcceptNew, cfg.MerchantID, cfg.APIKey, cfg.WebhookSecret = true, true, "777", "fixture-api-key", "fixture-word-2"
+	cfg.PaymentMethod, cfg.CheckoutHosts = "44", []string{"pay.freekassa.net"}
+	raw, err := common.Marshal(setting.HostedPaymentSettings{"freekassa": cfg})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	user := model.User{Username: "freekassa-buyer", Email: "buyer@example.com", Group: "default", Status: common.UserStatusEnabled, Quota: 50}
+	require.NoError(t, model.DB.Create(&user).Error)
+	tradeNo, money := "", "10.50"
+	previousNonce := int64(0)
+	status := 1
+	http.DefaultTransport = hostedControllerTransport(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, "api.fk.life", req.URL.Host)
+		var body map[string]any
+		require.NoError(t, common.DecodeJson(req.Body, &body))
+		keys := []string{}
+		for key := range body {
+			if key != "signature" {
+				keys = append(keys, key)
+			}
+		}
+		slices.Sort(keys)
+		values := []string{}
+		for _, key := range keys {
+			if number, ok := body[key].(float64); ok {
+				values = append(values, strconv.FormatFloat(number, 'f', -1, 64))
+			} else {
+				values = append(values, fmt.Sprint(body[key]))
+			}
+		}
+		mac := hmac.New(sha256.New, []byte(cfg.APIKey))
+		mac.Write([]byte(strings.Join(values, "|")))
+		require.Equal(t, hex.EncodeToString(mac.Sum(nil)), body["signature"])
+		nonce := int64(body["nonce"].(float64))
+		require.Greater(t, nonce, previousNonce)
+		previousNonce = nonce
+		if req.URL.Path == "/v1/orders/create" {
+			tradeNo, money = body["paymentId"].(string), fmt.Sprint(body["amount"])
+			require.Equal(t, float64(44), body["i"])
+			require.Equal(t, user.Email, body["email"])
+			return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"type":"success","orderId":652367,"location":"https://pay.freekassa.net/form/fixture"}`))}, nil
+		}
+		require.Equal(t, tradeNo, body["paymentId"])
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"type":"success","orders":[{"fk_order_id":652367,"merchant_order_id":%q,"amount":%s,"currency":"RUB","status":%d}]}`, tradeNo, money, status)))}, nil
+	})
+	response := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(response)
+	ctx.Params = gin.Params{{Key: "provider", Value: "freekassa"}}
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(`{"amount":10}`))
+	ctx.Request.RemoteAddr = "203.0.113.10:1234"
+	ctx.Set("id", user.Id)
+	RequestHostedPay(ctx)
+	require.Contains(t, response.Body.String(), `"checkout_url":"https://pay.freekassa.net/form/fixture"`)
+	order, err := model.GetHostedPayment(tradeNo)
+	require.NoError(t, err)
+	require.Equal(t, "652367", order.RemoteID)
+	callbackAmount := order.Amount
+	callback := func(duplicate bool) *httptest.ResponseRecorder {
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		digest := md5.Sum([]byte(cfg.MerchantID + ":" + callbackAmount + ":" + cfg.WebhookSecret + ":" + tradeNo))
+		for key, value := range map[string]string{"MERCHANT_ID": cfg.MerchantID, "AMOUNT": callbackAmount, "MERCHANT_ORDER_ID": tradeNo, "intid": "652367", "SIGN": hex.EncodeToString(digest[:])} {
+			require.NoError(t, writer.WriteField(key, value))
+		}
+		if duplicate {
+			require.NoError(t, writer.WriteField("AMOUNT", callbackAmount))
+		}
+		require.NoError(t, writer.Close())
+		response := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(response)
+		ctx.Params = gin.Params{{Key: "provider", Value: "freekassa"}, {Key: "env", Value: "live"}}
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/callback", &body)
+		ctx.Request.Header.Set("Content-Type", writer.FormDataContentType())
+		HostedPaymentWebhook(ctx)
+		return response
+	}
+	t.Setenv("PAYMENTS_PROVIDERS", "none") // Paused new sales must drain callbacks.
+	money = "10.01"
+	require.Equal(t, http.StatusServiceUnavailable, callback(false).Code)
+	money = order.Amount
+	status = 0
+	require.Equal(t, http.StatusServiceUnavailable, callback(false).Code)
+	status = 1
+	require.Equal(t, http.StatusUnauthorized, callback(true).Code)
+	for range 2 {
+		result := callback(false)
+		require.Equal(t, 200, result.Code)
+		require.Equal(t, "YES", result.Body.String())
+	}
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 50+10*int(common.QuotaPerUnit), credited.Quota)
+}
+
+func TestHostedNewProvidersKeepDefaultsDisabledAndValidateMerchantInputs(t *testing.T) {
+	for _, provider := range []string{setting.HostedProviderCreem, setting.HostedProviderPancake, "platega", "freekassa", "lava", "cryptocloud", "oxapay", "apirone"} {
+		t.Run(provider, func(t *testing.T) {
+			cfg := setting.DefaultHostedPaymentConfig(provider)
+			require.False(t, cfg.Enabled)
+			require.False(t, cfg.AcceptNew)
+			cfg.Enabled = true
+			require.Error(t, cfg.Validate(provider), "no empty credentials may be enabled")
+			cfg.APIKey, cfg.APISecret, cfg.WebhookSecret = "fixture-api", "fixture-secret", "fixture-webhook"
+			cfg.AccountID, cfg.CheckoutHosts = "fixture-account", []string{"checkout.example.com"}
+			cfg.MerchantID = "019ad028-2100-7000-8000-000000000001"
+			cfg.ProductID = "019ad028-2100-7000-8000-000000000001"
+			switch provider {
+			case setting.HostedProviderCreem:
+				cfg.ProductID = "prod_fixture"
+			case setting.HostedProviderPancake:
+				cfg.MerchantID, cfg.StoreID, cfg.ProductID, cfg.PrivateKey = "MER_fixture", "STO_fixture", "PROD_fixture", "fixture-key"
+			case "freekassa":
+				cfg.MerchantID, cfg.PaymentMethod = "777", "44"
+			case "apirone":
+				cfg.AccountID, cfg.APIKey, cfg.WebhookSecret = "apr-00000000000000000000000000000001", "fixture-transfer-key", strings.Repeat("w", 32)
+			}
+			require.NoError(t, cfg.Validate(provider))
+			public := cfg.Public(provider)
+			require.Empty(t, public.APIKey)
+			require.Empty(t, public.APISecret)
+			require.Empty(t, public.WebhookSecret)
+			require.Empty(t, public.PrivateKey)
+			oldIdentity := cfg.Identity(provider)
+			cfg.UnitPrice = "2"
+			require.Equal(t, oldIdentity, cfg.Identity(provider), "old quotes survive new pricing")
+			if slices.Contains([]string{setting.HostedProviderCreem, setting.HostedProviderPancake, "lava", "cryptocloud"}, provider) {
+				cfg.ProductID += "changed"
+				require.NotEqual(t, oldIdentity, cfg.Identity(provider))
+			}
+		})
+	}
+	// Deployment groups are additive; native IDs do not collide with legacy flows.
+	t.Setenv("PAYMENTS_PROVIDERS", "creem_native,waffo_pancake_native,platega,freekassa,lava,cryptocloud")
+	providers, err := setting.SelectedHostedPaymentProviders()
+	require.NoError(t, err)
+	require.Len(t, providers, 6)
+}
+
+func TestHostedPancakeKeepsBuyerTokenPrivateAndCreditsRetriedOrderOnce(t *testing.T) {
+	hostedControllerFixture(t)
+	previousTransport, previousAddress, previousQuota := http.DefaultTransport, system_setting.ServerAddress, common.QuotaPerUnit
+	previousDisplay, previousDiscounts := operation_setting.GetGeneralSetting().QuotaDisplayType, operation_setting.GetPaymentSetting().AmountDiscount
+	t.Cleanup(func() {
+		http.DefaultTransport, system_setting.ServerAddress, common.QuotaPerUnit = previousTransport, previousAddress, previousQuota
+		operation_setting.GetGeneralSetting().QuotaDisplayType, operation_setting.GetPaymentSetting().AmountDiscount = previousDisplay, previousDiscounts
+	})
+	system_setting.ServerAddress, common.QuotaPerUnit = "https://ru.example.com", 500000
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	operation_setting.GetPaymentSetting().AmountDiscount = map[int]float64{}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	public, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	require.NoError(t, err)
+	cfg := setting.DefaultHostedPaymentConfig(setting.HostedProviderPancake)
+	cfg.Enabled, cfg.AcceptNew, cfg.Environment = true, true, "live"
+	cfg.MerchantID, cfg.StoreID, cfg.ProductID = "MER_fixture", "STO_fixture", "PROD_fixture"
+	cfg.PrivateKey = string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
+	cfg.PlatformPublicKey = string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: public}))
+	raw, err := common.Marshal(setting.HostedPaymentSettings{setting.HostedProviderPancake: cfg})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	user := model.User{Username: "pancake-buyer", Group: "default", Status: common.UserStatusEnabled, Quota: 50}
+	require.NoError(t, model.DB.Create(&user).Error)
+	tradeNo, queries := "", 0
+	http.DefaultTransport = hostedControllerTransport(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "api.waffo.ai", request.URL.Host)
+		response := ""
+		switch request.URL.Path {
+		case "/v1/actions/checkout/create-session":
+			var body map[string]any
+			require.NoError(t, common.DecodeJson(request.Body, &body))
+			tradeNo = body["orderMerchantExternalId"].(string)
+			stored, err := model.GetHostedPayment(tradeNo)
+			require.NoError(t, err, "local immutable quote must exist before external creation")
+			require.Equal(t, cfg.ProductID, stored.ProductID)
+			require.Equal(t, fmt.Sprint("user-", user.Id), stored.CustomerID)
+			response = `{"data":{"sessionId":"cs_fixture","checkoutUrl":"https://checkout.waffo.ai/store/checkout/cs_fixture"}}`
+		case "/v1/actions/auth/issue-session-token":
+			response = `{"data":{"token":"fixture-private-buyer-token"}}`
+		case "/v1/graphql":
+			queries++
+			response = fmt.Sprintf(`{"data":{"onetimeOrders":[{"id":"ORD_fixture","orderMerchantExternalId":%q,"currency":"USD","status":"completed","testMode":false,"metadata":{"user_id":%q},"priceSnapshot":{"currency":"USD","total":"10.00"},"onetimeProduct":{"id":"PROD_fixture"},"payments":[{"id":"PAY_fixture","status":"succeeded","refundStatus":"none","snapshotAmountDetails":{"currency":"USD","total":"10.00","discountAmount":0},"refunds":[]}]}]}}`, tradeNo, fmt.Sprint("user-", user.Id))
+		default:
+			t.Fatalf("unexpected Pancake path %s", request.URL.Path)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(response))}, nil
+	})
+	pay := func() *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Set("id", user.Id)
+		ctx.Params = gin.Params{{Key: "provider", Value: setting.HostedProviderPancake}}
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(`{"amount":10}`))
+		RequestHostedPay(ctx)
+		return recorder
+	}
+	require.Contains(t, pay().Body.String(), "Add a valid email address")
+	require.Empty(t, tradeNo, "missing account email must not create a remote checkout")
+	require.NoError(t, model.DB.Model(&user).Update("email", "buyer@example.com").Error)
+	created := pay()
+	require.Equal(t, "no-store", created.Header().Get("Cache-Control"))
+	require.Contains(t, created.Body.String(), "#token=fixture-private-buyer-token")
+	stored, err := model.GetHostedPayment(tradeNo)
+	require.NoError(t, err)
+	require.Empty(t, stored.CheckoutURL, "usable buyer session token must never be saved")
+	require.Empty(t, stored.RemoteID, "checkout session is not a payable order ID")
+	require.Equal(t, "cs_fixture", stored.SessionID)
+	callback := func(customer string) int {
+		body := []byte(fmt.Sprintf(`{"eventType":"order.completed","storeId":"STO_fixture","mode":"prod","data":{"orderId":"ORD_fixture","orderMerchantExternalId":%q,"merchantProvidedBuyerIdentity":%q,"paymentId":"PAY_fixture","paymentStatus":"succeeded"}}`, tradeNo, customer))
+		timestamp := strconv.FormatInt(time.Now().Add(-31*time.Minute).UnixMilli(), 10)
+		digest := sha256.Sum256([]byte(timestamp + "." + string(body)))
+		signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])
+		require.NoError(t, err)
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Params = gin.Params{{Key: "provider", Value: setting.HostedProviderPancake}, {Key: "env", Value: "live"}}
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/webhook/live", bytes.NewReader(body))
+		ctx.Request.Header.Set("X-Waffo-Signature", "t="+timestamp+",v1="+base64.StdEncoding.EncodeToString(signature))
+		HostedPaymentWebhook(ctx)
+		return recorder.Code
+	}
+	require.Equal(t, http.StatusUnauthorized, callback("user-other"))
+	require.Zero(t, queries, "signed callbacks still need the matching authenticated buyer")
+	require.Equal(t, http.StatusOK, callback(fmt.Sprint("user-", user.Id)))
+	require.Equal(t, http.StatusOK, callback(fmt.Sprint("user-", user.Id)))
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 5000050, credited.Quota)
+	stored, err = model.GetHostedPayment(tradeNo)
+	require.NoError(t, err)
+	require.Equal(t, "ORD_fixture", stored.RemoteID)
+	require.Equal(t, "PAY_fixture", stored.PaymentID)
+	require.Empty(t, stored.CheckoutURL)
+	var logs []model.Log
+	require.NoError(t, model.LOG_DB.Find(&logs).Error)
+	require.Len(t, logs, 1)
+	require.NotContains(t, logs[0].Content, "fixture-private-buyer-token")
+	require.NotContains(t, logs[0].Content, "buyer@example.com")
+}
+
+func TestHostedApironeSavesCoinQuoteAndPrivateCallbackBeforeCreditingOnce(t *testing.T) {
+	hostedControllerFixture(t)
+	previousTransport, previousAddress := http.DefaultTransport, system_setting.ServerAddress
+	previousDisplay := operation_setting.GetGeneralSetting().QuotaDisplayType
+	t.Cleanup(func() {
+		http.DefaultTransport, system_setting.ServerAddress = previousTransport, previousAddress
+		operation_setting.GetGeneralSetting().QuotaDisplayType = previousDisplay
+	})
+	system_setting.ServerAddress = "https://ru.example.com"
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	cfg := setting.DefaultHostedPaymentConfig("apirone")
+	cfg.Enabled, cfg.AcceptNew = true, true
+	cfg.AccountID, cfg.APIKey, cfg.WebhookSecret = "apr-00000000000000000000000000000001", "fixture-transfer-key", strings.Repeat("w", 32)
+	raw, err := common.Marshal(setting.HostedPaymentSettings{"apirone": cfg})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	user := model.User{Username: "apirone-buyer", Group: "default", Status: common.UserStatusEnabled, Quota: 50}
+	require.NoError(t, model.DB.Create(&user).Error)
+	callback, tradeNo, status := "", "", "paid"
+	queries := 0
+	http.DefaultTransport = hostedControllerTransport(func(req *http.Request) (*http.Response, error) {
+		var response string
+		switch {
+		case req.Method == http.MethodOptions:
+			response = `{"currencies":[{"abbr":"usdt@trx","units-factor":0.000001}]}`
+		case req.URL.Path == "/api/v2/ticker":
+			response = `{"usd":1}`
+		case req.URL.Path == "/api/v2/auth/login":
+			response = fmt.Sprintf(`{"login":%q,"access-token":"fixture-short-lived-token"}`, cfg.AccountID)
+		case req.Method == http.MethodPost:
+			var body map[string]any
+			require.NoError(t, common.DecodeJson(req.Body, &body))
+			callback = body["callback-url"].(string)
+			u, err := url.Parse(callback)
+			require.NoError(t, err)
+			tradeNo = u.Query().Get("ref")
+			order, err := model.GetHostedPayment(tradeNo)
+			require.NoError(t, err)
+			require.Equal(t, "10000000", order.CoinAmount, "quote must exist before an external invoice is created")
+			require.Equal(t, "usdt@trx", order.CoinCurrency)
+			require.Equal(t, "1", order.CoinUSDRate)
+			require.Empty(t, order.CheckoutURL)
+			response = fmt.Sprintf(`{"invoice":"amr94MKUQCYAzR6c","account":%q,"amount":"10000000","currency":"usdt@trx","status":"created","callback-url":%q,"user-data":{"reference_id":%q},"invoice-url":"https://apirone.com/invoice?id=amr94MKUQCYAzR6c"}`, cfg.AccountID, callback, tradeNo)
+		default:
+			queries++
+			require.Equal(t, "Bearer fixture-short-lived-token", req.Header.Get("Authorization"))
+			response = fmt.Sprintf(`{"invoice":"amr94MKUQCYAzR6c","account":%q,"amount":10000000,"currency":"usdt@trx","status":%q,"callback-url":%q,"user-data":{"reference_id":%q},"history":[{"txid":"fixture-transaction","amount":10000000}]}`, cfg.AccountID, status, callback, tradeNo)
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(response))}, nil
+	})
+	result := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(result)
+	ctx.Params = gin.Params{{Key: "provider", Value: "apirone"}}
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(`{"amount":10}`))
+	ctx.Set("id", user.Id)
+	RequestHostedPay(ctx)
+	require.Contains(t, result.Body.String(), `"checkout_url":"https://apirone.com/invoice?id=amr94MKUQCYAzR6c"`)
+	require.NotContains(t, result.Body.String(), "token=")
+	order, err := model.GetHostedPayment(tradeNo)
+	require.NoError(t, err)
+	hash := sha256.Sum256([]byte(callback))
+	require.Equal(t, hex.EncodeToString(hash[:]), order.CallbackHash)
+	require.NotContains(t, order.CheckoutURL, "token=")
+	deliver := func(valid bool) *httptest.ResponseRecorder {
+		callbackURL := callback
+		if !valid {
+			callbackURL = strings.Replace(callbackURL, "token=", "token=invalid", 1)
+		}
+		response := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(response)
+		ctx.Params = gin.Params{{Key: "provider", Value: "apirone"}, {Key: "env", Value: "live"}}
+		ctx.Request = httptest.NewRequest(http.MethodPost, callbackURL, strings.NewReader(fmt.Sprintf(`{"account":%q,"invoice":"amr94MKUQCYAzR6c","status":"completed"}`, cfg.AccountID)))
+		HostedPaymentWebhook(ctx)
+		return response
+	}
+	require.Equal(t, http.StatusUnauthorized, deliver(false).Code)
+	require.Zero(t, queries, "forged callbacks cannot query protected merchant information")
+	require.Equal(t, http.StatusServiceUnavailable, deliver(true).Code, "an unconfirmed official invoice cannot fulfill a completed notification")
+	status = "completed"
+	t.Setenv("PAYMENTS_PROVIDERS", "none")
+	for range 2 {
+		response := deliver(true)
+		require.Equal(t, http.StatusOK, response.Code)
+		require.Equal(t, "*ok*", response.Body.String())
+	}
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 50+10*int(common.QuotaPerUnit), credited.Quota)
 }

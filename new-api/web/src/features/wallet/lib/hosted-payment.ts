@@ -26,7 +26,21 @@ import type {
 } from '../types'
 
 export function isHostedPayment(type: string): boolean {
-  return ['cispay', 'lianlian', 'nowpayments', 'paypal', 'zpay'].includes(type)
+  return [
+    'cispay',
+    'lianlian',
+    'nowpayments',
+    'paypal',
+    'zpay',
+    'creem_native',
+    'waffo_pancake_native',
+    'platega',
+    'freekassa',
+    'lava',
+    'cryptocloud',
+    'oxapay',
+    'apirone',
+  ].includes(type)
 }
 
 export async function calculateHostedAmount(

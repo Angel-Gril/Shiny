@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -137,19 +137,49 @@ function HostedReconcileForm(props: { provider: HostedProvider }) {
 export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
   const { t } = useTranslation()
   const [provider, setProvider] = useState<HostedProvider | null>(null)
+  const tabListRef = useRef<HTMLDivElement>(null)
   const query = useQuery({
     queryKey: ['hosted-payments'],
     queryFn: getHostedSettings,
   })
+  const initialProvider =
+    hostedProviders.find(
+      (item) => query.data?.[item]?.deployment_selected !== false
+    ) ?? 'cispay'
+  const activeProvider = provider ?? initialProvider
+  useEffect(() => {
+    const list = tabListRef.current
+    if (!list) return
+    const keepTabVisible = () => {
+      let tab = list.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="true"]'
+      )
+      const focused = document.activeElement
+      if (
+        focused instanceof HTMLElement &&
+        focused.getAttribute('role') === 'tab' &&
+        list.contains(focused)
+      ) {
+        tab = focused
+      }
+      if (!tab) return
+      const listBounds = list.getBoundingClientRect()
+      const tabBounds = tab.getBoundingClientRect()
+      if (tabBounds.left < listBounds.left) {
+        list.scrollLeft += tabBounds.left - listBounds.left
+      } else if (tabBounds.right > listBounds.right) {
+        list.scrollLeft += tabBounds.right - listBounds.right
+      }
+    }
+    keepTabVisible()
+    const observer = new ResizeObserver(keepTabVisible)
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [activeProvider, query.data])
   if (query.isPending) return <LoadingState />
   if (query.isError || !query.data) {
     return <ErrorState onRetry={() => void query.refetch()} />
   }
-  const initialProvider =
-    hostedProviders.find(
-      (item) => query.data[item]?.deployment_selected !== false
-    ) ?? 'cispay'
-  const activeProvider = provider ?? initialProvider
   return (
     <SettingsSection title={t('International payments')}>
       <HostedPaymentOperations />
@@ -162,9 +192,13 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
           }
         }}
       >
-        <TabsList className='max-w-full justify-start overflow-x-auto'>
+        <TabsList
+          ref={tabListRef}
+          aria-label={t('Payment provider')}
+          className='max-w-full justify-start overflow-x-auto'
+        >
           {hostedProviders.map((item) => (
-            <TabsTrigger key={item} value={item}>
+            <TabsTrigger className='flex-none' key={item} value={item}>
               {hostedProviderNames[item]}
             </TabsTrigger>
           ))}

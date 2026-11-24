@@ -1,6 +1,8 @@
 package model
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -18,18 +20,20 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// Schema shipped before operations reconciliation added check metadata.
+// Schema on commercial/ru-portal before native product and coin snapshots.
 type previousHostedPayment struct {
-	TradeNo     string `gorm:"primaryKey;type:varchar(64)"`
-	Provider    string `gorm:"type:varchar(32);index"`
-	Identity    string `gorm:"type:varchar(64)"`
-	Currency    string `gorm:"type:varchar(3)"`
-	Amount      string `gorm:"type:varchar(32)"`
-	RemoteID    string `gorm:"type:varchar(128)"`
-	PaymentID   string `gorm:"type:varchar(128)"`
-	CheckoutURL string `gorm:"type:text"`
-	State       string `gorm:"type:varchar(32)"`
-	CreatedAt   int64
+	TradeNo       string `gorm:"primaryKey;type:varchar(64)"`
+	Provider      string `gorm:"type:varchar(32);index"`
+	Identity      string `gorm:"type:varchar(64)"`
+	Currency      string `gorm:"type:varchar(3)"`
+	Amount        string `gorm:"type:varchar(32)"`
+	RemoteID      string `gorm:"type:varchar(128)"`
+	PaymentID     string `gorm:"type:varchar(128)"`
+	CheckoutURL   string `gorm:"type:text"`
+	State         string `gorm:"type:varchar(32)"`
+	CreatedAt     int64
+	LastCheckedAt int64  `gorm:"default:0;index"`
+	CheckStatus   string `gorm:"type:varchar(32);default:''"`
 }
 
 // Exercises new schema on a fresh DB and an upgrade from existing TopUp/User
@@ -90,7 +94,7 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					common.SetDatabaseTypes(common.DatabaseType(dialect), common.DatabaseType(dialect))
 					initCol()
 					t.Cleanup(func() {
-						require.NoError(t, db.Migrator().DropTable(&HostedPayment{}, &TopUp{}, &User{}, &Log{}))
+						require.NoError(t, db.Migrator().DropTable(&HostedPaymentClaim{}, &HostedPaymentSequence{}, &HostedPayment{}, &TopUp{}, &User{}, &Log{}))
 						require.NoError(t, sqlDB.Close())
 						DB, LOG_DB = previousDB, previousLogDB
 						common.SetDatabaseTypes(previousMainType, previousLogType)
@@ -148,7 +152,7 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 						require.NoError(t, db.Table(table).Create(&previousHostedPayment{TradeNo: "HP-existing", Provider: "paypal", Amount: "12.00", Currency: "USD", State: "pending", RemoteID: "existing-id"}).Error)
 					}
 					for range 2 {
-						require.NoError(t, db.AutoMigrate(&HostedPayment{}, &TopUp{}))
+						require.NoError(t, db.AutoMigrate(&HostedPayment{}, &HostedPaymentClaim{}, &HostedPaymentSequence{}, &TopUp{}))
 					}
 					if upgrade {
 						var legacy TopUp
@@ -161,6 +165,13 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 						require.Equal(t, "12.00", payment.Amount)
 						require.Zero(t, payment.LastCheckedAt)
 						require.Empty(t, payment.CheckStatus)
+						require.Empty(t, payment.ProductID)
+						require.Empty(t, payment.CustomerHash)
+						require.Empty(t, payment.SessionID)
+						require.Empty(t, payment.CallbackHash)
+						require.Empty(t, payment.CoinAmount)
+						require.Empty(t, payment.CoinCurrency)
+						require.Empty(t, payment.CoinUSDRate)
 					}
 					// RU defaults are opt-in, repeatable, and preserve operator values,
 					// including configuration saved under the registered group alias.
@@ -189,13 +200,14 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					require.Equal(t, "ru", setting.RUConsoleDefaultLanguage())
 					user := &User{Username: "hosted-matrix-user", Status: common.UserStatusEnabled, Quota: 50}
 					require.NoError(t, db.Create(user).Error)
-					order := HostedPayment{TradeNo: "HP-matrix", Provider: "lianlian", Identity: "merchant-test", Amount: "10.00", Currency: "USD", RemoteID: "PAY-matrix", State: "pending"}
+					order := HostedPayment{TradeNo: "HP-matrix", Provider: "lianlian", Identity: "merchant-test", Amount: "10.00", Currency: "USD", RemoteID: "PAY-matrix", State: "pending", ProductID: "product", CustomerID: "user-fixture", CustomerHash: "buyer-hash"}
 					topup := &TopUp{UserId: user.Id, TradeNo: order.TradeNo, Amount: 10, CreditedQuota: 12345, Money: 10,
 						PaymentProvider: order.Provider, PaymentMethod: order.Provider, Status: common.TopUpStatusPending}
 					require.NoError(t, CreateHostedPayment(topup, &order))
 					pending, err := HasPendingHostedPayments(order.Provider)
 					require.NoError(t, err)
 					require.True(t, pending)
+					require.ErrorContains(t, ManualCompleteTopUp(order.TradeNo, "127.0.0.1"), "must be verified")
 					wrong := order
 					wrong.Currency = "EUR"
 					_, err = CompleteHostedPayment(wrong, "127.0.0.1")
@@ -205,13 +217,13 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					_, err = CompleteHostedPayment(wrong, "127.0.0.1")
 					require.ErrorIs(t, err, ErrTopUpAmountMismatch)
 					var wg sync.WaitGroup
-					errors := make(chan error, 8)
+					creditErrors := make(chan error, 8)
 					for range 8 {
-						wg.Go(func() { _, err := CompleteHostedPayment(order, "127.0.0.1"); errors <- err })
+						wg.Go(func() { _, err := CompleteHostedPayment(order, "127.0.0.1"); creditErrors <- err })
 					}
 					wg.Wait()
-					close(errors)
-					for err := range errors {
+					close(creditErrors)
+					for err := range creditErrors {
 						require.NoError(t, err)
 					}
 					var credited User
@@ -220,6 +232,46 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					var logs int64
 					require.NoError(t, LOG_DB.Model(&Log{}).Where("user_id = ?", user.Id).Count(&logs).Error)
 					require.EqualValues(t, 1, logs)
+					conflict := order
+					conflict.TradeNo = "HP-reused-invoice"
+					conflictingTopup := *topup
+					conflictingTopup.Id, conflictingTopup.TradeNo = 0, conflict.TradeNo
+					require.NoError(t, CreateHostedPayment(&conflictingTopup, &conflict))
+					_, err = CompleteHostedPayment(conflict, "127.0.0.1")
+					require.ErrorIs(t, err, ErrPaymentMethodMismatch, "one provider invoice cannot fulfill a second local order")
+					// Before this upgrade, completed invoices did not have a claim
+					// row. Preserve their ownership when an operator recovers a new order.
+					require.NoError(t, db.Where("trade_no = ?", order.TradeNo).Delete(&HostedPaymentClaim{}).Error)
+					_, err = CompleteHostedPayment(conflict, "127.0.0.1")
+					require.ErrorIs(t, err, ErrPaymentMethodMismatch, "pre-claim paid invoices cannot be reused after upgrade")
+					require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", conflict.TradeNo).Update("status", common.TopUpStatusFailed).Error)
+					var nonces []int64
+					nonceErrors := make(chan error, 4)
+					for range 4 {
+						wg.Go(func() {
+							nonceErrors <- WithHostedPaymentNonce(context.Background(), "merchant-fixture", func(nonce int64) error {
+								nonces = append(nonces, nonce) // Merchant lock serializes callbacks.
+								return nil
+							})
+						})
+					}
+					wg.Wait()
+					close(nonceErrors)
+					for nonceErr := range nonceErrors {
+						require.NoError(t, nonceErr)
+					}
+					require.Len(t, nonces, 4)
+					for index := 1; index < len(nonces); index++ {
+						require.Greater(t, nonces[index], nonces[index-1])
+					}
+					require.Error(t, WithHostedPaymentNonce(context.Background(), "merchant-fixture", func(nonce int64) error {
+						nonces = append(nonces, nonce)
+						return errors.New("fixture network timeout")
+					}))
+					require.NoError(t, WithHostedPaymentNonce(context.Background(), "merchant-fixture", func(nonce int64) error {
+						require.Greater(t, nonce, nonces[len(nonces)-1], "failed requests consume their nonce")
+						return nil
+					}))
 					if upgrade {
 						require.NoError(t, db.Model(&Log{}).Where("user_id = ?", user.Id).Count(&logs).Error)
 						require.Zero(t, logs, "separate log DB never writes the main DB log table")
@@ -241,6 +293,17 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 						require.Equal(t, "pending", history.PaymentState)
 						require.Equal(t, payment.Amount, history.PaymentAmount)
 					}
+					coinOrder := HostedPayment{TradeNo: "HP-coin-quote", Provider: "apirone", Currency: "USD", Amount: "10.50", State: "creating"}
+					coinTopup := &TopUp{TradeNo: coinOrder.TradeNo, UserId: user.Id, PaymentProvider: coinOrder.Provider, CreditedQuota: 12345, Status: common.TopUpStatusPending}
+					require.NoError(t, CreateHostedPayment(coinTopup, &coinOrder))
+					coinOrder.CoinCurrency, coinOrder.CoinAmount, coinOrder.CoinUSDRate = "usdt@bnb", "10500000000000000000", "0.999"
+					require.NoError(t, SaveHostedCoinQuote(&coinOrder))
+					storedCoin, err := GetHostedPayment(coinOrder.TradeNo)
+					require.NoError(t, err)
+					require.Equal(t, coinOrder.CoinAmount, storedCoin.CoinAmount, "minimal coin units must never pass through a SQL float or int64")
+					require.Equal(t, "0.999", storedCoin.CoinUSDRate)
+					require.Error(t, SaveHostedCoinQuote(&coinOrder), "a coin quote may be saved only once")
+					require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", coinOrder.TradeNo).Update("status", common.TopUpStatusFailed).Error)
 					// Fair, cross-provider reconciliation keeps exact money strings and
 					// excludes completed/failed topups regardless of provider state.
 					require.NoError(t, db.Model(&HostedPayment{}).Where("trade_no = ?", "HP-zpay-history").Update("created_at", 100).Error)

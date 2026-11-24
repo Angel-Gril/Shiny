@@ -70,6 +70,18 @@ export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   lianlian: 'LianLian',
   nowpayments: 'NOWPayments',
   paypal: 'PayPal',
+  cispay: 'cisPay',
+  zpay: 'ZPAY',
+  creem: 'Creem',
+  creem_native: 'Creem',
+  waffo_pancake: 'Waffo Pancake',
+  waffo_pancake_native: 'Waffo Pancake',
+  platega: 'Platega',
+  freekassa: 'FreeKassa',
+  lava: 'Lava.top',
+  cryptocloud: 'CryptoCloud / Trybit',
+  oxapay: 'OxaPay',
+  apirone: 'Apirone',
 }
 
 /**

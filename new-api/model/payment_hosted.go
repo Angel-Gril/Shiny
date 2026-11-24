@@ -1,6 +1,9 @@
 package model
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -8,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // HostedPayment preserves the payment facts independently of mutable admin
@@ -20,11 +24,62 @@ type HostedPayment struct {
 	Amount        string `json:"payment_amount" gorm:"type:varchar(32)"`
 	RemoteID      string `json:"remote_id" gorm:"type:varchar(128)"`
 	PaymentID     string `json:"payment_id" gorm:"type:varchar(128)"`
+	SessionID     string `json:"-" gorm:"type:varchar(128);default:''"`
+	ProductID     string `json:"-" gorm:"type:varchar(128);default:''"`
+	CustomerID    string `json:"-" gorm:"type:varchar(128);default:''"`
+	CustomerHash  string `json:"-" gorm:"type:varchar(64);default:''"`
+	CallbackHash  string `json:"-" gorm:"type:varchar(64);default:''"`
+	CoinCurrency  string `json:"-" gorm:"type:varchar(32);default:''"`
+	CoinAmount    string `json:"-" gorm:"type:varchar(80);default:''"`
+	CoinUSDRate   string `json:"-" gorm:"type:varchar(80);default:''"`
 	CheckoutURL   string `json:"-" gorm:"type:text"`
 	State         string `json:"payment_state" gorm:"type:varchar(32)"`
 	CreatedAt     int64  `json:"created_at"`
 	LastCheckedAt int64  `json:"last_checked_at" gorm:"default:0;index"`
 	CheckStatus   string `json:"check_status" gorm:"type:varchar(32);default:''"`
+}
+
+// A remote invoice can fulfill only one local order, including across workers.
+// A digest primary key avoids oversized compound indexes on MySQL 5.7.
+type HostedPaymentClaim struct {
+	Key     string `gorm:"primaryKey;type:varchar(64)"`
+	TradeNo string `gorm:"type:varchar(64);index"`
+}
+
+type HostedPaymentSequence struct {
+	Key   string `gorm:"primaryKey;type:varchar(64)"`
+	Value int64
+}
+
+// FreeKassa requires an increasing nonce. Hold the merchant row lock until the
+// request finishes, so another process cannot send a later nonce first. Persist
+// the increment even when the HTTP request fails or times out.
+func WithHostedPaymentNonce(ctx context.Context, key string, send func(int64) error) error {
+	var requestErr error
+	transactionCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 45*time.Second)
+	defer cancel()
+	err := DB.WithContext(transactionCtx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&HostedPaymentSequence{Key: key}).Error; err != nil {
+			return err
+		}
+		var sequence HostedPaymentSequence
+		if err := lockForUpdate(tx).Where(map[string]any{"key": key}).First(&sequence).Error; err != nil {
+			return err
+		}
+		if sequence.Value >= 9007199254740991 {
+			return errors.New("payment nonce exhausted")
+		}
+		sequence.Value = max(sequence.Value+1, time.Now().UnixMicro())
+		if err := tx.Model(&sequence).Update("value", sequence.Value).Error; err != nil {
+			return err
+		}
+		requestErr = send(sequence.Value)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return requestErr
 }
 
 // The queue contains no checkout links, customer credentials or raw responses.
@@ -110,10 +165,7 @@ func GetHostedPayment(tradeNo string) (*HostedPayment, error) {
 func AttachHostedPaymentDetails(topups []*TopUp) error {
 	refs := []string{}
 	for _, topup := range topups {
-		if topup.PaymentProvider == "cispay" || topup.PaymentProvider == "lianlian" ||
-			topup.PaymentProvider == "nowpayments" || topup.PaymentProvider == "paypal" || topup.PaymentProvider == "zpay" {
-			refs = append(refs, topup.TradeNo)
-		}
+		refs = append(refs, topup.TradeNo)
 	}
 	if len(refs) == 0 {
 		return nil
@@ -160,10 +212,31 @@ func BindHostedPayment(tradeNo, remoteID, paymentID string) error {
 	return nil
 }
 
-func SaveHostedCheckout(tradeNo, remoteID, checkoutURL string) error {
+func SaveHostedCheckout(tradeNo, remoteID, checkoutURL string, sessionID ...string) error {
 	// A fast webhook may have completed the order before the create response.
+	updates := map[string]any{"checkout_url": checkoutURL, "state": "pending"}
+	if remoteID != "" {
+		updates["remote_id"] = remoteID
+	}
+	if len(sessionID) > 0 {
+		updates["session_id"] = sessionID[0]
+	}
 	return DB.Model(&HostedPayment{}).Where("trade_no = ? AND state = ?", tradeNo, "creating").
-		Updates(map[string]any{"remote_id": remoteID, "checkout_url": checkoutURL, "state": "pending"}).Error
+		Updates(updates).Error
+}
+
+// Persist a coin quote before creating the remote invoice. Recovery must use
+// this snapshot, never a later ticker rate or the current merchant settings.
+func SaveHostedCoinQuote(order *HostedPayment) error {
+	result := DB.Model(&HostedPayment{}).Where("trade_no = ? AND state = ? AND coin_amount = ?", order.TradeNo, "creating", "").
+		Updates(map[string]any{"coin_currency": order.CoinCurrency, "coin_amount": order.CoinAmount, "coin_usd_rate": order.CoinUSDRate})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("payment coin quote could not be saved")
+	}
+	return nil
 }
 
 func MarkHostedCreationUnknown(tradeNo string) error {
@@ -220,6 +293,28 @@ func CompleteHostedPayment(verified HostedPayment, callerIP string) (bool, error
 		}
 		if topUp.Status != common.TopUpStatusPending || topUp.CreditedQuota <= 0 {
 			return ErrTopUpStatusInvalid
+		}
+		// Upgraded installations also contain paid invoices from before claims
+		// existed. They must never be reused to recover a different local order.
+		var priorCredits int64
+		if err := tx.Model(&HostedPayment{}).Where("provider = ? AND remote_id = ? AND state = ? AND trade_no <> ?",
+			order.Provider, verified.RemoteID, "paid", order.TradeNo).Count(&priorCredits).Error; err != nil {
+			return err
+		}
+		if priorCredits > 0 {
+			return ErrPaymentMethodMismatch
+		}
+		claimDigest := sha256.Sum256([]byte(order.Provider + "\n" + verified.RemoteID))
+		claimKey := hex.EncodeToString(claimDigest[:])
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&HostedPaymentClaim{Key: claimKey, TradeNo: order.TradeNo}).Error; err != nil {
+			return err
+		}
+		var claim HostedPaymentClaim
+		if err := tx.Where(map[string]any{"key": claimKey}).First(&claim).Error; err != nil {
+			return err
+		}
+		if claim.TradeNo != order.TradeNo {
+			return ErrPaymentMethodMismatch
 		}
 		quota, err = common.WalletQuotaFromDecimalStrict(decimal.NewFromInt(topUp.CreditedQuota))
 		if err != nil || quota <= 0 {

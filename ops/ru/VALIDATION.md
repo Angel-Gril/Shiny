@@ -1,6 +1,6 @@
 # RU 商业分支验证记录
 
-日期：2026-11-25。分支：`commercial/ru-portal`。范围：俄语静态门户、独立 RU 实例默认配置、内部账号并发设置、原生国际支付运营与恢复、只读候选检查、真实本地双实例回归。尚未部署生产；俄区域名的 DNS/TLS 留到候选部署检查。
+日期：2026-11-25。分支：`commercial/ru-portal`。范围：俄语静态门户、独立 RU 实例默认配置、内部账号并发设置、13 个原生国际支付模块、支付运营与恢复、只读候选检查、真实本地双实例回归。重点预选为 Creem、Waffo Pancake、TryBit、NOWPayments、OxaPay、Apirone。尚未部署生产；俄区域名的 DNS/TLS 留到候选部署检查。
 
 ## 门户、价格和历史状态
 
@@ -16,7 +16,7 @@ Node **24.22.3**：在 `portal-ru/` 执行 `node --test tests/*.test.mjs`，**16
 
 ```sh
 bun run typecheck
-bunx vitest run src/features/wallet \
+bun x vitest run src/features/wallet \
   src/features/system-settings/integrations/__tests__/hosted-payments.test.tsx \
   src/features/system-settings/integrations/__tests__/payment-operations.test.tsx \
   src/features/system-settings/request-limits/__tests__/concurrency.test.tsx \
@@ -26,11 +26,13 @@ bunx vitest run src/features/wallet \
 bun run build
 ```
 
-受影响测试 **15 文件、56 项通过**，覆盖顾客只核查自己的既有订单、精确支付金额、网络失败后重试、管理员不能直接完成原生订单、自动核对默认暂停/参数边界、核查表更新、并发 JSON 拒绝与保存失败草稿、RU/普通站语言偏好及接入导航。typecheck 和控制台构建通过；涉及文件另运行 oxlint 和保留 QuantumNous 归属头的 scoped oxfmt，不批量重写无关文件。
+受影响测试 **15 文件、71 项通过**，覆盖顾客只核查自己的既有订单、精确支付金额、网络失败后重试、管理员不能直接完成原生订单、自动核对默认暂停/参数边界、核查表更新、13 个支付商配置与原生/旧套餐区分、密钥遮蔽、手机标签滚动与键盘选择、并发 JSON 拒绝与保存失败草稿、RU/普通站语言偏好及接入导航。typecheck、涉及文件 oxlint、保留 QuantumNous 归属头的 scoped oxfmt 和控制台构建通过，不批量重写无关文件。生产构建的支付设置仍按路由拆分，新增模块没有引入前端支付 SDK 或新的生产依赖。
 
-前端新文案通过临时 `add-missing-keys.mjs` 加入全部七种语言，再执行 `bun run i18n:sync`，所有语言 `missingCount=0`。俄语控制台仍有 **52 条原有 legacy/audit 未翻译项**，本记录不声称全部控制台文本已翻译。后端新增俄语 API 错误、事务邮件与通知；语言回归通过。
+前端新文案通过临时 `add-missing-keys.mjs` 加入全部七种语言，再执行 `bun run i18n:sync`，所有语言 `missingCount=0`，临时脚本已移除。本次新增 40 个键；俄语未翻译报告共 59 项，其中 **52 条是原有 legacy/audit 文案，7 条是保留英文的品牌名称**，没有新增俄语说明文案留空。本记录不声称全部控制台文本已翻译。后端新增俄语 API 错误、事务邮件与通知；语言回归通过。
 
 额外使用 Playwright CLI 检查真实生产构建的钱包、Key、用量日志和支付设置。Key/日志页的完整指南使用项目 Dialog 弹窗，地址仍可复制，打开指南不改变列表高度，关闭后恢复焦点；手机 Key 页标题与操作分行。布局截图留在忽略的 `portal-ru/output/playwright/`；商户和账户响应使用显式本地 fixture，不表示真实充值已完成。
+
+支付设置复用现有 Tabs，13 个渠道在手机端横向滚动，密码字段不展示已存密钥；Apirone 不展示带逐单令牌的回调地址。键盘 End 只移动焦点，Enter 才切换配置。缩窄窗口会隐藏当前渠道的问题已先用失败回归复现，再增加 feature 内 ResizeObserver，只调整标签栏的水平滚动，保留页面垂直位置；没有修改全站 Tabs 行为或另建通用组件。
 
 ## 后端和三数据库
 
@@ -43,7 +45,7 @@ go test ./middleware -run '^(TestModelConcurrency|TestSessionCookieOriginGuard|T
 go build -o /path/to/ru-candidate .
 ```
 
-真实数据库版本：SQLite **3.50.4**、MySQL **5.7.44**、PostgreSQL **9.6.24**。每种引擎覆盖新建库、上一个分支版本 schema 升级、重复迁移两次、独立日志库、数据/唯一索引保留、并发只入账一次、精确金额/币种拒绝、钱包溢出事务回滚、待支付队列与核查历史、RU 缺省值/旧键别名/管理员既有配置保留。没有数据库跳过项。
+真实数据库版本：SQLite **3.50.4**、MySQL **5.7.44**、PostgreSQL **9.6.24**。每种引擎覆盖新建库、上一个分支版本 schema 升级、重复迁移两次、独立日志库、数据/唯一索引保留、并发只入账一次、精确金额/币种拒绝、钱包溢出事务回滚、待支付队列与核查历史、RU 缺省值/旧键别名/管理员既有配置保留。新增远端发票归属约束跨进程拒绝重复发票，包括升级前已付款但没有 claim 的历史行；FreeKassa nonce 在失败请求后仍递增。没有数据库跳过项。
 
 ```sh
 # 指向本地独立 fixture/fixture_logs；凭据不写入仓库。
@@ -53,6 +55,8 @@ go test ./model -run '^(TestHostedPaymentDatabaseMatrix|TestRechargeEpay)' -coun
 ```
 
 自动核对任务使用实际数据库任务与既有 runner 租约：批量上限为 2 的测试只处理两单，一单经权威查单确认入账，缺少标识的订单向后移动，执行结束释放租约。内存与 miniredis 回归验证同一内部账号的不同 Key 共用并发上限、单用户覆盖、全局限制和请求释放。
+
+新增协议边界覆盖 Creem 最小单位报价与产品条件、Pancake 原始 RSA 签名/买家身份/退款拒绝、TryBit JWT 过期和原报价币种、OxaPay sandbox 来源与 HMAC、Apirone 6/18 位币精度、超出 int64 的最小单位与唯一交易记录、Platega/FreeKassa/Lava 查单和伪造通知拒绝。Pancake 官方重试保留原始签名，默认 SDK 的 5 分钟会拒绝正常迟到通知；先记录失败用例后显式设为官方 45 分钟，31 分钟通知可经真实 controller 验签/查单入账且重复通知不再次增加余额，正负 46 分钟通知均拒绝。供应商接口全部由显式 fixture 模拟，未向真实商户发起支付。
 
 全量 Go 检查没有全部通过：Windows 下未改动的 `TestAccessAndPanicLogsFollowLogRotation` 和若干认证测试未关闭日志/审计 SQLite 文件，`TempDir RemoveAll` 清理报文件占用；全量 controller 因累计清理等待达到超时。记录该限制，不以选择性测试代称全量通过。此次受影响的定向测试和真实双实例均通过；远端 Linux 检查以当前 commit 的工作流结果为准。
 
@@ -65,7 +69,7 @@ python ops/ru/tests/two_instance.py --binary /absolute/path/to/ru-candidate
 python -m unittest discover -s ops/ru/tests -p '*_test.py' -v
 ```
 
-双实例检查通过，readiness 单元测试 **5 项通过**。覆盖两站同名注册/会话/Key 隔离、RU 匿名单组价格、Chat/Anthropic/Gemini/Responses/图像/SSE 两层用量和扣费、上游失败退还预扣、主站重试而 RU 不重复重试、内部账户余额不足、顾客受限 Key、共享内部账号并发/拒绝/释放、日志隔离与请求 ID 对应、流式断开传播，以及只读检查接受合理配置/拒绝隐藏额外组。
+双实例检查通过，readiness 单元测试 **5 项通过**。首次运行在并发阶段发生一次 RU 连接超时；相同候选二进制未修改，完整重跑通过。该结果不替代目标服务器并发和网络验收。覆盖两站同名注册/会话/Key 隔离、RU 匿名单组价格、Chat/Anthropic/Gemini/Responses/图像/SSE 两层用量和扣费、上游失败退还预扣、主站重试而 RU 不重复重试、内部账户余额不足、顾客受限 Key、共享内部账号并发/拒绝/释放、日志隔离与请求 ID 对应、流式断开传播，以及只读检查接受合理配置/拒绝隐藏额外组。
 
 合成计价结果（只证明公式与隔离，不代表生产售价）：
 
@@ -86,6 +90,7 @@ RU 日志 `upstream_request_id` 与主站 `request_id` 对应。取消测试验�
 - Linux Nginx/systemd、DNS/证书、RU 独立 SMTP/邮件链接与 Turnstile、备份及 RU 回滚。
 - 每个实际上游、售价覆盖真实成本、异步任务/音频/Realtime/WebSocket、俄区可达性和目标并发下的两站资源余量。本地合成上游没有验证这些生产能力。
 - 支付商实际批准的主体/地区/卡或 SBP/币链，小额成功、取消、欠付/超付、迟到和重复通知、退款及退款来源核对。本轮没有真实商户付款，也未实现自动/部分退款或拒付扣回。
+- TryBit 公开查单 schema 包含 `fiat_currency`，示例却省略；代码缺失币种时拒绝入账，必须核验正式商户响应。Apirone 官方没有签名通知，使用本地逐单回调令牌加私有查单；代理/CDN 访问与错误日志都须隐藏回调 query。本分支 Nginx 模板已为支付回调单独关闭访问及请求错误日志。
 - 主站采用旧 release 时，新增内部用户并发覆盖不能生效；需要先验证含此功能的候选二进制，或按旧版普通用户容量规划。完整部署顺序和配置位置见 [部署说明](README.md) 与 [原生支付](payment-native.md)。
 
 只读工具 `configuration_passed` 表示可自动检查的配置通过；`deployment_accepted` 始终为 false。它不会将本地测试、DNS/TLS 或商户 fixture 当作生产验收完成。

@@ -26,10 +26,52 @@ import {
   isHostedPayment,
   requestHostedPayment,
 } from '../hosted-payment'
+import { dispatchSelectedPayment } from '../payment'
 
 afterEach(() => vi.restoreAllMocks())
 
 describe('native hosted payment routing', () => {
+  it.each([
+    'creem_native',
+    'waffo_pancake_native',
+    'platega',
+    'freekassa',
+    'lava',
+    'cryptocloud',
+    'oxapay',
+    'apirone',
+  ])('quotes %s through the managed RU payment endpoint', async (provider) => {
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ data: { message: 'success', data: '10.50' } })
+    expect(isHostedPayment(provider)).toBe(true)
+    expect(await requestPaymentAmount(10, provider)).toBe(10.5)
+    expect(post).toHaveBeenCalledWith(`/api/user/payments/${provider}/amount`, {
+      amount: 10,
+    })
+  })
+
+  it('keeps managed Pancake payments on the hosted flow while preserving the legacy flow', async () => {
+    const regular = vi.fn().mockResolvedValue(true)
+    const pancake = vi.fn().mockResolvedValue(true)
+    const processors = { regular, waffo: vi.fn(), waffoPancake: pancake }
+    await dispatchSelectedPayment(
+      { type: 'waffo_pancake_native', name: 'Waffo Pancake' },
+      10,
+      null,
+      processors
+    )
+    expect(regular).toHaveBeenCalledWith(10, 'waffo_pancake_native')
+    expect(pancake).not.toHaveBeenCalled()
+    await dispatchSelectedPayment(
+      { type: 'waffo_pancake', name: 'Waffo Pancake' },
+      10,
+      null,
+      processors
+    )
+    expect(pancake).toHaveBeenCalledWith(10)
+  })
+
   it('quotes the chosen provider without using the Epay price', async () => {
     const post = vi
       .spyOn(api, 'post')
@@ -54,6 +96,12 @@ describe('native hosted payment routing', () => {
     expect(post).toHaveBeenCalledWith('/api/user/payments/nowpayments/pay', {
       amount: 10,
     })
+  })
+
+  it('preserves the authenticated Pancake checkout token for the immediate redirect', () => {
+    const checkout =
+      'https://pancake.waffo.ai/store/fixture/checkout/cs_fixture?test=true#token=fixture-buyer-token'
+    expect(hostedCheckoutURL(checkout)).toBe(checkout)
   })
 
   it('rejects non-HTTPS and credential-bearing checkout locations', () => {

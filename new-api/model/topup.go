@@ -510,6 +510,13 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("订单状态不是待支付，无法补单")
 		}
+		var hostedCount int64
+		if err := tx.Model(&HostedPayment{}).Where("trade_no = ?", tradeNo).Count(&hostedCount).Error; err != nil {
+			return err
+		}
+		if hostedCount > 0 {
+			return common.NewMessage("Hosted payments must be verified with the provider before crediting")
+		}
 
 		// 计算应充值额度：
 		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit

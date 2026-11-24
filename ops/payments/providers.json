@@ -7,7 +7,12 @@
   "environment_variable": "PAYMENTS_ENVIRONMENT",
   "default_enabled": false,
   "selection_controls": "new_orders_only",
-  "docs_checked_on": "2026-11-24",
+  "docs_checked_on": "2026-11-25",
+  "preselection": {
+    "international": ["creem_native", "waffo_pancake_native"],
+    "crypto": ["cryptocloud", "nowpayments", "oxapay", "apirone"],
+    "default_sales_enabled": false
+  },
   "providers": [
     {
       "id": "cispay",
@@ -92,6 +97,151 @@
       "credit_status": "1",
       "notes": "Hosted payurl only. Merchant secret in the documented HTTPS query URL must never be logged. Existing Epay configuration remains available separately.",
       "docs": ["https://z-pay.cn/doc.html"]
+    },
+    {
+      "id": "creem_native",
+      "name": "Creem",
+      "source": "new-api/service/payment_creem.go",
+      "protocol": "rest_v1_x_api_key_custom_price_minor_units",
+      "notification_verification": "raw_body_hmac_sha256_plus_checkout_query",
+      "webhook_method": "POST",
+      "checkout_environments": ["live", "test"],
+      "callback_environments": ["live", "test"],
+      "currencies": ["USD", "EUR", "GBP"],
+      "credit_event": "checkout.completed",
+      "credit_status": "completed_checkout_with_matching_paid_onetime_order",
+      "notes": "Active one-time inclusive-tax product, business net pricing disabled, custom price 100–99999999 minor units. Native wallet settings are separate from legacy Creem packages and subscriptions.",
+      "docs": [
+        "https://docs.creem.io/api-reference/endpoint/create-checkout",
+        "https://docs.creem.io/api-reference/endpoint/get-checkout",
+        "https://docs.creem.io/api-reference/endpoint/get-product",
+        "https://docs.creem.io/code/webhooks"
+      ]
+    },
+    {
+      "id": "waffo_pancake_native",
+      "name": "Waffo Pancake",
+      "source": "new-api/service/payment_pancake.go",
+      "protocol": "rsa_sha256_rest_checkout_and_graphql_query",
+      "notification_verification": "timestamp_raw_body_rsa_sha256_pinned_public_key",
+      "webhook_method": "POST",
+      "checkout_environments": ["live", "test"],
+      "callback_environments": ["live", "test"],
+      "currencies": ["USD", "EUR", "GBP"],
+      "credit_event": "order.completed",
+      "credit_status": "matching_completed_onetime_order_with_succeeded_unrefunded_payment",
+      "notes": "Russian cashier, inclusive-tax exact price, promotion entry disabled. Merchant keys are issued per environment. Session, order and payment IDs are distinct; buyer checkout token is never persisted or logged. Explicit 45-minute webhook tolerance matches official retries retaining the original signature. Legacy packages and subscriptions remain separate.",
+      "docs": [
+        "https://docs.waffo.ai/api-reference/authentication",
+        "https://docs.waffo.ai/api-reference/endpoints/checkout/create-session",
+        "https://docs.waffo.ai/api-reference/endpoints/auth/issue-session-token",
+        "https://docs.waffo.ai/api-reference/queries/orders-payments",
+        "https://docs.waffo.ai/api-reference/webhooks"
+      ]
+    },
+    {
+      "id": "platega",
+      "name": "Platega",
+      "source": "new-api/service/payment_platega.go",
+      "protocol": "rest_x_merchantid_x_secret",
+      "notification_verification": "constant_time_callback_credentials_plus_transaction_query",
+      "webhook_method": "POST",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live"],
+      "methods": ["checkout_v2", "2", "3", "11", "12", "13", "14"],
+      "credit_status": "CONFIRMED",
+      "notes": "Blank payment method uses /v2/transaction/process; a fixed method uses /transaction/process. Real account email is sent for buyer identification. Query recognizes the documented mechantId spelling.",
+      "docs": ["https://docs.platega.io/"]
+    },
+    {
+      "id": "freekassa",
+      "name": "FreeKassa",
+      "source": "new-api/service/payment_freekassa.go",
+      "protocol": "rest_v1_sorted_values_hmac_sha256_monotonic_nonce",
+      "notification_verification": "sci_md5_secret_word_2_plus_authoritative_query",
+      "webhook_method": "POST",
+      "webhook_success_body": "YES",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live"],
+      "credit_status": "1",
+      "notes": "API key and Secret Word 2 are independent. Cross-process monotonic nonce sequence is persisted even on HTTP failure. Method must be approved for email/IP-only requests; callback and return URLs are merchant dashboard settings.",
+      "docs": ["https://docs.freekassa.net/"]
+    },
+    {
+      "id": "lava",
+      "name": "Lava.top",
+      "source": "new-api/service/payment_lava.go",
+      "protocol": "rest_v3_custom_invoice_v1_query_x_api_key",
+      "notification_verification": "separate_webhook_service_api_key_plus_invoice_query",
+      "webhook_method": "POST",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live"],
+      "currencies": ["USD", "EUR", "RUB"],
+      "credit_event": "payment.success",
+      "credit_status": "completed_one_time_invoice",
+      "notes": "Offer needs Price on request via API. Exact receipt, offer and hashed authenticated email must match. No documented V3 merchant reference: a lost invoice ID requires operator recovery. Refund, renewal and chargeback envelopes never authorize credit.",
+      "docs": ["https://developers.lava.top/en"]
+    },
+    {
+      "id": "cryptocloud",
+      "name": "TryBit (formerly CryptoCloud)",
+      "source": "new-api/service/payment_cryptocloud.go",
+      "protocol": "rest_v2_authorization_token_explicit_trybit_or_cryptocloud_endpoint",
+      "notification_verification": "fresh_expiring_hs256_jwt_plus_merchant_invoice_query",
+      "webhook_method": "POST",
+      "checkout_environments": ["live", "test"],
+      "callback_environments": ["live", "test"],
+      "currencies": ["USD"],
+      "credit_status": "paid_or_overpaid_and_success_without_surcharge",
+      "notes": "API variant is explicitly selected; no credential-forwarding redirects. Project test_mode, original fiat_currency/amount_in_fiat, order_id and full crypto amount must match. Checkout and return URLs are project settings. Keep cryptocloud as the stable module ID.",
+      "docs": [
+        "https://docs.trybit.com/api-reference-v2/authorization",
+        "https://docs.trybit.com/api-reference-v2/create-invoice",
+        "https://docs.trybit.com/api-reference-v2/invoice-information",
+        "https://docs.trybit.com/api-reference-v2/postback"
+      ]
+    },
+    {
+      "id": "oxapay",
+      "name": "OxaPay",
+      "source": "new-api/service/payment_oxapay.go",
+      "protocol": "rest_v1_merchant_api_key_hosted_invoice",
+      "notification_verification": "raw_body_hmac_sha512_merchant_api_key_plus_payment_query",
+      "webhook_method": "POST",
+      "webhook_success_body": "ok",
+      "checkout_environments": ["live", "test"],
+      "callback_environments": ["live", "test"],
+      "currencies": ["USD"],
+      "credit_status": "paid_with_confirmed_transaction_and_zero_underpaid_coverage",
+      "notes": "Explicit sandbox flag on create; query does not document this flag, so provenance is pinned to the exact per-instance callback URL hash. Underpayment tolerance and mixed payment disabled. No manual_accept credit. Merchant key selects checkout coins/networks; no payout or auto-withdrawal API.",
+      "docs": [
+        "https://docs.oxapay.com/api-reference/payment/generate-invoice",
+        "https://docs.oxapay.com/api-reference/payment/payment-information",
+        "https://docs.oxapay.com/api-reference/payment/payment-status-table",
+        "https://docs.oxapay.com/webhook"
+      ]
+    },
+    {
+      "id": "apirone",
+      "name": "Apirone",
+      "source": "new-api/service/payment_apirone.go",
+      "protocol": "rest_v2_account_jwt_private_invoice_crypto_minor_units",
+      "notification_verification": "per_order_callback_token_plus_authenticated_private_invoice_query",
+      "provider_signed_webhook": false,
+      "webhook_method": "POST",
+      "webhook_success_body": "*ok*",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live"],
+      "currencies": ["USD_quote_with_exact_selected_crypto_network"],
+      "credit_status": "completed_with_sufficient_unique_transaction_history",
+      "notes": "Uses OPTIONS/accounts coin units and USD ticker to save an exact quote before remote creation. Transfer key is sent only in HTTPS login body, then private invoice query uses a short-lived Bearer token. No provider HMAC is documented. paid/overpaid alone cannot credit; wait for completed. Stablecoin price is not assumed to equal USD. No sandbox, account auto-creation, transfers or hot-wallet API.",
+      "docs": [
+        "https://apirone.com/docs/invoices/",
+        "https://apirone.com/docs/authorization/",
+        "https://apirone.com/docs/callbacks/",
+        "https://apirone.com/docs/service/",
+        "https://apirone.com/docs/rate/"
+      ]
     }
   ],
   "existing_integrations": [

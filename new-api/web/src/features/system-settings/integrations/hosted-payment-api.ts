@@ -25,6 +25,14 @@ export const hostedProviders = [
   'nowpayments',
   'paypal',
   'zpay',
+  'creem_native',
+  'waffo_pancake_native',
+  'platega',
+  'freekassa',
+  'lava',
+  'cryptocloud',
+  'oxapay',
+  'apirone',
 ] as const
 export type HostedProvider = (typeof hostedProviders)[number]
 
@@ -56,6 +64,9 @@ export interface HostedPaymentConfig {
   client_secret: string
   merchant_id: string
   webhook_id: string
+  product_id: string
+  tax_category: string
+  api_variant: string
   secrets_configured?: string[]
   deployment_selected?: boolean
 }

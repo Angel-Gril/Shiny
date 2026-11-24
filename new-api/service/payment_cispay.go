@@ -57,14 +57,16 @@ func (client *HostedPaymentClient) cisPayAPI(ctx context.Context, method, path s
 	return hostedDecodeResponse(response, status, result)
 }
 
-func cisPayMinorAmount(value string) (int64, error) {
+// HostedMinorAmount converts a positive two-decimal money snapshot without
+// floating point rounding. Provider-specific limits are checked by the adapter.
+func HostedMinorAmount(value string) (int64, error) {
 	amount, err := decimal.NewFromString(value)
 	if err != nil || !amount.IsPositive() {
-		return 0, errors.New("invalid cisPay amount")
+		return 0, errors.New("invalid payment amount")
 	}
 	minor := amount.Mul(decimal.NewFromInt(100))
 	if !minor.Equal(minor.Truncate(0)) || minor.GreaterThan(decimal.NewFromInt(9223372036854775807)) {
-		return 0, errors.New("invalid cisPay amount precision")
+		return 0, errors.New("invalid payment amount precision")
 	}
 	return minor.IntPart(), nil
 }
@@ -74,7 +76,7 @@ func cisPayAmount(minor int64) string {
 }
 
 func cisPaySettlement(result cisPayPayment, order *model.HostedPayment, invoice bool) (string, string, error) {
-	expectedAmount, err := cisPayMinorAmount(order.Amount)
+	expectedAmount, err := HostedMinorAmount(order.Amount)
 	if err != nil {
 		return "", "", err
 	}
@@ -109,7 +111,7 @@ func (client *HostedPaymentClient) createCisPay(ctx context.Context, order *mode
 	if options.CustomerID == "" || len(options.CustomerID) > 40 {
 		return nil, errors.New("cisPay requires a stable customer ID")
 	}
-	amount, err := cisPayMinorAmount(order.Amount)
+	amount, err := HostedMinorAmount(order.Amount)
 	if err != nil {
 		return nil, err
 	}

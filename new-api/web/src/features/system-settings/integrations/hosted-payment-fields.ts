@@ -50,6 +50,9 @@ export const hostedConfigSchema = z.object({
   client_secret: z.string(),
   merchant_id: z.string(),
   webhook_id: z.string(),
+  product_id: z.string(),
+  tax_category: z.string(),
+  api_variant: z.string(),
 })
 
 export type HostedConfigValues = z.infer<typeof hostedConfigSchema>
@@ -69,6 +72,67 @@ export const hostedProviderNames: Record<HostedProvider, string> = {
   nowpayments: 'NOWPayments',
   paypal: 'PayPal',
   zpay: 'ZPAY',
+  creem_native: 'Creem',
+  waffo_pancake_native: 'Waffo Pancake',
+  platega: 'Platega',
+  freekassa: 'FreeKassa',
+  lava: 'Lava.top',
+  cryptocloud: 'CryptoCloud / Trybit',
+  oxapay: 'OxaPay',
+  apirone: 'Apirone',
+}
+
+export const hostedLiveOnlyProviders: HostedProvider[] = [
+  'nowpayments',
+  'zpay',
+  'platega',
+  'freekassa',
+  'lava',
+  'apirone',
+]
+
+export const hostedApprovedHostProviders: HostedProvider[] = [
+  'cispay',
+  'lianlian',
+  'zpay',
+  'freekassa',
+  'lava',
+  'cryptocloud',
+]
+
+export const hostedProviderGuides: Partial<Record<HostedProvider, string>> = {
+  creem_native:
+    'Use an active one-time Creem product with inclusive tax and business net pricing disabled. Custom top-ups require 1.00 to 999999.99 in the product currency.',
+  waffo_pancake_native:
+    'Use a one-time Waffo Pancake product and the matching merchant key. Checkout opens in Russian with inclusive tax. Existing package and subscription settings remain separate.',
+  platega:
+    'Leave the payment method blank for the Platega V2 checkout, or choose a documented method ID. A valid account email is required for buyer identification.',
+  freekassa:
+    'The FreeKassa API key and Secret Word 2 are different credentials. Set the notification and return URLs in the merchant dashboard. Confirm that the chosen method needs only email and IP.',
+  lava: 'Publish a one-time Lava.top offer with Price on request via API enabled. Configure webhook authentication with a separate service API key. Lost invoice IDs require support recovery.',
+  cryptocloud:
+    'CryptoCloud documentation now uses Trybit. Select the endpoint matching your project credentials and exact checkout hosts. Only a fully paid invoice credits the saved USD amount.',
+  oxapay:
+    'Use an OxaPay Merchant API key. The hosted invoice uses USD, no underpayment tolerance, and the coins enabled in your merchant account. The same key verifies webhook signatures.',
+  apirone:
+    'Use an Apirone account and transfer key with an exact coin and network. Each invoice saves its USD exchange rate and coin amount. Credit requires a completed invoice verified through the private account API.',
+}
+
+export const hostedProviderDocs: Record<HostedProvider, string> = {
+  cispay: 'https://cispay.app/developers',
+  lianlian: 'https://global.lianlianpay.com/docs/api_docs',
+  nowpayments: 'https://documenter.getpostman.com/view/7907941/S1a32n38',
+  paypal: 'https://developer.paypal.com/docs/api/orders/v2/',
+  zpay: 'https://z-pay.cn/doc.html',
+  creem_native: 'https://docs.creem.io/api-reference/endpoint/create-checkout',
+  waffo_pancake_native:
+    'https://docs.waffo.ai/api-reference/endpoints/checkout/create-session',
+  platega: 'https://docs.platega.io/',
+  freekassa: 'https://docs.freekassa.net/',
+  lava: 'https://developers.lava.top/en',
+  cryptocloud: 'https://docs.trybit.com/api-reference-v2/create-invoice',
+  oxapay: 'https://docs.oxapay.com/api-reference/payment/generate-invoice',
+  apirone: 'https://apirone.com/docs/invoices/',
 }
 export const hostedProviderFields: Record<HostedProvider, HostedTextField[]> = {
   cispay: [
@@ -118,5 +182,72 @@ export const hostedProviderFields: Record<HostedProvider, HostedTextField[]> = {
     { key: 'merchant_id', label: 'ZPAY merchant ID' },
     { key: 'api_secret', label: 'ZPAY merchant key', secret: true },
     { key: 'payment_method', label: 'ZPAY payment method (alipay, wxpay)' },
+  ],
+  creem_native: [
+    { key: 'account_id', label: 'Merchant account reference' },
+    { key: 'api_key', label: 'API Key', secret: true },
+    { key: 'webhook_secret', label: 'Webhook signing secret', secret: true },
+    { key: 'product_id', label: 'Creem one-time product ID' },
+  ],
+  waffo_pancake_native: [
+    { key: 'merchant_id', label: 'Merchant ID' },
+    { key: 'store_id', label: 'Store ID' },
+    { key: 'product_id', label: 'Waffo Pancake one-time product ID' },
+    {
+      key: 'tax_category',
+      label: 'Product tax category (saas, digital_goods, software)',
+    },
+    {
+      key: 'private_key',
+      label: 'Merchant private key (RSA)',
+      secret: true,
+      multiline: true,
+    },
+    {
+      key: 'platform_public_key',
+      label: 'Webhook public key (optional)',
+      multiline: true,
+    },
+  ],
+  platega: [
+    { key: 'merchant_id', label: 'Merchant ID' },
+    { key: 'api_secret', label: 'Platega X-Secret', secret: true },
+    {
+      key: 'payment_method',
+      label: 'Platega method ID (2, 3, 11, 12, 13, 14; optional)',
+    },
+  ],
+  freekassa: [
+    { key: 'merchant_id', label: 'FreeKassa Shop ID' },
+    { key: 'api_key', label: 'API Key', secret: true },
+    { key: 'webhook_secret', label: 'FreeKassa Secret Word 2', secret: true },
+    { key: 'payment_method', label: 'FreeKassa payment method ID' },
+  ],
+  lava: [
+    { key: 'account_id', label: 'Merchant account reference' },
+    { key: 'api_key', label: 'API Key', secret: true },
+    { key: 'webhook_secret', label: 'Webhook service API key', secret: true },
+    { key: 'product_id', label: 'Lava.top offer ID' },
+    { key: 'payment_method', label: 'Lava.top payment provider (optional)' },
+  ],
+  cryptocloud: [
+    { key: 'account_id', label: 'CryptoCloud Shop ID' },
+    { key: 'api_key', label: 'API Key', secret: true },
+    { key: 'webhook_secret', label: 'Project JWT secret', secret: true },
+    { key: 'pay_currency', label: 'Coin and network code (optional)' },
+  ],
+  oxapay: [
+    { key: 'account_id', label: 'Merchant account reference' },
+    { key: 'api_key', label: 'OxaPay Merchant API key', secret: true },
+  ],
+  apirone: [
+    { key: 'account_id', label: 'Apirone account ID' },
+    { key: 'api_key', label: 'Apirone transfer key', secret: true },
+    {
+      key: 'webhook_secret',
+      label: 'Apirone callback secret (at least 32 characters)',
+      secret: true,
+    },
+    { key: 'pay_currency', label: 'Apirone coin and network code' },
   ],
 }

@@ -16,7 +16,15 @@ import (
 
 const HostedPaymentOption = "HostedPaymentConfig"
 
-var HostedPaymentProviders = []string{"cispay", "lianlian", "nowpayments", "paypal", "zpay"}
+// Distinct IDs keep managed wallet orders out of the legacy package and
+// subscription handlers. Both legacy integrations retain their own settings.
+const (
+	HostedProviderCreem   = "creem_native"
+	HostedProviderPancake = "waffo_pancake_native"
+)
+
+var HostedPaymentProviders = []string{"cispay", "lianlian", "nowpayments", "paypal", "zpay",
+	HostedProviderCreem, HostedProviderPancake, "platega", "freekassa", "lava", "cryptocloud", "oxapay", "apirone"}
 
 // Deployment selection controls new sales, not callbacks for already-created
 // orders. An operator can drain a removed provider without losing its keys.
@@ -85,6 +93,9 @@ type HostedPaymentConfig struct {
 	ClientSecret       string   `json:"client_secret"`
 	MerchantID         string   `json:"merchant_id"`
 	WebhookID          string   `json:"webhook_id"`
+	ProductID          string   `json:"product_id"`
+	TaxCategory        string   `json:"tax_category"`
+	APIVariant         string   `json:"api_variant"`
 	SecretsConfigured  []string `json:"secrets_configured,omitempty"`
 	DeploymentSelected *bool    `json:"deployment_selected,omitempty"`
 }
@@ -93,11 +104,11 @@ type HostedPaymentSettings map[string]HostedPaymentConfig
 
 func DefaultHostedPaymentConfig(provider string) HostedPaymentConfig {
 	environment := "test"
-	if provider == "nowpayments" || provider == "cispay" || provider == "zpay" {
+	if slices.Contains([]string{"nowpayments", "cispay", "zpay", "platega", "freekassa", "lava", "cryptocloud", "apirone"}, provider) {
 		environment = "live" // This adapter uses the documented production invoice API.
 	}
 	currency := "USD"
-	if provider == "cispay" {
+	if provider == "cispay" || provider == "platega" || provider == "freekassa" {
 		currency = "RUB"
 	} else if provider == "zpay" {
 		currency = "CNY"
@@ -108,6 +119,15 @@ func DefaultHostedPaymentConfig(provider string) HostedPaymentConfig {
 	}
 	if provider == "zpay" {
 		cfg.PaymentMethod, cfg.SignatureType = "alipay", "MD5"
+	}
+	if provider == HostedProviderPancake {
+		cfg.TaxCategory, cfg.SignatureType = "saas", "RSA-SHA256"
+	}
+	if provider == "cryptocloud" {
+		cfg.APIVariant = "trybit"
+	}
+	if provider == "apirone" {
+		cfg.PayCurrency = "usdt@trx"
 	}
 	return cfg
 }
@@ -134,6 +154,15 @@ func (cfg HostedPaymentConfig) Identity(provider string) string {
 	identity := strings.Join([]string{provider, cfg.Environment, cfg.AccountID,
 		cfg.StoreID, cfg.UserID, cfg.DeveloperUserID, cfg.OnBehalfOf,
 		cfg.MerchantID, cfg.WebhookID}, "\n")
+	// Preserve pre-existing providers' hashes so pending orders remain valid.
+	if slices.Contains([]string{HostedProviderCreem, HostedProviderPancake, "lava", "cryptocloud"}, provider) {
+		identity += "\n" + cfg.ProductID + "\n" + cfg.APIVariant
+	}
+	if provider == "apirone" {
+		// The per-order callback token and coin/network must remain valid while
+		// pending invoices exist. The digest is never exposed to the browser.
+		identity += "\n" + cfg.PayCurrency + "\n" + cfg.WebhookSecret
+	}
 	sum := sha256.Sum256([]byte(identity))
 	return hex.EncodeToString(sum[:])
 }
@@ -184,6 +213,11 @@ func (cfg HostedPaymentConfig) Validate(provider string) error {
 	}
 	if cfg.Environment != "test" && cfg.Environment != "live" {
 		return errors.New("invalid payment environment")
+	}
+	for _, value := range []string{cfg.APIKey, cfg.APISecret, cfg.WebhookSecret, cfg.ClientID, cfg.ClientSecret} {
+		if strings.ContainsAny(value, "\r\n") {
+			return errors.New("payment credentials must not contain line breaks")
+		}
 	}
 	switch provider {
 	case "cispay":
@@ -253,6 +287,61 @@ func (cfg HostedPaymentConfig) Validate(provider string) error {
 		}
 		if !slices.Contains([]string{"USD", "EUR", "GBP"}, cfg.Currency) {
 			return errors.New("unsupported PayPal settlement currency")
+		}
+	case HostedProviderCreem:
+		if cfg.AccountID == "" || cfg.APIKey == "" || cfg.WebhookSecret == "" ||
+			!regexp.MustCompile(`^prod_[A-Za-z0-9]+$`).MatchString(cfg.ProductID) ||
+			!slices.Contains([]string{"USD", "EUR", "GBP"}, cfg.Currency) {
+			return errors.New("Creem requires an account reference, one-time product, API key and webhook secret")
+		}
+	case HostedProviderPancake:
+		if !regexp.MustCompile(`^MER_[A-Za-z0-9]+$`).MatchString(cfg.MerchantID) ||
+			!regexp.MustCompile(`^STO_[A-Za-z0-9]+$`).MatchString(cfg.StoreID) ||
+			!regexp.MustCompile(`^PROD_[A-Za-z0-9]+$`).MatchString(cfg.ProductID) || cfg.PrivateKey == "" ||
+			!slices.Contains([]string{"saas", "digital_goods", "software"}, cfg.TaxCategory) ||
+			!slices.Contains([]string{"USD", "EUR", "GBP"}, cfg.Currency) {
+			return errors.New("incomplete Waffo Pancake merchant or one-time product configuration")
+		}
+	case "platega":
+		if cfg.Environment != "live" || cfg.APISecret == "" ||
+			!regexp.MustCompile(`^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`).MatchString(cfg.MerchantID) ||
+			(cfg.PaymentMethod != "" && !slices.Contains([]string{"2", "3", "11", "12", "13", "14"}, cfg.PaymentMethod)) {
+			return errors.New("Platega requires a live merchant and documented payment method")
+		}
+	case "freekassa":
+		if cfg.Environment != "live" || cfg.APIKey == "" || cfg.WebhookSecret == "" ||
+			!regexp.MustCompile(`^[1-9][0-9]{0,9}$`).MatchString(cfg.MerchantID) ||
+			!regexp.MustCompile(`^[1-9][0-9]{0,5}$`).MatchString(cfg.PaymentMethod) || len(cfg.CheckoutHosts) == 0 {
+			return errors.New("FreeKassa requires a live Shop ID, API key, Secret Word 2 and payment method ID")
+		}
+	case "lava":
+		if cfg.Environment != "live" || cfg.AccountID == "" || cfg.APIKey == "" || cfg.WebhookSecret == "" ||
+			len(cfg.WebhookSecret) > 80 || len(cfg.CheckoutHosts) == 0 ||
+			!regexp.MustCompile(`^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`).MatchString(cfg.ProductID) ||
+			(cfg.PaymentMethod != "" && !regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,39}$`).MatchString(cfg.PaymentMethod)) ||
+			!slices.Contains([]string{"USD", "EUR", "RUB"}, cfg.Currency) {
+			return errors.New("Lava.top requires a live account, custom-price offer, API key and webhook service key")
+		}
+	case "cryptocloud":
+		if cfg.AccountID == "" || cfg.APIKey == "" || cfg.WebhookSecret == "" || cfg.Currency != "USD" ||
+			!slices.Contains([]string{"trybit", "cryptocloud"}, cfg.APIVariant) || len(cfg.CheckoutHosts) == 0 ||
+			(cfg.PayCurrency != "" && !regexp.MustCompile(`^[A-Z0-9_]{2,40}$`).MatchString(cfg.PayCurrency)) {
+			return errors.New("CryptoCloud requires a USD project, API key, JWT secret and explicit API variant")
+		}
+	case "oxapay":
+		if cfg.AccountID == "" || cfg.APIKey == "" || cfg.Currency != "USD" {
+			return errors.New("OxaPay requires a USD account reference and Merchant API key")
+		}
+	case "apirone":
+		if cfg.Environment != "live" || cfg.Currency != "USD" || len(cfg.APIKey) < 16 || len(cfg.WebhookSecret) < 32 ||
+			!regexp.MustCompile(`^apr-[a-f0-9]{32}$`).MatchString(cfg.AccountID) ||
+			!slices.Contains([]string{"btc", "ltc", "bch", "doge", "trx", "usdt@trx", "usdc@trx", "eth", "usdt@eth", "usdc@eth", "bnb", "usdt@bnb", "usdc@bnb", "gram", "usdt@ton"}, cfg.PayCurrency) {
+			return errors.New("Apirone requires a live USD account, transfer key, callback secret and exact coin/network")
+		}
+	}
+	for _, host := range cfg.CheckoutHosts {
+		if !regexp.MustCompile(`^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$`).MatchString(host) {
+			return errors.New("checkout hosts must be exact HTTPS host names")
 		}
 	}
 	return nil

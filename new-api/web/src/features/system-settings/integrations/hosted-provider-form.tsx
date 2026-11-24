@@ -58,7 +58,11 @@ import {
 } from './hosted-payment-api'
 import {
   hostedConfigSchema,
+  hostedApprovedHostProviders,
+  hostedLiveOnlyProviders,
+  hostedProviderDocs,
   hostedProviderFields,
+  hostedProviderGuides,
   type HostedConfigValues,
   type HostedTextField,
 } from './hosted-payment-fields'
@@ -71,13 +75,17 @@ export function HostedProviderForm(props: {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const selected = props.config.deployment_selected !== false
+  const liveOnly = hostedLiveOnlyProviders.includes(props.provider)
   const form = useForm<HostedConfigValues>({
     resolver: zodResolver(hostedConfigSchema),
     defaultValues: {
       ...props.config,
       accept_new:
         selected &&
-        !(props.provider === 'cispay' && props.config.environment === 'test') &&
+        !(
+          (props.provider === 'cispay' || liveOnly) &&
+          props.config.environment === 'test'
+        ) &&
         props.config.accept_new,
     },
   })
@@ -96,7 +104,9 @@ export function HostedProviderForm(props: {
   })
   const environment = form.watch('environment')
   const canCreate =
-    selected && !(props.provider === 'cispay' && environment === 'test')
+    selected &&
+    !((props.provider === 'cispay' || liveOnly) && environment === 'test')
+  const guide = hostedProviderGuides[props.provider]
   const webhook = `${props.serverAddress.replace(/\/$/, '')}/api/payments/${props.provider}/webhook/${environment}`
   const commonFields: HostedTextField[] = [
     { key: 'currency', label: 'Settlement currency' },
@@ -117,6 +127,26 @@ export function HostedProviderForm(props: {
             )}
           </AlertDescription>
         </Alert>
+        {guide && (
+          <Alert>
+            <AlertDescription>{t(guide)}</AlertDescription>
+          </Alert>
+        )}
+        <a
+          className='text-primary w-fit text-sm underline underline-offset-4'
+          href={hostedProviderDocs[props.provider]}
+          target='_blank'
+          rel='noopener noreferrer'
+        >
+          {t('Official documentation')}
+        </a>
+        {liveOnly && (
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'This integration uses the documented live API. Sandbox creation is unavailable.'
+            )}
+          </p>
+        )}
         {props.provider === 'cispay' && (
           <Alert>
             <AlertDescription>
@@ -214,7 +244,9 @@ export function HostedProviderForm(props: {
                 </FormControl>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value='test'>{t('Test')}</SelectItem>
+                    <SelectItem value='test' disabled={liveOnly}>
+                      {t('Test')}
+                    </SelectItem>
                     <SelectItem value='live'>{t('Live')}</SelectItem>
                   </SelectGroup>
                 </SelectContent>
@@ -223,6 +255,35 @@ export function HostedProviderForm(props: {
             </FormItem>
           )}
         />
+        {props.provider === 'cryptocloud' && (
+          <FormField
+            control={form.control}
+            name='api_variant'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('CryptoCloud API endpoint')}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value='trybit'>
+                        Trybit · api.trybit.com
+                      </SelectItem>
+                      <SelectItem value='cryptocloud'>
+                        CryptoCloud · api.cryptocloud.plus
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <FormField
           control={form.control}
           name='min_topup'
@@ -277,9 +338,7 @@ export function HostedProviderForm(props: {
             />
           )
         )}
-        {(props.provider === 'cispay' ||
-          props.provider === 'lianlian' ||
-          props.provider === 'zpay') && (
+        {hostedApprovedHostProviders.includes(props.provider) && (
           <>
             {props.provider === 'lianlian' && (
               <FormField
@@ -334,16 +393,28 @@ export function HostedProviderForm(props: {
           </>
         )}
         <div className='min-w-0 space-y-2'>
-          <p className='text-sm font-medium'>{t('Webhook URL')}</p>
-          <div className='flex items-center gap-2'>
-            <code className='min-w-0 flex-1 text-sm break-all'>{webhook}</code>
-            <CopyButton value={webhook} />
-          </div>
-          <p className='text-muted-foreground text-sm'>
-            {t(
-              'Register this URL in the matching merchant environment. Set this instance Server Address to the RU domain.'
-            )}
-          </p>
+          {props.provider === 'apirone' ? (
+            <p className='text-muted-foreground text-sm'>
+              {t(
+                'The server supplies a private callback URL for each Apirone invoice. Do not register or share a plain webhook URL.'
+              )}
+            </p>
+          ) : (
+            <>
+              <p className='text-sm font-medium'>{t('Webhook URL')}</p>
+              <div className='flex items-center gap-2'>
+                <code className='min-w-0 flex-1 text-sm break-all'>
+                  {webhook}
+                </code>
+                <CopyButton value={webhook} />
+              </div>
+              <p className='text-muted-foreground text-sm'>
+                {t(
+                  'Register this URL in the matching merchant environment. Set this instance Server Address to the RU domain.'
+                )}
+              </p>
+            </>
+          )}
           {environment === 'test' && (
             <p className='text-muted-foreground text-sm'>
               {t(
