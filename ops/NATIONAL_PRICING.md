@@ -2,6 +2,8 @@
 
 采用 XKRelay 2026-11-04 公开标准数字作为管理员售价覆盖；保留本站分组倍率，人民币等值额度不除以汇率。缺少报价的通用 Flash 与两个 MiniMax 沿用已审阅的零猫标准数字。供应商采购成本与本站售价分开记录。
 
+2026-11-24 起，V4 Pro 改按 [DeepSeek 官方人民币价目](https://api-docs.deepseek.com/zh-cn/quick_start/pricing)：闲时输入/缓存读取/输出为 4.5/0.15/13.5，峰时为 9/0.3/27，单位为每百万 Token 的站内额度数字。覆盖 `deepseek-v4-pro`、`deepseek-v4-pro-0813`、`cn:deepseek-v4-pro`；继续使用原有 `deepseekPeak()` 日历和到达时刻锁价，保持分组倍率。此前复制 XKRelay 自定义 9/0.3/27 闲时价而得到的 18/0.6/54 峰时价不再采用。其他模型的参考来源不变，历史请求不重算。
+
 实施任务：
 
 - [x] 增加 `deepseekPeak()`、版本化法定节假日日历、缺年回退及状态接口。
