@@ -30,6 +30,7 @@ const defaultSecuritySettings: SecuritySettings = {
   ModelRequestRateLimitSuccessCount: 1000,
   ModelRequestConcurrencyPerUser: 5,
   ModelRequestConcurrencyGlobal: 32,
+  ModelRequestConcurrencyUserOverrides: '{}',
   ModelRequestRateLimitDurationMinutes: 1,
   ModelRequestRateLimitGroup: '',
   'fetch_setting.enable_ssrf_protection': true,

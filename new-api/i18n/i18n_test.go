@@ -37,6 +37,9 @@ func TestLanguageFromUserSetting(t *testing.T) {
 		{"zh-Hant-TW", LangZhTW},
 		{"zh", LangZhCN},
 		{"en", LangEn},
+		{"ru", LangRu},
+		{"ru_RU", LangRu},
+		{"ru-KZ", LangRu},
 		{"fr", LangEn},
 		{"ja", LangEn},
 	} {
@@ -93,6 +96,8 @@ func TestBackendMessageLanguage(t *testing.T) {
 		{"no preference header", "", "", "*", english},
 		{"nothing stated with a Chinese default", "zh-CN", "", "", chinese},
 		{"nothing stated with an English default", "en", "", "", english},
+		{"nothing stated with a Russian default", "ru", "", "", "Недостаточно средств. Остаток: $0.10"},
+		{"Russian preference wins over the English header", "en", "ru", "en-US", "Недостаточно средств. Остаток: $0.10"},
 		{"header wins over the default", "zh-CN", "", "en-US,en;q=0.9", english},
 		{"header in a language without a locale", "zh-CN", "", "fr-FR", english},
 		{"saved language wins over the header", "", "zhTW", "en-US", "使用者額度不足，剩餘額度：$0.10"},

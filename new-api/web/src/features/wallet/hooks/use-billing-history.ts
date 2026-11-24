@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useMutation } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
@@ -23,6 +24,7 @@ import { toast } from 'sonner'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { useDebounce } from '@/hooks/use-debounce'
 import { handleServerError } from '@/lib/handle-server-error'
+import { requireServerSuccess } from '@/lib/server-error-message'
 
 import {
   getUserBillingHistory,
@@ -30,6 +32,7 @@ import {
   completeOrder,
   isApiSuccess,
 } from '../api'
+import { checkHostedPayment, paymentCheckLabels } from '../lib/hosted-payment'
 import type { TopupRecord } from '../types'
 
 // ============================================================================
@@ -112,6 +115,19 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     [debouncedKeyword, isAdmin, onDataRefresh, page, pageSize]
   )
 
+  const checkPayment = useMutation({
+    mutationFn: async (record: TopupRecord) =>
+      requireServerSuccess(await checkHostedPayment(record)),
+    onSuccess: async (response) => {
+      const key =
+        paymentCheckLabels[response.data?.payment_check_status || ''] ||
+        'Payment is not completed yet'
+      if (response.data?.status === 'success') toast.success(i18next.t(key))
+      else toast.info(i18next.t(key))
+      await fetchBillingHistory({ silent: true })
+    },
+  })
+
   /**
    * Complete a pending order (admin only)
    */
@@ -183,6 +199,10 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     keyword,
     loading,
     completing,
+    checkingTradeNo: checkPayment.isPending
+      ? checkPayment.variables?.trade_no
+      : undefined,
+    handleCheckPayment: checkPayment.mutate,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,

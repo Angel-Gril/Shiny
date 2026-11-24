@@ -25,6 +25,7 @@ export const SYSTEM_TASK_TYPE_LABEL: Record<string, string> = {
   model_update: 'Batch upstream model update',
   midjourney_poll: 'Drawing task polling',
   async_task_poll: 'Async task polling',
+  hosted_payment_reconcile: 'Payment reconciliation',
   system_task_cleanup: 'Task history cleanup',
   sync_options: 'Settings sync',
   sync_channels: 'Channel sync',

@@ -13,16 +13,81 @@ import (
 // HostedPayment preserves the payment facts independently of mutable admin
 // settings. No card data, provider secrets or raw webhook payloads are stored.
 type HostedPayment struct {
-	TradeNo     string `json:"trade_no" gorm:"primaryKey;type:varchar(64)"`
-	Provider    string `json:"provider" gorm:"type:varchar(32);index"`
-	Identity    string `json:"-" gorm:"type:varchar(64)"`
-	Currency    string `json:"currency" gorm:"type:varchar(3)"`
-	Amount      string `json:"payment_amount" gorm:"type:varchar(32)"`
-	RemoteID    string `json:"remote_id" gorm:"type:varchar(128)"`
-	PaymentID   string `json:"payment_id" gorm:"type:varchar(128)"`
-	CheckoutURL string `json:"-" gorm:"type:text"`
-	State       string `json:"payment_state" gorm:"type:varchar(32)"`
-	CreatedAt   int64  `json:"created_at"`
+	TradeNo       string `json:"trade_no" gorm:"primaryKey;type:varchar(64)"`
+	Provider      string `json:"provider" gorm:"type:varchar(32);index"`
+	Identity      string `json:"-" gorm:"type:varchar(64)"`
+	Currency      string `json:"currency" gorm:"type:varchar(3)"`
+	Amount        string `json:"payment_amount" gorm:"type:varchar(32)"`
+	RemoteID      string `json:"remote_id" gorm:"type:varchar(128)"`
+	PaymentID     string `json:"payment_id" gorm:"type:varchar(128)"`
+	CheckoutURL   string `json:"-" gorm:"type:text"`
+	State         string `json:"payment_state" gorm:"type:varchar(32)"`
+	CreatedAt     int64  `json:"created_at"`
+	LastCheckedAt int64  `json:"last_checked_at" gorm:"default:0;index"`
+	CheckStatus   string `json:"check_status" gorm:"type:varchar(32);default:''"`
+}
+
+// The queue contains no checkout links, customer credentials or raw responses.
+// LastCheckedAt provides fair scheduling when some orders need manual IDs.
+func GetPendingHostedPayments(provider string, createdBefore, checkedBefore int64, limit int) ([]HostedPayment, error) {
+	var orders []HostedPayment
+	topupTable := DB.NamingStrategy.TableName("TopUp")
+	query := DB.Model(&HostedPayment{}).
+		Where("state <> ? AND created_at <= ? AND last_checked_at <= ?", "paid", createdBefore, checkedBefore).
+		Where("trade_no IN (?)", DB.Table(topupTable).Select("trade_no").Where("status = ?", common.TopUpStatusPending)).
+		Order("last_checked_at ASC").Order("created_at ASC").Order("trade_no ASC").Limit(min(max(limit, 1), 100))
+	if provider != "" {
+		query = query.Where("provider = ?", provider)
+	}
+	err := query.Find(&orders).Error
+	return orders, err
+}
+
+func RecordHostedPaymentCheck(tradeNo, status string, checkedAt int64) error {
+	switch status {
+	case "pending", "paid", "verification_failed", "needs_reference", "configuration_unavailable":
+	default:
+		return errors.New("invalid payment check status")
+	}
+	return DB.Model(&HostedPayment{}).Where("trade_no = ?", tradeNo).
+		Updates(map[string]any{"last_checked_at": checkedAt, "check_status": status}).Error
+}
+
+type HostedPaymentQueueItem struct {
+	TradeNo       string `json:"trade_no"`
+	Provider      string `json:"provider"`
+	Currency      string `json:"currency"`
+	Amount        string `json:"payment_amount"`
+	State         string `json:"payment_state"`
+	CreatedAt     int64  `json:"created_at"`
+	LastCheckedAt int64  `json:"last_checked_at"`
+	CheckStatus   string `json:"check_status"`
+}
+
+func GetHostedPaymentQueue(provider string, alertBefore int64) ([]HostedPaymentQueueItem, int64, int64, error) {
+	orders, err := GetPendingHostedPayments(provider, time.Now().Unix(), time.Now().Unix(), 100)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	topupTable := DB.NamingStrategy.TableName("TopUp")
+	query := DB.Model(&HostedPayment{}).Where("state <> ?", "paid").
+		Where("trade_no IN (?)", DB.Table(topupTable).Select("trade_no").Where("status = ?", common.TopUpStatusPending))
+	if provider != "" {
+		query = query.Where("provider = ?", provider)
+	}
+	var total, overdue int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, 0, err
+	}
+	if err := query.Session(&gorm.Session{}).Where("created_at <= ?", alertBefore).Count(&overdue).Error; err != nil {
+		return nil, 0, 0, err
+	}
+	items := make([]HostedPaymentQueueItem, 0, len(orders))
+	for _, order := range orders {
+		items = append(items, HostedPaymentQueueItem{TradeNo: order.TradeNo, Provider: order.Provider, Currency: order.Currency,
+			Amount: order.Amount, State: order.State, CreatedAt: order.CreatedAt, LastCheckedAt: order.LastCheckedAt, CheckStatus: order.CheckStatus})
+	}
+	return items, total, overdue, nil
 }
 
 func CreateHostedPayment(topUp *TopUp, payment *HostedPayment) error {
@@ -54,7 +119,7 @@ func AttachHostedPaymentDetails(topups []*TopUp) error {
 		return nil
 	}
 	var orders []HostedPayment
-	if err := DB.Select("trade_no", "currency", "state").Where("trade_no IN ?", refs).Find(&orders).Error; err != nil {
+	if err := DB.Select("trade_no", "currency", "state", "amount", "last_checked_at", "check_status").Where("trade_no IN ?", refs).Find(&orders).Error; err != nil {
 		return err
 	}
 	byRef := make(map[string]HostedPayment, len(orders))
@@ -64,6 +129,7 @@ func AttachHostedPaymentDetails(topups []*TopUp) error {
 	for _, topup := range topups {
 		if order, ok := byRef[topup.TradeNo]; ok {
 			topup.PaymentCurrency, topup.PaymentState = order.Currency, order.State
+			topup.PaymentAmount, topup.PaymentCheckedAt, topup.PaymentCheckStatus = order.Amount, order.LastCheckedAt, order.CheckStatus
 		}
 	}
 	return nil

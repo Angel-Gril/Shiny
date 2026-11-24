@@ -135,6 +135,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPancakePay)
 				selfRoute.POST("/payments/:provider/amount", controller.RequestHostedAmount)
 				selfRoute.POST("/payments/:provider/pay", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), controller.RequestHostedPay)
+				selfRoute.POST("/payments/:provider/check", middleware.SessionCookieOriginGuard(), middleware.UserCriticalRateLimit("payment-check"), controller.CheckUserHostedPayment)
 				selfRoute.POST("/aff_transfer", middleware.UserCriticalRateLimit("aff-transfer"), controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
@@ -221,6 +222,9 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.GET("/payments/hosted", controller.GetHostedPaymentSettings)
 			optionRoute.PUT("/payments/hosted", middleware.SessionCookieOriginGuard(), controller.SaveHostedPaymentSettings)
 			optionRoute.POST("/payments/:provider/reconcile", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), controller.ReconcileHostedPayment)
+			optionRoute.GET("/payments/operations", controller.GetHostedPaymentOperations)
+			optionRoute.PUT("/payments/operations", middleware.SessionCookieOriginGuard(), controller.SaveHostedPaymentOperations)
+			optionRoute.GET("/payments/:provider/pending", controller.GetHostedPaymentQueue)
 			optionRoute.GET("/request_policy", controller.GetRequestPolicy)
 			optionRoute.PATCH("/request_policy", controller.UpdateRequestPolicy)
 			optionRoute.POST("/content_audit/models", controller.GetContentAuditModels)

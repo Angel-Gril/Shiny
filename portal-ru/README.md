@@ -1,6 +1,6 @@
 # Shiny RU portal
 
-独立的俄语品牌门户，默认俄语，可切换英语。Node 22+ 构建、原生 ES modules、无运行时依赖；生产由 Nginx 提供静态页面，不需要另起 Node 服务。
+独立的俄语品牌门户，默认俄语，可切换英语。Node 22+ 和 Bun 构建、原生 ES modules、无运行时依赖；构建时复用 New API 控制台的表达式解析器，生产由 Nginx 提供静态页面，不需要另起 Node 服务。
 
 ```sh
 cd portal-ru
@@ -19,19 +19,23 @@ node preview.mjs
 | --- | --- | --- |
 | `/` | portal-ru | 俄语首页 |
 | `/catalog/` | portal-ru | 模型广场，搜索、开发者和协议筛选 |
-| `/docs/` | portal-ru | Python / cURL 接入示例 |
+| `/status/` | portal-ru | 过去 24 小时的模型成功率、延迟与历史样本 |
+| `/docs/` | portal-ru | Python / Node.js / cURL 示例及客户端地址说明 |
 | `/legal/` | portal-ru | 开源归属与源码链接 |
 | `/api/pricing` | **RU New API** | 同源、匿名、只读的模型元数据 |
+| `/api/perf-metrics/summary?hours=24` | **RU New API** | 同源、匿名、只读的历史请求统计 |
 | `/pricing` | RU New API | 权威价格、表达式、阶梯、缓存条件 |
 | `/sign-up`, `/sign-in`, `/keys`, `/wallet`, `/dashboard`, `/usage-logs` | RU New API | 独立账号、Key、钱包、用量 |
 | `/v1/*`, `/v1beta/*` | RU New API | 客户模型调用 |
 | `/models` | RU New API | 保留原有管理页面，门户不接管 |
 
-门户不存储客户 Key/余额，不实现支付回调或另一套计费公式。目录并非实时健康监控；不展示虚构可用率、延迟或未开通的支付渠道。价格按钮使用原生导航进入 RU 控制台。
+门户不存储客户 Key/余额，不实现支付回调或另一套计费公式。模型卡片使用已发布表达式显示完整阶梯、缓存、时间区间、固定价格和可识别任务单位价格；任务 token 系数标明每百万 token，固定任务费用单列。旧倍率按接口实际 `quota_per_unit` 换算，保留缓存 TTL 和音频分支；Gemini/Realtime/旧图像等接口未包含全部条件时转到控制台查看，不猜测价格。请求参数或处理插件决定价格时提供完整条件入口。
+
+健康统计独立加载，不阻塞价格；无样本与 0% 成功率分别显示，加载失败不会把模型标为不可用。统计反映网关历史，不能表示俄罗斯网络时延或保证下一次调用成功。测试数据有明确预览标识，发布产物不包含测试目录。支付方式来自 RU 实例的实际配置。
 
 `site.config.mjs` 仅含公开配置。API 地址为 **`https://ru.shinyapi.com/v1`**。不要把 `catalogEndpoint` 指向国内实例；前端会拒绝多个可用分组，实际账号隔离由独立 RU 实例和数据库保障。后台需让匿名访客及普通 RU 用户都只能使用 `default` 一个分组。
 
-语言选择写入同源 `i18nextLng`，进入现有控制台后使用俄语/英语。直接首次打开控制台仍遵循 New API 的浏览器语言检测；本次未修改控制台代码。邮件语言独立于前端语言。
+语言选择写入同源 `i18nextLng`，进入控制台后使用俄语/英语。本分支 RU 实例的 `SHINY_SITE_PROFILE=ru` 会让直接首次打开控制台也默认俄语，已保存的语言偏好优先。`DEFAULT_LANGUAGE=ru` 支持俄语 API 错误、事务邮件和通知，用户的明确语言偏好仍优先。
 
 ## 构建与发布
 

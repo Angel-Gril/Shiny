@@ -139,6 +139,8 @@ export interface SystemStatus {
   }
   // Allow direct access to common properties
   version?: string
+  site_profile?: string
+  default_language?: string
   system_name?: string
   logo?: string
   github_oauth?: boolean

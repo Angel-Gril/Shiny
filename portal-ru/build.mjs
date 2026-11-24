@@ -14,6 +14,7 @@ const sourceNames = [
   "i18n.mjs",
   "views.mjs",
   "styles.css",
+  "health.mjs",
 ];
 const files = new Map(
   await Promise.all(
@@ -23,6 +24,12 @@ const files = new Map(
     ]),
   ),
 );
+// Bun resolves the shared TypeScript parser into one static browser module.
+// Runtime deployment remains HTML/CSS/JS; no Bun/Node server is needed.
+const { spawnSync } = await import("node:child_process");
+const bundled = spawnSync(process.env.BUN_BIN || "bun", ["build", join(root, "src", "billing.mjs"), "--target=browser", "--format=esm"], { encoding: "utf8", maxBuffer: 2 * 1024 * 1024 });
+if (bundled.error || bundled.status !== 0) throw new Error(`Bun is required to build the shared pricing parser: ${bundled.error?.message || bundled.stderr}`);
+files.set("billing.mjs", bundled.stdout);
 files.set("config.mjs", `export default ${JSON.stringify(config)};\n`);
 files.set(
   "icon.svg",
@@ -43,7 +50,7 @@ for (const route of publicRoutes) {
   const title =
     route === "/"
       ? translations.ru.title
-      : `${route === "/catalog/" ? translations.ru.models : route === "/docs/" ? translations.ru.docs : translations.ru.legal} — Shiny`;
+      : `${route === "/catalog/" ? translations.ru.models : route === "/docs/" ? translations.ru.docs : route === "/status/" ? translations.ru.healthTitle : translations.ru.legal} — Shiny`;
   const html = `<!doctype html>\n<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101211"><meta name="description" content="${e(translations.ru.description)}"><link rel="canonical" href="${e(config.origin + route)}"><link rel="icon" type="image/svg+xml" href="${assets}/icon.svg"><link rel="stylesheet" href="${assets}/styles.css"><title>${e(title)}</title></head><body><div id="app">${renderPage(route, "ru", config)}</div><script type="module" src="${assets}/app.mjs"></script></body></html>\n`;
   await mkdir(join(dist, route), { recursive: true });
   await writeFile(join(dist, route, "index.html"), html);

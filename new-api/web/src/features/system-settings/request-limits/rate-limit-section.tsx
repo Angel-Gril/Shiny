@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 
 import {
   SettingsForm,
@@ -74,6 +75,36 @@ const createRateLimitSchema = (t: (key: string) => string) =>
     ModelRequestRateLimitSuccessCount: z.number().min(1).max(100000000),
     ModelRequestConcurrencyPerUser: z.number().int().min(1).max(100000),
     ModelRequestConcurrencyGlobal: z.number().int().min(1).max(100000),
+    ModelRequestConcurrencyUserOverrides: z.string().refine(
+      (value) => {
+        try {
+          const parsed: unknown = JSON.parse(value)
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return false
+          }
+          const entries = Object.entries(parsed)
+          return (
+            entries.length <= 1000 &&
+            entries.every(
+              ([id, limit]) =>
+                /^[1-9]\d*$/.test(id) &&
+                Number.isSafeInteger(Number(id)) &&
+                typeof limit === 'number' &&
+                Number.isInteger(limit) &&
+                limit >= 1 &&
+                limit <= 100000
+            )
+          )
+        } catch {
+          return false
+        }
+      },
+      {
+        message: t(
+          'Enter a JSON object of user IDs and concurrency limits (1–100000)'
+        ),
+      }
+    ),
     ModelRequestRateLimitGroup: z
       .string()
       .optional()
@@ -111,8 +142,12 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
         value !== defaultValues[key as keyof RateLimitFormValues]
     )
 
-    for (const [key, value] of updates) {
-      await updateOption.mutateAsync({ key, value: value ?? '' })
+    try {
+      for (const [key, value] of updates) {
+        await updateOption.mutateAsync({ key, value: value ?? '' })
+      }
+    } catch {
+      // useUpdateOption owns the error toast. Retain the draft for retry.
     }
   }
 
@@ -163,7 +198,7 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                         step={1}
                         {...field}
                         onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 0)
+                          field.onChange(Number.parseInt(e.target.value) || 0)
                         }
                       />
                       <span className='text-muted-foreground text-sm'>
@@ -194,7 +229,7 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                         step={1}
                         {...field}
                         onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 0)
+                          field.onChange(Number.parseInt(e.target.value) || 0)
                         }
                       />
                       <span className='text-muted-foreground text-sm'>
@@ -225,7 +260,7 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                         step={1}
                         {...field}
                         onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 1)
+                          field.onChange(Number.parseInt(e.target.value) || 1)
                         }
                       />
                       <span className='text-muted-foreground text-sm'>
@@ -256,10 +291,14 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                       max={100000}
                       step={1}
                       {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      onChange={(e) =>
+                        field.onChange(Number.parseInt(e.target.value) || 1)
+                      }
                     />
                   </FormControl>
-                  <FormDescription>{t('In-flight model requests admitted for each user')}</FormDescription>
+                  <FormDescription>
+                    {t('In-flight model requests admitted for each user')}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -277,15 +316,42 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                       max={100000}
                       step={1}
                       {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      onChange={(e) =>
+                        field.onChange(Number.parseInt(e.target.value) || 1)
+                      }
                     />
                   </FormControl>
-                  <FormDescription>{t('In-flight model requests across the provider pool')}</FormDescription>
+                  <FormDescription>
+                    {t('In-flight model requests across the provider pool')}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name='ModelRequestConcurrencyUserOverrides'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('User concurrency overrides')}</FormLabel>
+                <FormControl>
+                  <Textarea
+                    {...field}
+                    className='font-mono'
+                    placeholder='{"42":20}'
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Use server user IDs for internal relay accounts. Keys on one account share the limit; the global limit still applies. An empty object restores ordinary limits.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}

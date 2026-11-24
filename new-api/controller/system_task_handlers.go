@@ -23,6 +23,7 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
 	service.RegisterSystemTaskHandler(systemTaskCleanupHandler{})
+	service.RegisterSystemTaskHandler(hostedPaymentReconcileHandler{})
 }
 
 // systemTaskCleanupHandler deletes, once a day, the finished system tasks

@@ -404,6 +404,7 @@ export type OperationsSettings = {
 export type SecuritySettings = {
   ModelRequestConcurrencyPerUser: number
   ModelRequestConcurrencyGlobal: number
+  ModelRequestConcurrencyUserOverrides: string
   ModelRequestRateLimitEnabled: boolean
   ModelRequestRateLimitCount: number
   ModelRequestRateLimitSuccessCount: number

@@ -31,6 +31,63 @@ var ModelRequestRateLimitMutex sync.RWMutex
 var ModelRequestConcurrencyPerUser = 5
 var ModelRequestConcurrencyGlobal = 32
 
+var modelRequestConcurrencyOverrides = map[int]int{}
+var modelRequestConcurrencyOverridesMutex sync.RWMutex
+
+// Overrides apply to server-owned user IDs, including internal relay accounts.
+// Multiple API keys belonging to one account still share the same limit.
+func GetModelRequestConcurrencyForUser(userID int) int {
+	modelRequestConcurrencyOverridesMutex.RLock()
+	limit, exists := modelRequestConcurrencyOverrides[userID]
+	modelRequestConcurrencyOverridesMutex.RUnlock()
+	if exists {
+		return limit
+	}
+	return ModelRequestConcurrencyPerUser
+}
+
+func parseModelRequestConcurrencyOverrides(value string) (map[int]int, error) {
+	var configured map[string]int
+	if err := common.UnmarshalJsonStr(value, &configured); err != nil || configured == nil || len(configured) > 1000 {
+		return nil, fmt.Errorf("concurrency overrides must be a JSON object with at most 1000 user IDs")
+	}
+	limits := make(map[int]int, len(configured))
+	for key, limit := range configured {
+		userID, err := strconv.Atoi(key)
+		if err != nil || userID < 1 || strconv.Itoa(userID) != key || limit < 1 || limit > 100000 {
+			return nil, fmt.Errorf("concurrency overrides require positive user IDs and limits between 1 and 100000")
+		}
+		limits[userID] = limit
+	}
+	return limits, nil
+}
+
+func ValidateModelRequestConcurrencyOverrides(value string) error {
+	_, err := parseModelRequestConcurrencyOverrides(value)
+	return err
+}
+
+func UpdateModelRequestConcurrencyOverrides(value string) error {
+	limits, err := parseModelRequestConcurrencyOverrides(value)
+	if err != nil {
+		return err
+	}
+	modelRequestConcurrencyOverridesMutex.Lock()
+	modelRequestConcurrencyOverrides = limits
+	modelRequestConcurrencyOverridesMutex.Unlock()
+	return nil
+}
+
+func ModelRequestConcurrencyOverridesJSON() string {
+	modelRequestConcurrencyOverridesMutex.RLock()
+	defer modelRequestConcurrencyOverridesMutex.RUnlock()
+	encoded, err := common.Marshal(modelRequestConcurrencyOverrides)
+	if err != nil {
+		return "{}"
+	}
+	return string(encoded)
+}
+
 func ValidateModelRequestConcurrencyPerUser(value string) error {
 	return validatePositiveConcurrency(value, "per-user model concurrency")
 }

@@ -98,3 +98,5 @@ channel.upstream_update_failed_channels: "失败渠道 ID（展示 {{.Shown}}/{{
 channel.upstream_update_more_omitted: "（其余 {{.Count}} 个已省略）"
 
 channel.notify_scheduled_subject: "渠道“{{.Name}}” (#{{.Id}}) 插件通知"
+payment.pending.subject: "待支付订单需要检查"
+payment.pending.content: "有 {{.Count}} 笔订单已待支付超过 {{.Minutes}} 分钟。请在国际支付设置中检查订单并查询支付商；未核验到账的订单不可手工入账。"

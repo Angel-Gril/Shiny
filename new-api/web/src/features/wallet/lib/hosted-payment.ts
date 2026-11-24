@@ -18,7 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
-import type { AmountResponse, PaymentResponse } from '../types'
+import type {
+  ApiResponse,
+  AmountResponse,
+  PaymentResponse,
+  TopupRecord,
+} from '../types'
 
 export function isHostedPayment(type: string): boolean {
   return ['cispay', 'lianlian', 'nowpayments', 'paypal', 'zpay'].includes(type)
@@ -43,6 +48,27 @@ export async function requestHostedPayment(
     `/api/user/payments/${provider}/pay`,
     { amount }
   )
+  return response.data
+}
+
+export const paymentCheckLabels: Record<string, string> = {
+  pending: 'Payment is not completed yet',
+  paid: 'Payment verified and credited',
+  needs_reference: 'Payment needs support verification',
+  configuration_unavailable: 'Payment needs support verification',
+  verification_failed: 'Payment verification unavailable; try again later',
+}
+
+export async function checkHostedPayment(
+  record: TopupRecord
+): Promise<ApiResponse<{ status: string; payment_check_status: string }>> {
+  const provider = record.payment_provider || record.payment_method
+  if (!isHostedPayment(provider)) {
+    throw new Error('Unsupported payment provider')
+  }
+  const response = await api.post<
+    ApiResponse<{ status: string; payment_check_status: string }>
+  >(`/api/user/payments/${provider}/check`, { trade_no: record.trade_no })
   return response.data
 }
 

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -48,6 +48,10 @@ import {
   type HostedProvider,
 } from './hosted-payment-api'
 import { hostedProviderNames } from './hosted-payment-fields'
+import {
+  HostedPaymentOperations,
+  HostedPendingPayments,
+} from './hosted-payment-operations'
 import { HostedProviderForm } from './hosted-provider-form'
 
 const reconcileSchema = z.object({
@@ -58,6 +62,7 @@ const reconcileSchema = z.object({
 
 function HostedReconcileForm(props: { provider: HostedProvider }) {
   const { t } = useTranslation()
+  const client = useQueryClient()
   const form = useForm<z.infer<typeof reconcileSchema>>({
     resolver: zodResolver(reconcileSchema),
     defaultValues: { trade_no: '', remote_id: '', payment_id: '' },
@@ -65,14 +70,16 @@ function HostedReconcileForm(props: { provider: HostedProvider }) {
   const reconcile = useMutation({
     mutationFn: (values: z.infer<typeof reconcileSchema>) =>
       reconcileHostedPayment(props.provider, values),
-    onSuccess: (result) =>
+    onSuccess: (result) => {
       toast.success(
         t(
           result.paid
             ? 'Payment verified and credited'
             : 'Payment is not completed yet'
         )
-      ),
+      )
+      void client.invalidateQueries({ queryKey: ['hosted-payment-pending'] })
+    },
   })
   const fields = [
     { key: 'trade_no', label: 'Shiny order number' },
@@ -145,6 +152,8 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
   const activeProvider = provider ?? initialProvider
   return (
     <SettingsSection title={t('International payments')}>
+      <HostedPaymentOperations />
+      <Separator className='my-6' />
       <Tabs
         value={activeProvider}
         onValueChange={(value) => {
@@ -171,6 +180,8 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
               config={query.data[item]}
               serverAddress={props.serverAddress}
             />
+            <Separator />
+            <HostedPendingPayments provider={item} />
             <Separator />
             <HostedReconcileForm provider={item} />
           </TabsContent>

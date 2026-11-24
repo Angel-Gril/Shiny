@@ -265,6 +265,10 @@ export interface TopupRecord {
   money: number
   payment_currency?: string
   payment_state?: string
+  payment_provider?: string
+  payment_amount?: string
+  payment_checked_at?: number
+  payment_check_status?: string
   /** Trade/order number */
   trade_no: string
   /** Payment method type */

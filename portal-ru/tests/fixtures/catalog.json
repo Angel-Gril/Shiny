@@ -3,6 +3,7 @@
   "preview": true,
   "usable_group": { "default": "RU" },
   "group_ratio": { "default": 1 },
+  "quota_per_unit": 500000,
   "vendors": [
     { "id": 1, "name": "OpenAI" },
     { "id": 2, "name": "Anthropic" },
@@ -12,42 +13,57 @@
   "data": [
     {
       "model_name": "gpt-4.1",
+      "billing_mode": "tiered_expr",
+      "billing_expr": "tier(\"base\", p * 2 + c * 8 + cr * 0.5)",
       "vendor_id": 1,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai"]
     },
     {
       "model_name": "gpt-4.1-mini",
+      "billing_mode": "tiered_expr",
+      "billing_expr": "tier(\"base\", p * 0.4 + c * 1.6 + cr * 0.1)",
       "vendor_id": 1,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai"]
     },
     {
       "model_name": "claude-sonnet-4",
+      "billing_mode": "tiered_expr",
+      "billing_expr": "len <= 200000 ? tier(\"standard\", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6) : tier(\"long\", p * 6 + c * 22.5 + cr * 0.6 + cc * 7.5 + cc1h * 12)",
       "vendor_id": 2,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai", "anthropic"]
     },
     {
       "model_name": "claude-opus-4",
+      "billing_mode": "tiered_expr",
+      "billing_expr": "tier(\"base\", p * 15 + c * 75 + cr * 1.5)",
       "vendor_id": 2,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai", "anthropic"]
     },
     {
       "model_name": "gemini-2.5-pro",
+      "billing_mode": "tiered_expr",
+      "billing_expr": "tier(\"base\", p * 1.25 + c * 10)",
       "vendor_id": 3,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai", "gemini"]
     },
     {
       "model_name": "gemini-2.5-flash",
+      "quota_type": 0,
+      "model_ratio": 0.15,
+      "completion_ratio": 8.333333333333,
       "vendor_id": 3,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai", "gemini"]
     },
     {
       "model_name": "deepseek-chat",
+      "billing_mode": "tiered_expr",
+      "billing_expr": "deepseekPeak() ? tier(\"peak\", p * 0.27 + c * 1.1 + cr * 0.07) : tier(\"off_peak\", p * 0.135 + c * 0.55 + cr * 0.035)",
       "vendor_id": 4,
       "enable_groups": ["default"],
       "supported_endpoint_types": ["openai"]

@@ -9,6 +9,8 @@ import {
   publicRoutes,
 } from "./views.mjs";
 import { fetchCatalog, filterModels } from "./catalog.mjs";
+import { fetchHealth } from "./health.mjs";
+import { describePrice } from "./billing.mjs";
 
 const path =
   location.pathname === "/" ? "/" : `${location.pathname.replace(/\/+$/, "")}/`;
@@ -24,6 +26,7 @@ let language = getLanguage(
   new URLSearchParams(location.search).get("lang") || savedLanguage,
 );
 let catalog = { state: "loading", models: [], demo: false };
+let health = {state:"loading"};
 let query = "",
   vendor = "",
   protocol = "",
@@ -59,7 +62,12 @@ function drawCatalog() {
   grid.innerHTML = modelCards(
     path === "/" ? result.slice(0, 6) : result,
     labels,
+    language,
+    health,
+    path === "/status/",
   );
+  const windowLabel = document.querySelector("#health-window");
+  if (windowLabel) windowLabel.textContent = health.state === "ready" ? `${labels.healthWindow}: ${new Date(health.start * 1000).toLocaleString(language)} — ${new Date(health.end * 1000).toLocaleString(language)}` : labels.healthNote;
   if (count)
     count.textContent = `${result.length} / ${catalog.models.length} ${labels.found}`;
 }
@@ -91,7 +99,7 @@ function render() {
   document.title =
     path === "/"
       ? t().title
-      : `${path === "/catalog/" ? t().models : path === "/docs/" ? t().docs : t().legal} — Shiny`;
+      : `${path === "/catalog/" ? t().models : path === "/docs/" ? t().docs : path === "/status/" ? t().healthTitle : t().legal} — Shiny`;
   root.innerHTML = renderPage(path, language, config);
   codeKind = "python";
   fillFilters();
@@ -107,12 +115,23 @@ async function loadCatalog() {
   const serial = ++requestNumber;
   const timer = setTimeout(() => controller.abort(), 12000);
   catalog.state = "loading";
+  health.state = "loading";
   drawCatalog();
+  const healthRequest = fetchHealth(config.healthEndpoint, controller.signal).then((data) => {
+    if (serial !== requestNumber) return;
+    health = {...data, state:"ready"};
+    drawCatalog();
+  }).catch(() => {
+    if (serial !== requestNumber) return;
+    health = {state:"error"};
+    drawCatalog();
+  });
   try {
     const result = await fetchCatalog(
       config.catalogEndpoint,
       config.group,
       controller.signal,
+      describePrice,
     );
     if (serial !== requestNumber) return;
     catalog = { ...result, state: result.models.length ? "ready" : "empty" };
@@ -120,11 +139,14 @@ async function loadCatalog() {
     vendor = "";
     protocol = "";
     fillFilters();
+    drawCatalog();
   } catch {
     if (serial !== requestNumber) return;
     catalog = { state: "error", models: [], demo: false };
     fillFilters();
+    drawCatalog();
   } finally {
+    await healthRequest;
     clearTimeout(timer);
     if (serial === requestNumber) drawCatalog();
   }

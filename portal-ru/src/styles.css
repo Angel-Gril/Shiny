@@ -489,6 +489,34 @@ main,
   border-color: #657854;
   transform: translateY(-3px);
 }
+.model-health { margin: 18px 0; }
+.model-health p { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px; }
+.health-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin-right:5px; }
+.health-dot.degraded { background:#ffd184; }
+.health-dot.unknown { background:var(--muted); }
+.health-series { display:flex; gap:3px; margin-top:10px; height:7px; }
+.health-series span { flex:1; background:#8bab62; border-radius:2px; }
+.health-series span.degraded { background:#cb9954; }
+.health-note { margin:18px 0; }
+.model-prices { border-top:1px solid var(--line); margin-top:16px; padding-block:16px; }
+.model-prices summary { display:flex; justify-content:space-between; gap:16px; font-size:13px; color:var(--green); cursor:pointer; list-style:none; }
+.model-prices summary::-webkit-details-marker { display:none; }
+.model-prices[open] summary { margin-bottom:18px; }
+.price-tier + .price-tier { border-top:1px solid var(--line); padding-top:14px; }
+.price-tier dl { margin:0 0 6px; font-size:13px; }
+.price-tier dl div { display:flex; justify-content:space-between; gap:12px; padding-block:3px; }
+.price-tier dt { color:var(--muted); }
+.price-tier dd { margin:0; font-family:var(--mono); white-space:nowrap; }
+.tier-label { margin-bottom:5px; font-size:12px; font-family:var(--mono); }
+.tier-condition { overflow-wrap:anywhere; margin-bottom:10px; font:11px/1.7 var(--mono); color:var(--muted); }
+.price-unit { color:var(--muted); font-size:10px; margin-bottom:12px; }
+.price-preview { display:flex; flex-wrap:wrap; gap:8px 18px; font-size:12px; margin:16px 0 4px; }
+.price-preview span { color:var(--muted); }
+.price-preview strong { color:var(--text); font-family:var(--mono); }
+.health-window { padding-bottom:14px; border-bottom:1px solid var(--line); }
+.refresh-link { border:0; background:none; padding:0; }
+.docs-journey { display:flex; flex-wrap:wrap; gap:12px; margin:32px 0 20px; }
+.client-guides code { display:block; overflow-wrap:anywhere; font-size:12px; color:var(--green); }
 .model-card-top {
   display: flex;
   align-items: center;

@@ -1,5 +1,5 @@
-// Read-only catalog adapter. Prices and billing expressions stay in New API.
-export function normalizeCatalog(payload, group) {
+// Read-only catalog adapter. The RU backend owns prices and billing expressions.
+export function normalizeCatalog(payload, group, describePrice = () => ({state:"unavailable"})) {
   if (!payload || payload.success !== true || !Array.isArray(payload.data)) {
     throw new Error("Invalid catalog response");
   }
@@ -49,11 +49,13 @@ export function normalizeCatalog(payload, group) {
             ),
           ]
         : [],
+      price: describePrice(row, payload.group_ratio?.[group], payload.quota_per_unit),
     });
   }
   return {
     models: models.sort((a, b) => a.id.localeCompare(b.id, "en")),
     demo: payload.preview === true,
+    loadedAt: Date.now(),
   };
 }
 
@@ -68,7 +70,7 @@ export function filterModels(models, query = "", vendor = "", protocol = "") {
   );
 }
 
-export async function fetchCatalog(endpoint, group, signal) {
+export async function fetchCatalog(endpoint, group, signal, describePrice) {
   const url = new URL(
     endpoint,
     globalThis.location?.origin || "http://localhost",
@@ -86,5 +88,5 @@ export async function fetchCatalog(endpoint, group, signal) {
     headers: { Accept: "application/json" },
   });
   if (!response.ok) throw new Error(`Catalog HTTP ${response.status}`);
-  return normalizeCatalog(await response.json(), group);
+  return normalizeCatalog(await response.json(), group, describePrice);
 }

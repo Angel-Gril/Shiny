@@ -1,9 +1,9 @@
 name: RU portal checks
 on:
   push:
-    paths: ['portal-ru/**', 'ops/ru/**', '.github/workflows/ru-portal.yml']
+    paths: ['portal-ru/**', 'ops/ru/**', 'new-api/web/src/features/pricing/lib/billing-expression/**', '.github/workflows/ru-portal.yml']
   pull_request:
-    paths: ['portal-ru/**', 'ops/ru/**', '.github/workflows/ru-portal.yml']
+    paths: ['portal-ru/**', 'ops/ru/**', 'new-api/web/src/features/pricing/lib/billing-expression/**', '.github/workflows/ru-portal.yml']
 permissions:
   contents: read
 jobs:
@@ -14,6 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: oven-sh/setup-bun@v2
       - run: node --test tests/*.test.mjs
         working-directory: portal-ru
       - run: node build.mjs

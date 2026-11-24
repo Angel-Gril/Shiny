@@ -97,3 +97,6 @@ channel.upstream_update_failed_channels: "Failed channel IDs (showing {{.Shown}}
 channel.upstream_update_more_omitted: " ({{.Count}} more omitted)"
 
 channel.notify_scheduled_subject: "Channel \"{{.Name}}\" (#{{.Id}}) plugin notification"
+
+payment.pending.subject: "Payments need review"
+payment.pending.content: "{{.Count}} recharge orders have been pending for over {{.Minutes}} minutes. Review International payments; query the provider before crediting or asking the customer to pay again."

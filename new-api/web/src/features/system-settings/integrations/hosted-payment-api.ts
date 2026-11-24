@@ -95,3 +95,55 @@ export async function reconcileHostedPayment(
   )
   return requireServerSuccess(response.data).data
 }
+
+export interface PaymentOperations {
+  auto_reconcile_enabled: boolean
+  interval_minutes: number
+  batch_size: number
+  pending_alert_minutes: number
+}
+
+export interface PendingPayment {
+  trade_no: string
+  provider: string
+  currency: string
+  payment_amount: string
+  payment_state: string
+  created_at: number
+  last_checked_at: number
+  check_status: string
+}
+
+export async function getPaymentOperations(): Promise<PaymentOperations> {
+  const response = await api.get<HostedResponse<PaymentOperations>>(
+    '/api/option/payments/operations'
+  )
+  return requireServerSuccess(response.data).data
+}
+
+export async function savePaymentOperations(
+  values: PaymentOperations
+): Promise<PaymentOperations> {
+  const response = await api.put<HostedResponse<PaymentOperations>>(
+    '/api/option/payments/operations',
+    values
+  )
+  return requireServerSuccess(response.data).data
+}
+
+export async function getPendingPayments(provider: HostedProvider): Promise<{
+  items: PendingPayment[]
+  total: number
+  overdue: number
+  alert_minutes: number
+}> {
+  const response = await api.get<
+    HostedResponse<{
+      items: PendingPayment[]
+      total: number
+      overdue: number
+      alert_minutes: number
+    }>
+  >(`/api/option/payments/${provider}/pending`)
+  return requireServerSuccess(response.data).data
+}

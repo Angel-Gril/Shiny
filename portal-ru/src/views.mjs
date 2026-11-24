@@ -1,6 +1,6 @@
 import { translations } from "./i18n.mjs";
 
-export const publicRoutes = ["/", "/catalog/", "/docs/", "/legal/"];
+export const publicRoutes = ["/", "/catalog/", "/docs/", "/legal/", "/status/"];
 export function escapeHtml(value) {
   return String(value ?? "").replace(
     /[&<>"']/g,
@@ -21,6 +21,7 @@ const heading = (eyebrow, title, intro = "", tag = "h2") =>
   `<div class="section-heading"><p class="eyebrow">${e(eyebrow)}</p><${tag}>${lines(title)}</${tag}>${intro ? `<p class="muted intro">${e(intro)}</p>` : ""}</div>`;
 
 export function codeExample(kind, config) {
+  if (kind === "javascript") return `import OpenAI from "openai";\n\nconst client = new OpenAI({\n  apiKey: process.env.SHINY_API_KEY,\n  baseURL: "${config.apiBase}",\n});\n\nconst response = await client.chat.completions.create({\n  model: "MODEL_ID",\n  messages: [{ role: "user", content: "Hello, Shiny!" }],\n});\nconsole.log(response.choices[0].message.content);`;
   if (kind === "curl")
     return [
       `curl ${config.apiBase}/chat/completions \\`,
@@ -35,7 +36,7 @@ export function codeExample(kind, config) {
 }
 
 function codePanel(t, config) {
-  return `<div class="code-panel"><div class="code-top"><div class="code-switch" role="group" aria-label="${e(t.exampleLabel)}"><button type="button" data-code="python" aria-pressed="true">Python</button><button type="button" data-code="curl" aria-pressed="false">cURL</button></div><button type="button" class="copy-button" data-copy-code>${e(t.copy)} <span aria-hidden="true">⧉</span></button></div><pre tabindex="0" aria-label="${e(t.exampleLabel)}"><code id="request-code">${e(codeExample("python", config))}</code></pre><div class="code-foot"><span class="accent">MODEL_ID</span><span>${e(t.exampleModel)}</span></div></div>`;
+  return `<div class="code-panel"><div class="code-top"><div class="code-switch" role="group" aria-label="${e(t.exampleLabel)}"><button type="button" data-code="python" aria-pressed="true">Python</button><button type="button" data-code="javascript" aria-pressed="false">Node.js</button><button type="button" data-code="curl" aria-pressed="false">cURL</button></div><button type="button" class="copy-button" data-copy-code>${e(t.copy)} <span aria-hidden="true">⧉</span></button></div><pre tabindex="0" aria-label="${e(t.exampleLabel)}"><code id="request-code">${e(codeExample("python", config))}</code></pre><div class="code-foot"><span class="accent">MODEL_ID</span><span>${e(t.exampleModel)}</span></div></div>`;
 }
 
 function orbit(t) {
@@ -49,19 +50,50 @@ export function catalogState(t, state = "loading") {
   return `<div class="catalog-state"><span class="state-symbol" aria-hidden="true">${empty ? "◇" : "↻"}</span><h3>${e(empty ? t.empty : t.unavailable)}</h3><p>${e(empty ? t.emptyText : t.unavailableText)}</p>${empty ? "" : `<button class="button secondary" type="button" data-retry>${e(t.retry)}</button>`}<a class="text-link" href="/pricing">${e(t.pricing)} ${arrow}</a></div>`;
 }
 
-export function modelCards(models, t) {
+export function priceDetails(price, t, language = "ru") {
+  if (!price || price.state === "unavailable") return `<p class="muted small">${e(t.priceMissing)}</p>`;
+  if (price.state === "conditional") return `<p class="muted small">${e(t.conditionalPrice)}</p><a class="text-link" href="/pricing">${e(t.fullConditions)} ${arrow}</a>`;
+  const money = (value) => new Intl.NumberFormat(language, {style:"currency", currency:"USD", maximumFractionDigits: 6}).format(value);
+  const labels = {p:t.input, c:t.output, cr:t.cacheRead, cc:t.cacheWrite, cc1h:t.cacheWrite1h, cc30m:t.cacheWrite30m, cc12h:t.cacheWrite12h, img:t.imageInput, img_cr:t.imageCacheRead, img_o:t.imageOutput, ai:t.audioInput, ao:t.audioOutput};
+  const unitLabels = {token:t.perMillion,second:t.perSecond,count:t.perItem,credit:t.perCredit};
+  const conditions = {"Audio requests":t.audioRequests,"Text-only requests":t.textRequests};
+  const fixedLabels = {image:t.perImage,request:t.perRequest,task:t.taskBaseFee};
+  const rows = price.rows.map((tier) => `<div class="price-tier">${tier.label ? `<p class="tier-label">${e(tier.label)}</p>` : ""}${tier.condition ? `<p class="tier-condition">${e(conditions[tier.condition] || tier.condition)}</p>` : ""}<dl>${Object.entries(tier.prices).map(([key, value]) => `<div><dt>${e(labels[key] || key)}</dt><dd>${e(money(value))}</dd></div>`).join("")}${tier.fixed !== undefined ? `<div><dt>${e(fixedLabels[tier.unit] || t.perRequest)}</dt><dd>${e(money(tier.fixed))}</dd></div>` : ""}${(tier.usagePrices || []).map((item) => `<div><dt>${e(item.key)} · ${e(unitLabels[item.unit] || item.unit)}</dt><dd>${e(money(item.price))}</dd></div>`).join("")}</dl>${tier.unit === "tokens" ? `<p class="price-unit">${e(t.perMillion)}</p>` : ""}</div>`).join("");
+  return `${rows}${price.timeDependent ? `<p class="small muted">${e(t.timePrice)}</p>` : ""}${price.legacy ? `<p class="small muted">${e(t.legacyPrice)}</p>` : ""}`;
+}
+
+export function modelHealth(model, health, t, language = "ru") {
+  if (health.state === "loading") return `<p class="health-note muted small">${e(t.healthLoading)}</p>`;
+  if (health.state === "error") return `<p class="health-note muted small">${e(t.healthUnavailable)}</p>`;
+  const metric = health.byModel?.get(model.id);
+  if (!metric) return `<p class="health-note muted small"><span class="health-dot unknown" aria-hidden="true"></span>${e(t.noHealthData)}</p>`;
+  const number = (value, digits=1) => new Intl.NumberFormat(language, {maximumFractionDigits:digits}).format(value);
+  return `<div class="model-health"><p><span class="health-dot${metric.successRate < 95 ? " degraded" : ""}" aria-hidden="true"></span><strong>${e(number(metric.successRate, 2))}%</strong><span>${e(t.successRate)}</span></p><p class="muted small">${e(t.latency)} ${e(number(metric.latency / 1000))} ${e(t.seconds)}${metric.tps ? ` · ${e(number(metric.tps))} ${e(t.tokensSecond)}` : ""}</p>${metric.series.length ? `<div class="health-series" role="img" aria-label="${e(t.historicalRate)}">${metric.series.map((point) => `<span class="${point.success_rate < 95 ? "degraded" : ""}" title="${e(new Date(point.ts * 1000).toISOString())}: ${e(number(point.success_rate,2))}%"></span>`).join("")}</div>` : ""}</div>`;
+}
+
+function pricePreview(price, t, language) {
+  if (price?.state !== "ready") return `<p class="small muted">${e(price?.state === "conditional" ? t.conditionalPrice : t.priceMissing)}</p>`;
+  if (price.rows.length !== 1 || price.rows[0].condition) return `<p class="price-preview">${e(t.variableTariff)}</p>`;
+  const row = price.rows[0];
+  const money = (value) => new Intl.NumberFormat(language, {style:"currency", currency:"USD", maximumFractionDigits:6}).format(value);
+  if (row.unit === "task") return `<p class="price-preview">${e(t.usageTariff)}</p>`;
+  if (row.fixed !== undefined) return `<p class="price-preview">${e(money(row.fixed))} <span>${e(row.unit === "image" ? t.perImage : t.perRequest)}</span></p>`;
+  return `<div class="price-preview">${["p","c"].filter((key) => row.prices[key] !== undefined).map((key) => `<span>${e(key === "p" ? t.input : t.output)} <strong>${e(money(row.prices[key]))}</strong></span>`).join("")}</div><p class="price-unit">${e(t.perMillion)}</p>`;
+}
+
+export function modelCards(models, t, language = "ru", health = {state:"error"}, statusOnly = false) {
   if (!models.length)
     return `<div class="catalog-state"><h3>${e(t.noResults)}</h3><p>${e(t.noResultsText)}</p><button type="button" class="button secondary" data-clear>${e(t.clear)}</button></div>`;
   return models
     .map(
       (model) =>
-        `<article class="model-card"><div class="model-card-top"><span class="vendor-mark" aria-hidden="true">${e((model.vendor || "S").slice(0, 1))}</span><span class="vendor-name">${e(model.vendor || t.unknownVendor)}</span><button type="button" class="icon-button" data-copy-model="${e(model.id)}" aria-label="${e(t.copyModel)}: ${e(model.id)}" title="${e(t.copyModel)}">⧉</button></div><h3>${e(model.id)}</h3><div class="protocols">${model.protocols.map((p) => `<span>${e(p)}</span>`).join("")}</div><a href="/pricing" class="model-link">${e(t.modelPrice)} ${arrow}</a></article>`,
+        `<article class="model-card"><div class="model-card-top"><span class="vendor-mark" aria-hidden="true">${e((model.vendor || "S").slice(0, 1))}</span><span class="vendor-name">${e(model.vendor || t.unknownVendor)}</span><button type="button" class="icon-button" data-copy-model="${e(model.id)}" aria-label="${e(t.copyModel)}: ${e(model.id)}" title="${e(t.copyModel)}">⧉</button></div><h3>${e(model.id)}</h3><div class="protocols">${model.protocols.map((p) => `<span>${e(p)}</span>`).join("")}</div>${modelHealth(model, health, t, language)}${statusOnly ? "" : `${pricePreview(model.price, t, language)}<details class="model-prices"><summary>${e(t.modelPrice)}<span aria-hidden="true">+</span></summary>${priceDetails(model.price, t, language)}<a href="/pricing" class="model-link">${e(t.fullConditions)} ${arrow}</a></details>`}</article>`,
     )
     .join("");
 }
 
-function catalog(t, full = false) {
-  return `<section class="section catalog-section${full ? " catalog-full" : ""}" id="catalog">${heading(t.sectionModels, t.modelHeading, t.modelIntro, full ? "h1" : "h2")}${full ? `<form id="catalog-filters" class="filters" role="search"><label class="search-field"><span class="sr-only">${e(t.searchLabel)}</span><span aria-hidden="true">⌕</span><input name="search" type="search" placeholder="${e(t.search)}" autocomplete="off"></label><label><span class="sr-only">${e(t.developer)}</span><select name="vendor" aria-label="${e(t.developer)}"><option value="">${e(t.developer)}: ${e(t.all)}</option></select></label><label><span class="sr-only">${e(t.protocol)}</span><select name="protocol" aria-label="${e(t.protocol)}"><option value="">${e(t.protocol)}: ${e(t.all)}</option></select></label></form><p class="result-count" id="result-count" role="status"></p>` : ""}<p class="preview-note" id="preview-note" hidden>${e(t.demo)}</p><div id="model-grid" class="model-grid" aria-busy="true">${catalogState(t)}</div><noscript><p>${e(t.unavailableText)} <a href="/pricing">${e(t.pricing)}</a></p></noscript><div class="catalog-bottom"><p class="muted small">${e(t.catalogNote)}</p>${full ? "" : `<a class="text-link" href="/catalog/">${e(t.allModels)} ${arrow}</a>`}</div></section>`;
+function catalog(t, full = false, statusOnly = false) {
+  return `<section class="section catalog-section${full ? " catalog-full" : ""}" id="catalog">${heading(statusOnly ? t.healthEyebrow : t.sectionModels, statusOnly ? t.healthHeading : t.modelHeading, statusOnly ? t.healthNote : t.modelIntro, full ? "h1" : "h2")}${full ? `<form id="catalog-filters" class="filters" role="search"><label class="search-field"><span class="sr-only">${e(t.searchLabel)}</span><span aria-hidden="true">⌕</span><input name="search" type="search" placeholder="${e(t.search)}" autocomplete="off"></label><label><span class="sr-only">${e(t.developer)}</span><select name="vendor" aria-label="${e(t.developer)}"><option value="">${e(t.developer)}: ${e(t.all)}</option></select></label><label><span class="sr-only">${e(t.protocol)}</span><select name="protocol" aria-label="${e(t.protocol)}"><option value="">${e(t.protocol)}: ${e(t.all)}</option></select></label></form><p class="result-count" id="result-count" role="status"></p>` : ""}<p class="preview-note" id="preview-note" hidden>${e(t.demo)}</p><p class="muted small health-window" id="health-window">${e(t.healthLoading)}</p><div id="model-grid" class="model-grid" aria-busy="true">${catalogState(t)}</div><noscript><p>${e(t.unavailableText)} <a href="/pricing">${e(t.pricing)}</a></p></noscript><div class="catalog-bottom"><p class="muted small">${e(t.catalogNote)}</p><button type="button" class="text-link refresh-link" data-retry>${e(t.refresh)} ↻</button>${full ? "" : `<a class="text-link" href="/catalog/">${e(t.allModels)} ${arrow}</a>`}</div></section>`;
 }
 
 function home(t, config) {
@@ -72,12 +104,17 @@ function docs(t, config) {
   return `<section class="section docs-section"><p class="eyebrow">SHINY / QUICKSTART</p><h1>${e(t.docsTitle)}</h1><p class="hero-intro">${e(t.docsIntro)}</p><div class="docs-layout"><ol class="steps">${[1, 2, 3].map((n) => `<li><span class="step-number">0${n}</span><h2>${e(t[`step${n}`])}</h2><p>${e(t[`step${n}Text`])}</p>${n === 1 ? button("/sign-up", t.start, true) : n === 2 ? button("/keys", t.console, true) : button("/catalog/", t.allModels, true)}</li>`).join("")}</ol><div class="docs-code"><div class="endpoint-box"><span class="eyebrow">${e(t.endpoint)}</span><code>${e(config.apiBase)}</code><button type="button" class="copy-button" data-copy-endpoint>${e(t.copy)} ⧉</button></div>${codePanel(t, config)}<p class="muted small">${e(t.docsPrice)} <a class="text-link" href="/pricing">${e(t.pricing)} ↗</a></p></div></div><div class="troubleshooting"><h2>${e(t.troubleshooting)}</h2><ul>${["trouble401", "trouble403", "trouble429", "troubleBalance"].map((k) => `<li>${e(t[k])}</li>`).join("")}</ul></div></section>`;
 }
 
+function clientGuides(t, config) {
+  return `<section class="section client-guides">${heading(t.clientsEyebrow, t.clientsHeading, t.clientsIntro)}<div class="features">${[1,2,3].map((n) => `<article><span class="feature-icon" aria-hidden="true">0${n}</span><h3>${e(t[`client${n}Title`])}</h3><p>${e(t[`client${n}Text`])}</p><code>${e(n === 2 ? config.apiBase.replace(/\/v1$/, "") : config.apiBase)}</code></article>`).join("")}</div><div class="docs-journey">${button("/wallet", t.wallet, true)}${button("/keys", t.keySection, true)}${button("/usage-logs/common", t.usageLogs, true)}</div><p class="muted small">${e(t.protocolGuide)}</p></section>`;
+}
+
 export function renderPage(path, lang, config) {
   const t = translations[lang];
-  const nav = `<a href="/catalog/"${path === "/catalog/" ? ' aria-current="page"' : ""}>${e(t.models)}</a><a href="/pricing">${e(t.pricing)}</a><a href="/docs/"${path === "/docs/" ? ' aria-current="page"' : ""}>${e(t.docs)}</a>`;
+  const nav = `<a href="/catalog/"${path === "/catalog/" ? ' aria-current="page"' : ""}>${e(t.models)}</a><a href="/pricing">${e(t.pricing)}</a><a href="/status/"${path === "/status/" ? ' aria-current="page"' : ""}>${e(t.healthTitle)}</a><a href="/docs/"${path === "/docs/" ? ' aria-current="page"' : ""}>${e(t.docs)}</a>`;
   let content;
   if (path === "/catalog/") content = catalog(t, true);
-  else if (path === "/docs/") content = docs(t, config);
+  else if (path === "/docs/") content = docs(t, config) + clientGuides(t, config);
+  else if (path === "/status/") content = catalog(t, true, true);
   else if (path === "/legal/")
     content = `<section class="section legal-section"><p class="eyebrow">SHINY / OPEN SOURCE</p><h1>${e(t.legalTitle)}</h1><p>${e(t.legalText)}</p><div class="actions">${button(e(config.sourceUrl), t.legalLink)}${button("https://github.com/QuantumNous/new-api", t.upstream, true)}</div></section>`;
   else content = home(t, config);

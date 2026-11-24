@@ -154,6 +154,7 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
 	common.OptionMap["ModelRequestConcurrencyPerUser"] = strconv.Itoa(setting.ModelRequestConcurrencyPerUser)
 	common.OptionMap["ModelRequestConcurrencyGlobal"] = strconv.Itoa(setting.ModelRequestConcurrencyGlobal)
+	common.OptionMap["ModelRequestConcurrencyUserOverrides"] = setting.ModelRequestConcurrencyOverridesJSON()
 	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
 	common.OptionMap["ModelRatio"] = ratio_setting.ModelRatio2JSONString()
 	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
@@ -295,7 +296,10 @@ func validateOptionValue(key string, value string) error {
 	if key == "ModelRequestConcurrencyGlobal" {
 		return setting.ValidateModelRequestConcurrencyGlobal(value)
 	}
-	return nil
+	if key == "ModelRequestConcurrencyUserOverrides" {
+		return setting.ValidateModelRequestConcurrencyOverrides(value)
+	}
+	return setting.ValidateHostedPaymentOperationsOption(key, value)
 }
 
 func UpdateOption(key string, value string) error {
@@ -681,6 +685,8 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.ModelRequestConcurrencyPerUser, _ = strconv.Atoi(value)
 	case "ModelRequestConcurrencyGlobal":
 		setting.ModelRequestConcurrencyGlobal, _ = strconv.Atoi(value)
+	case "ModelRequestConcurrencyUserOverrides":
+		err = setting.UpdateModelRequestConcurrencyOverrides(value)
 	case "ModelRequestRateLimitGroup":
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
 	case "RetryTimes":

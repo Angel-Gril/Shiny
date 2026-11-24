@@ -90,5 +90,6 @@ func admitModelConcurrency(ctx context.Context, userID, perUser, global int) (fu
 }
 
 func modelConcurrencyAdmission(c *gin.Context) (func(), bool) {
-	return admitModelConcurrency(c.Request.Context(), c.GetInt("id"), setting.ModelRequestConcurrencyPerUser, setting.ModelRequestConcurrencyGlobal)
+	userID := c.GetInt("id")
+	return admitModelConcurrency(c.Request.Context(), userID, setting.GetModelRequestConcurrencyForUser(userID), setting.ModelRequestConcurrencyGlobal)
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -225,7 +226,18 @@ func RequestHostedPay(c *gin.Context) {
 }
 
 func verifyHostedOrderPayment(c *gin.Context, cfg setting.HostedPaymentConfig, order *model.HostedPayment, remoteID, paymentID string) (bool, error) {
+	return verifyHostedPayment(c.Request.Context(), c.ClientIP(), cfg, order, remoteID, paymentID)
+}
+
+func verifyHostedPayment(ctx context.Context, callerIP string, cfg setting.HostedPaymentConfig, order *model.HostedPayment, remoteID, paymentID string) (paid bool, verifyErr error) {
+	checkStatus := "verification_failed"
+	defer func() {
+		if err := model.RecordHostedPaymentCheck(order.TradeNo, checkStatus, time.Now().Unix()); err != nil {
+			logger.LogWarn(ctx, common.LogText("Hosted payment check could not be recorded provider=%s trade_no=%s", order.Provider, order.TradeNo))
+		}
+	}()
 	if !cfg.Enabled || cfg.Environment != setting.HostedPaymentsEnvironment() || order.Identity != cfg.Identity(order.Provider) {
+		checkStatus = "configuration_unavailable"
 		return false, errors.New("payment merchant or environment changed")
 	}
 	if remoteID == "" {
@@ -234,6 +246,11 @@ func verifyHostedOrderPayment(c *gin.Context, cfg setting.HostedPaymentConfig, o
 	if paymentID == "" {
 		paymentID = order.PaymentID
 	}
+	if (order.Provider == "nowpayments" && paymentID == "") ||
+		((order.Provider == "lianlian" || order.Provider == "paypal") && remoteID == "") {
+		checkStatus = "needs_reference"
+		return false, errors.New("payment reference requires operator recovery")
+	}
 	if order.RemoteID != "" && remoteID != order.RemoteID {
 		return false, model.ErrPaymentMethodMismatch
 	}
@@ -241,7 +258,7 @@ func verifyHostedOrderPayment(c *gin.Context, cfg setting.HostedPaymentConfig, o
 	queried := *order
 	queried.RemoteID = remoteID
 	client := service.NewHostedPaymentClient(order.Provider, cfg)
-	result, err := client.Query(c.Request.Context(), &queried, remoteID, paymentID)
+	result, err := client.Query(ctx, &queried, remoteID, paymentID)
 	if err != nil {
 		return false, err
 	}
@@ -255,11 +272,15 @@ func verifyHostedOrderPayment(c *gin.Context, cfg setting.HostedPaymentConfig, o
 		return false, err
 	}
 	if !result.Paid {
+		checkStatus = "pending"
 		return false, nil
 	}
 	verified := *order
 	verified.RemoteID, verified.PaymentID = result.RemoteID, result.PaymentID
-	_, err = model.CompleteHostedPayment(verified, c.ClientIP())
+	_, err = model.CompleteHostedPayment(verified, callerIP)
+	if err == nil {
+		checkStatus = "paid"
+	}
 	return err == nil, err
 }
 

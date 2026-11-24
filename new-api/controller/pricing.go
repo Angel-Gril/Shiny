@@ -72,6 +72,7 @@ func GetPricing(c *gin.Context) {
 		"data":                pricing,
 		"vendors":             model.GetVendors(),
 		"group_ratio":         groupRatio,
+		"quota_per_unit":      common.QuotaPerUnit,
 		"usable_group":        usableGroup,
 		"supported_endpoint":  model.GetSupportedEndpointMap(),
 		"auto_groups":         service.GetUserAutoGroup(group),

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -14,7 +15,9 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Calcium-Ion/go-epay/epay"
 	"github.com/QuantumNous/new-api/common"
@@ -23,6 +26,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,7 +57,7 @@ func hostedControllerFixture(t *testing.T) setting.HostedPaymentConfig {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	model.DB, model.LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TopUp{}, &model.HostedPayment{}, &model.User{}, &model.Log{}, &model.SystemTask{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.TopUp{}, &model.HostedPayment{}, &model.User{}, &model.Log{}, &model.SystemTask{}, &model.SystemTaskLock{}))
 	t.Cleanup(func() {
 		require.NoError(t, sqlDB.Close())
 	})
@@ -417,4 +421,168 @@ func TestHostedReconciliationRejectsConfigurationFromAnotherEnvironment(t *testi
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/reconcile", nil)
 	_, err := verifyHostedOrderPayment(ctx, cfg, order, "", "")
 	require.ErrorContains(t, err, "environment changed")
+}
+
+func TestHostedCustomerCheckEnforcesOwnershipAndRecoversAnExactSavedQuoteOnce(t *testing.T) {
+	hostedControllerFixture(t)
+	previousTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	t.Setenv("PAYMENTS_PROVIDERS", "none")
+	cfg := setting.DefaultHostedPaymentConfig("zpay")
+	cfg.Enabled, cfg.AcceptNew, cfg.MerchantID, cfg.APISecret = true, false, "123456", "fixture-secret"
+	cfg.CheckoutHosts = []string{"zpayz.cn"}
+	raw, err := common.Marshal(setting.HostedPaymentSettings{"zpay": cfg})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	user := model.User{Username: "payment-owner", Quota: 50, Status: common.UserStatusEnabled}
+	require.NoError(t, model.DB.Create(&user).Error)
+	order := model.HostedPayment{TradeNo: "HP-owner", Provider: "zpay", Identity: cfg.Identity("zpay"), Amount: "10.50", Currency: "CNY", RemoteID: "remote-owner", State: "pending"}
+	require.NoError(t, model.CreateHostedPayment(&model.TopUp{UserId: user.Id, TradeNo: order.TradeNo, CreditedQuota: 1000,
+		PaymentProvider: "zpay", PaymentMethod: "zpay", Status: common.TopUpStatusPending}, &order))
+	queries, paid := 0, false
+	http.DefaultTransport = hostedControllerTransport(func(request *http.Request) (*http.Response, error) {
+		queries++
+		status := 0
+		if paid {
+			status = 1
+		}
+		raw, err := common.Marshal(map[string]any{"code": 1, "pid": cfg.MerchantID, "out_trade_no": order.TradeNo,
+			"trade_no": order.RemoteID, "money": order.Amount, "status": status, "type": "alipay"})
+		require.NoError(t, err)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(raw))}, nil
+	})
+	check := func(userID int, provider string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Set("id", userID)
+		ctx.Params = gin.Params{{Key: "provider", Value: provider}}
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/check", strings.NewReader(`{"trade_no":"HP-owner","payment_amount":"0.01","remote_id":"attacker"}`))
+		CheckUserHostedPayment(ctx)
+		return recorder
+	}
+	assert.Contains(t, check(user.Id+1, "zpay").Body.String(), "Order not found")
+	assert.Contains(t, check(user.Id, "paypal").Body.String(), "Order not found")
+	assert.Zero(t, queries)
+	assert.Contains(t, check(user.Id, "zpay").Body.String(), `"payment_check_status":"pending"`)
+	assert.Equal(t, 1, queries)
+	check(user.Id, "zpay")
+	assert.Equal(t, 1, queries, "repeat customer queries within 30 seconds must not hit the provider")
+	require.NoError(t, model.RecordHostedPaymentCheck(order.TradeNo, "pending", time.Now().Unix()-31))
+	paid = true
+	assert.Contains(t, check(user.Id, "zpay").Body.String(), `"status":"success"`)
+	check(user.Id, "zpay")
+	assert.Equal(t, 2, queries, "a credited order is not queried again by the customer")
+	// A callback/poller arriving after the customer check uses the same
+	// transaction; it cannot credit the account a second time.
+	stored, err := model.GetHostedPayment(order.TradeNo)
+	require.NoError(t, err)
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+	for range 2 {
+		wg.Go(func() { _, err := verifyHostedPayment(context.Background(), "", cfg, stored, "", ""); results <- err })
+	}
+	wg.Wait()
+	close(results)
+	for err := range results {
+		require.NoError(t, err)
+	}
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	assert.Equal(t, 1050, credited.Quota)
+	var logs int64
+	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("user_id = ?", user.Id).Count(&logs).Error)
+	assert.EqualValues(t, 1, logs)
+}
+
+func TestHostedOperationsValidateGenericUpdatesAndRecordMissingReferencesWithoutQuerying(t *testing.T) {
+	cfg := hostedControllerFixture(t)
+	for key, value := range map[string]string{
+		"payment_operations.interval_minutes": "0", "payment_operations.batch_size": "101",
+		"payment_operations.pending_alert_minutes": "1", "payment_operations.auto_reconcile_enabled": "yes",
+	} {
+		assert.Error(t, model.UpdateOptionsBulk(map[string]string{key: value}), key)
+	}
+	assert.False(t, setting.GetHostedPaymentOperations().AutoReconcileEnabled)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{"payment_operations.auto_reconcile_enabled": "true", "payment_operations.batch_size": "2"}))
+	assert.True(t, hostedPaymentReconcileHandler{}.Enabled())
+	assert.Equal(t, 2, setting.GetHostedPaymentOperations().BatchSize)
+	order := model.HostedPayment{TradeNo: "HP-no-reference", Provider: "lianlian", Identity: cfg.Identity("lianlian"), Amount: "10.00", Currency: "USD", State: "creation_unknown"}
+	require.NoError(t, model.CreateHostedPayment(&model.TopUp{TradeNo: order.TradeNo, PaymentProvider: order.Provider, Status: common.TopUpStatusPending}, &order))
+	previousTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	http.DefaultTransport = hostedControllerTransport(func(*http.Request) (*http.Response, error) {
+		t.Error("a missing reference must not trigger a guessed provider query")
+		return nil, fmt.Errorf("unexpected network")
+	})
+	_, err := verifyHostedPayment(context.Background(), "", cfg, &order, "", "")
+	require.ErrorContains(t, err, "operator recovery")
+	stored, err := model.GetHostedPayment(order.TradeNo)
+	require.NoError(t, err)
+	assert.Equal(t, "needs_reference", stored.CheckStatus)
+	assert.Positive(t, stored.LastCheckedAt)
+	cfg.Enabled = false
+	_, err = verifyHostedPayment(context.Background(), "", cfg, stored, "", "")
+	require.Error(t, err)
+	stored, err = model.GetHostedPayment(order.TradeNo)
+	require.NoError(t, err)
+	assert.Equal(t, "configuration_unavailable", stored.CheckStatus)
+}
+
+func TestHostedReconciliationWorkerBoundsTheQueueCreditsVerifiedPaymentsAndReleasesItsLease(t *testing.T) {
+	lianlian := hostedControllerFixture(t)
+	zpay := setting.DefaultHostedPaymentConfig("zpay")
+	zpay.Enabled, zpay.AcceptNew, zpay.MerchantID, zpay.APISecret = true, false, "123456", "fixture-secret"
+	zpay.CheckoutHosts = []string{"zpayz.cn"}
+	raw, err := common.Marshal(setting.HostedPaymentSettings{"lianlian": lianlian, "zpay": zpay})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{
+		setting.HostedPaymentOption: string(raw), "payment_operations.auto_reconcile_enabled": "true",
+		"payment_operations.batch_size": "2", "payment_operations.interval_minutes": "1",
+	}))
+	t.Setenv("PAYMENTS_PROVIDERS", "none") // Drain existing payments with new sales paused.
+	user := model.User{Username: "worker-owner", Quota: 50, Status: common.UserStatusEnabled}
+	require.NoError(t, model.DB.Create(&user).Error)
+	now := time.Now().Unix()
+	orders := []model.HostedPayment{
+		{TradeNo: "HP-worker-missing", Provider: "lianlian", Identity: lianlian.Identity("lianlian"), Amount: "10.00", Currency: "USD", State: "creation_unknown", CreatedAt: now - 180},
+		{TradeNo: "HP-worker-paid", Provider: "zpay", Identity: zpay.Identity("zpay"), Amount: "10.50", Currency: "CNY", State: "pending", RemoteID: "remote-worker", CreatedAt: now - 120},
+		{TradeNo: "HP-worker-next", Provider: "zpay", Identity: zpay.Identity("zpay"), Amount: "10.50", Currency: "CNY", State: "pending", RemoteID: "remote-next", CreatedAt: now - 90},
+	}
+	for index := range orders {
+		order := &orders[index]
+		require.NoError(t, model.CreateHostedPayment(&model.TopUp{UserId: user.Id, TradeNo: order.TradeNo, CreditedQuota: 1000,
+			PaymentProvider: order.Provider, PaymentMethod: order.Provider, Status: common.TopUpStatusPending}, order))
+	}
+	previousTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	queries := 0
+	http.DefaultTransport = hostedControllerTransport(func(request *http.Request) (*http.Response, error) {
+		queries++
+		require.Equal(t, "HP-worker-paid", request.URL.Query().Get("out_trade_no"))
+		raw, err := common.Marshal(map[string]any{"code": 1, "pid": zpay.MerchantID, "out_trade_no": orders[1].TradeNo,
+			"trade_no": orders[1].RemoteID, "money": orders[1].Amount, "status": 1, "type": "alipay"})
+		require.NoError(t, err)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(raw))}, nil
+	})
+	task, err := model.CreateSystemTask(model.SystemTaskTypeHostedPaymentReconcile, nil, nil)
+	require.NoError(t, err)
+	claimed, acquired, err := model.ClaimSystemTask(task.ID, task.Type, "fixture-worker", now+300)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	hostedPaymentReconcileHandler{}.Run(context.Background(), claimed, "fixture-worker")
+	finished, err := model.GetSystemTaskByTaskID(task.TaskID)
+	require.NoError(t, err)
+	require.Equal(t, model.SystemTaskStatusSucceeded, finished.Status)
+	assert.JSONEq(t, `{"checked":2,"verified_paid":1,"unresolved":1,"overdue":0}`, finished.Result)
+	assert.Equal(t, 1, queries)
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	assert.Equal(t, 1050, credited.Quota)
+	next, err := model.GetPendingHostedPayments("", now, now, 1)
+	require.NoError(t, err)
+	require.Len(t, next, 1)
+	assert.Equal(t, "HP-worker-next", next[0].TradeNo, "missing references move behind unchecked orders")
+	var leases int64
+	require.NoError(t, model.DB.Model(&model.SystemTaskLock{}).Count(&leases).Error)
+	assert.Zero(t, leases)
 }

@@ -977,4 +977,16 @@ export const STATIC_I18N_KEYS = [
   'Records multiple-token use, network and model changes, retries, failures, long requests, and frequent token operations for observation only.',
   'Changes take effect after saving. Turning this off stops new behavior signals and their counters. Existing records, content audit, keyword filtering, operation logs, and request limits remain unchanged.',
   'Payment environment does not match this instance',
+  // RU journey and reconciliation labels selected from typed configuration.
+  'Choose a model, add funds, create a key, then review your usage.',
+  'Create your key here and use it with this API address. Keep keys in server environment variables.',
+  'Your wallet credit is measured in USD. Checkout shows the payment currency and exact amount. Verify a pending order before paying again.',
+  'Review the model, token usage, charge and request ID for each call. Include the request ID when contacting support.',
+  'Reconciliation interval (minutes)',
+  'Orders per reconciliation run',
+  'Pending payment alert (minutes)',
+  'After payment, check this order before paying again.',
+  'Payment needs support verification',
+  'Payment verification unavailable; try again later',
+  'Payment reconciliation',
 ] as const

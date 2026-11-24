@@ -46,8 +46,14 @@ func GetStatus(c *gin.Context) {
 	defer common.OptionMapRWMutex.RUnlock()
 
 	legalSetting := system_setting.GetLegalSettings()
+	siteProfile := ""
+	if setting.IsRUSiteProfile() {
+		siteProfile = "ru"
+	}
 
 	data := gin.H{
+		"site_profile":                siteProfile,
+		"default_language":            setting.RUConsoleDefaultLanguage(),
 		"version":                     common.Version,
 		"start_time":                  common.StartTime,
 		"email_verification":          common.EmailVerificationEnabled,

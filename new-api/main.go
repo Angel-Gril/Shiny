@@ -213,6 +213,9 @@ func main() {
 	}
 
 	// Initialize HTTP server
+	if language := setting.RUConsoleDefaultLanguage(); language != "" {
+		indexPage = bytes.Replace(indexPage, []byte("<html"), []byte(`<html data-default-language="ru"`), 1)
+	}
 	server := gin.New()
 	if err := middleware.ConfigureTrustedProxies(server); err != nil {
 		common.FatalLog(common.LogText("failed to configure trusted proxies: %s", err.Error()))
@@ -327,6 +330,12 @@ func InitResources() error {
 
 	// 加载环境变量
 	common.InitEnv()
+	if err := setting.ValidateSiteProfile(); err != nil {
+		return err
+	}
+	if setting.IsRUSiteProfile() && os.Getenv("DEFAULT_LANGUAGE") == "" {
+		common.DefaultLanguage = "ru"
+	}
 	if _, err := setting.SelectedHostedPaymentProviders(); err != nil {
 		return err
 	}
@@ -373,6 +382,9 @@ func InitResources() error {
 		}
 	}
 	model.InitOptionMap()
+	if err := model.InitializeRUProfileOptions(); err != nil {
+		return err
+	}
 
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()

@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
@@ -15,9 +18,44 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+// Schema shipped before operations reconciliation added check metadata.
+type previousHostedPayment struct {
+	TradeNo     string `gorm:"primaryKey;type:varchar(64)"`
+	Provider    string `gorm:"type:varchar(32);index"`
+	Identity    string `gorm:"type:varchar(64)"`
+	Currency    string `gorm:"type:varchar(3)"`
+	Amount      string `gorm:"type:varchar(32)"`
+	RemoteID    string `gorm:"type:varchar(128)"`
+	PaymentID   string `gorm:"type:varchar(128)"`
+	CheckoutURL string `gorm:"type:text"`
+	State       string `gorm:"type:varchar(32)"`
+	CreatedAt   int64
+}
+
 // Exercises new schema on a fresh DB and an upgrade from existing TopUp/User
 // tables, including repeated startup migration, exact-once credit and rollback.
 func TestHostedPaymentDatabaseMatrix(t *testing.T) {
+	previousOptions := common.OptionMap
+	common.OptionMap = map[string]string{}
+	previousValues := config.GlobalConfig.ExportAllConfigs()
+	previousValues["GroupRatio"] = ratio_setting.GroupRatio2JSONString()
+	previousValues["GroupGroupRatio"] = ratio_setting.GroupGroupRatio2JSONString()
+	previousValues["UserUsableGroups"] = setting.UserUsableGroups2JSONString()
+	previousValues["AutoGroups"] = setting.AutoGroups2JsonString()
+	previousValues["DefaultUseAutoGroup"] = fmt.Sprint(setting.DefaultUseAutoGroup)
+	previousValues["RetryTimes"] = fmt.Sprint(common.RetryTimes)
+	previousValues["QuotaForNewUser"] = fmt.Sprint(common.QuotaForNewUser)
+	previousValues["QuotaForInviter"] = fmt.Sprint(common.QuotaForInviter)
+	previousValues["QuotaForInvitee"] = fmt.Sprint(common.QuotaForInvitee)
+	previousValues["QuotaRemindEnabled"] = fmt.Sprint(common.QuotaRemindEnabled)
+	t.Cleanup(func() {
+		for key := range setting.RUProfileDefaults() {
+			if value, exists := previousValues[key]; exists {
+				require.NoError(t, updateOptionMap(key, value))
+			}
+		}
+		common.OptionMap = previousOptions
+	})
 	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
 		t.Run(dialect, func(t *testing.T) {
 			var driver gorm.Dialector
@@ -68,7 +106,8 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					if dialect == "mysql" {
 						require.NoError(t, checkMySQLChineseSupport(db))
 					}
-					require.NoError(t, db.AutoMigrate(&User{}, &TopUp{}, &Log{}))
+					require.NoError(t, db.AutoMigrate(&User{}, &TopUp{}, &Log{}, &Option{}))
+					t.Cleanup(func() { require.NoError(t, db.Migrator().DropTable(&Option{})) })
 					// Upgrade runs additionally exercise LOG_SQL_DSN isolation with a
 					// separate real database, including repeated log-table startup.
 					if upgrade {
@@ -104,6 +143,9 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					}
 					if upgrade {
 						require.NoError(t, db.Create(&TopUp{TradeNo: "legacy-order", PaymentProvider: "epay", Status: common.TopUpStatusPending, Money: 72, Amount: 10}).Error)
+						table := db.NamingStrategy.TableName("HostedPayment")
+						require.NoError(t, db.Table(table).AutoMigrate(&previousHostedPayment{}))
+						require.NoError(t, db.Table(table).Create(&previousHostedPayment{TradeNo: "HP-existing", Provider: "paypal", Amount: "12.00", Currency: "USD", State: "pending", RemoteID: "existing-id"}).Error)
 					}
 					for range 2 {
 						require.NoError(t, db.AutoMigrate(&HostedPayment{}, &TopUp{}))
@@ -113,7 +155,38 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 						require.NoError(t, db.Where("trade_no = ?", "legacy-order").First(&legacy).Error)
 						require.Equal(t, "epay", legacy.PaymentProvider)
 						require.Equal(t, 72.0, legacy.Money)
+						payment, err := GetHostedPayment("HP-existing")
+						require.NoError(t, err)
+						require.Equal(t, "existing-id", payment.RemoteID)
+						require.Equal(t, "12.00", payment.Amount)
+						require.Zero(t, payment.LastCheckedAt)
+						require.Empty(t, payment.CheckStatus)
 					}
+					// RU defaults are opt-in, repeatable, and preserve operator values,
+					// including configuration saved under the registered group alias.
+					t.Setenv("SHINY_SITE_PROFILE", "")
+					require.NoError(t, InitializeRUProfileOptions())
+					var optionCount int64
+					require.NoError(t, db.Model(&Option{}).Count(&optionCount).Error)
+					require.Zero(t, optionCount)
+					t.Setenv("SHINY_SITE_PROFILE", "ru")
+					if upgrade {
+						require.NoError(t, db.Create(&Option{Key: "group_ratio_setting.group_ratio", Value: `{"default":1.25}`}).Error)
+						require.NoError(t, db.Create(&Option{Key: "QuotaForNewUser", Value: "100"}).Error)
+					}
+					for range 2 {
+						require.NoError(t, InitializeRUProfileOptions())
+					}
+					var savedGift Option
+					require.NoError(t, db.Where(commonKeyCol+" = ?", "QuotaForNewUser").First(&savedGift).Error)
+					if upgrade {
+						require.Equal(t, "100", savedGift.Value)
+						require.NoError(t, db.Model(&Option{}).Where(commonKeyCol+" = ?", "GroupRatio").Count(&optionCount).Error)
+						require.Zero(t, optionCount, "do not override the canonical group map with new defaults")
+					} else {
+						require.Equal(t, "0", savedGift.Value)
+					}
+					require.Equal(t, "ru", setting.RUConsoleDefaultLanguage())
 					user := &User{Username: "hosted-matrix-user", Status: common.UserStatusEnabled, Quota: 50}
 					require.NoError(t, db.Create(user).Error)
 					order := HostedPayment{TradeNo: "HP-matrix", Provider: "lianlian", Identity: "merchant-test", Amount: "10.00", Currency: "USD", RemoteID: "PAY-matrix", State: "pending"}
@@ -166,7 +239,29 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 						require.NoError(t, AttachHostedPaymentDetails([]*TopUp{history}))
 						require.Equal(t, payment.Currency, history.PaymentCurrency)
 						require.Equal(t, "pending", history.PaymentState)
+						require.Equal(t, payment.Amount, history.PaymentAmount)
 					}
+					// Fair, cross-provider reconciliation keeps exact money strings and
+					// excludes completed/failed topups regardless of provider state.
+					require.NoError(t, db.Model(&HostedPayment{}).Where("trade_no = ?", "HP-zpay-history").Update("created_at", 100).Error)
+					require.NoError(t, db.Model(&HostedPayment{}).Where("trade_no = ?", "HP-cispay-history").Update("created_at", 10).Error)
+					items, total, overdue, err := GetHostedPaymentQueue("", 50)
+					require.NoError(t, err)
+					require.EqualValues(t, 2, total)
+					require.EqualValues(t, 1, overdue)
+					require.Len(t, items, 2)
+					require.Equal(t, "HP-cispay-history", items[0].TradeNo)
+					require.Equal(t, "950.00", items[0].Amount)
+					require.NoError(t, RecordHostedPaymentCheck(items[0].TradeNo, "needs_reference", 200))
+					queue, err := GetPendingHostedPayments("", 1000, 1000, 1)
+					require.NoError(t, err)
+					require.Len(t, queue, 1)
+					require.Equal(t, "HP-zpay-history", queue[0].TradeNo, "another provider goes before recently checked orders")
+					require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", queue[0].TradeNo).Update("status", common.TopUpStatusFailed).Error)
+					queue, err = GetPendingHostedPayments("", 1000, 1000, 100)
+					require.NoError(t, err)
+					require.Len(t, queue, 1)
+					require.Equal(t, "HP-cispay-history", queue[0].TradeNo)
 					duplicate := order
 					require.Error(t, db.Create(&duplicate).Error)
 					// Ceiling failure must leave both payment state and wallet intact.

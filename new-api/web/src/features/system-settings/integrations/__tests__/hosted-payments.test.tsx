@@ -132,10 +132,31 @@ describe('hosted payment admin form', () => {
 
   it('offers a retry when payment settings fail to load', async () => {
     const user = userEvent.setup()
-    const get = vi
-      .spyOn(api, 'get')
-      .mockRejectedValueOnce(new Error('provider unavailable'))
-      .mockResolvedValue({
+    let firstLoad = true
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/option/payments/operations') {
+        return {
+          data: {
+            success: true,
+            data: {
+              auto_reconcile_enabled: false,
+              interval_minutes: 5,
+              batch_size: 20,
+              pending_alert_minutes: 30,
+            },
+          },
+        }
+      }
+      if (url.endsWith('/pending')) {
+        return {
+          data: { success: true, data: { items: [], total: 0, overdue: 0 } },
+        }
+      }
+      if (firstLoad) {
+        firstLoad = false
+        throw new Error('provider unavailable')
+      }
+      return {
         data: {
           success: true,
           data: {
@@ -146,7 +167,8 @@ describe('hosted payment admin form', () => {
             zpay: fixtureConfig(),
           },
         },
-      })
+      }
+    })
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -157,7 +179,7 @@ describe('hosted payment admin form', () => {
     )
     await user.click(await screen.findByRole('button', { name: 'Retry' }))
     expect(await screen.findByRole('tab', { name: 'LianLian' })).toBeVisible()
-    expect(get).toHaveBeenCalledTimes(2)
+    expect(get).toHaveBeenCalledWith('/api/option/payments/hosted')
     client.clear()
   })
 
@@ -172,17 +194,37 @@ describe('hosted payment admin form', () => {
     const put = vi.spyOn(api, 'put').mockResolvedValue({
       data: { success: true, data: { ...removed, accept_new: false } },
     })
-    vi.spyOn(api, 'get').mockResolvedValue({
-      data: {
-        success: true,
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/option/payments/operations') {
+        return {
+          data: {
+            success: true,
+            data: {
+              auto_reconcile_enabled: false,
+              interval_minutes: 5,
+              batch_size: 20,
+              pending_alert_minutes: 30,
+            },
+          },
+        }
+      }
+      if (url.endsWith('/pending')) {
+        return {
+          data: { success: true, data: { items: [], total: 0, overdue: 0 } },
+        }
+      }
+      return {
         data: {
-          cispay: removed,
-          lianlian: removed,
-          nowpayments: { ...fixtureConfig(), deployment_selected: true },
-          paypal: removed,
-          zpay: removed,
+          success: true,
+          data: {
+            cispay: removed,
+            lianlian: removed,
+            nowpayments: { ...fixtureConfig(), deployment_selected: true },
+            paypal: removed,
+            zpay: removed,
+          },
         },
-      },
+      }
     })
     const client = new QueryClient()
     render(

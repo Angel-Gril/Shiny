@@ -119,4 +119,6 @@ const (
 	MsgChannelUpstreamUpdateRemovedModels   = "channel.upstream_update_removed_models"
 	MsgChannelUpstreamUpdateFailedChannels  = "channel.upstream_update_failed_channels"
 	MsgChannelUpstreamUpdateMoreOmitted     = "channel.upstream_update_more_omitted"
+	MsgPaymentPendingSubject                = "payment.pending.subject"
+	MsgPaymentPendingContent                = "payment.pending.content"
 )

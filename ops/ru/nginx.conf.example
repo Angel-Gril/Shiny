@@ -54,6 +54,8 @@ server {
     location = /docs/ { try_files /docs/index.html =404; add_header Cache-Control "no-cache"; }
     location = /legal { return 308 /legal/$is_args$args; }
     location = /legal/ { try_files /legal/index.html =404; add_header Cache-Control "no-cache"; }
+    location = /status { return 308 /status/$is_args$args; }
+    location = /status/ { try_files /status/index.html =404; add_header Cache-Control "no-cache"; }
     location = /robots.txt { try_files $uri =404; }
     location = /sitemap.xml { try_files $uri =404; }
 

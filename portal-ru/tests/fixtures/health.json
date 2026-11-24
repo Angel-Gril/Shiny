@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "preview": true,
+  "data": {
+    "summary": {"success_rate": 99.1, "avg_latency_ms": 2600, "avg_tps": 42},
+    "window_start": 1795478400,
+    "window_end": 1795564800,
+    "models": [
+      {"model_name":"gpt-4.1", "success_rate":99.5, "avg_latency_ms":2500, "avg_tps":45, "recent_success_series":[{"ts":1795500000,"success_rate":100},{"ts":1795503600,"success_rate":99.5}]},
+      {"model_name":"claude-sonnet-4", "success_rate":98.1, "avg_latency_ms":3300, "avg_tps":36},
+      {"model_name":"deepseek-chat", "success_rate":91.2, "avg_latency_ms":1400, "avg_tps":61}
+    ]
+  }
+}

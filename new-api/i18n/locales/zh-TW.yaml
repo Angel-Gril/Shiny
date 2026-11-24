@@ -98,3 +98,5 @@ channel.upstream_update_failed_channels: "失敗管道 ID（顯示 {{.Shown}}/{{
 channel.upstream_update_more_omitted: "（其餘 {{.Count}} 個已省略）"
 
 channel.notify_scheduled_subject: "渠道「{{.Name}}」(#{{.Id}}) 外掛通知"
+payment.pending.subject: "待支付訂單需要檢查"
+payment.pending.content: "有 {{.Count}} 筆訂單已待支付超過 {{.Minutes}} 分鐘。請在國際支付設定中檢查訂單並查詢支付商；未核驗到帳的訂單不可手工入帳。"

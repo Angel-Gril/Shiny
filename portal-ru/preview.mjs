@@ -12,6 +12,7 @@ const fixture = JSON.parse(
     "utf8",
   ),
 );
+const healthFixture = JSON.parse(await readFile(new URL("./tests/fixtures/health.json", import.meta.url), "utf8"));
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -33,6 +34,11 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/api/pricing") {
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(fixture));
+    return;
+  }
+  if (url.pathname === "/api/perf-metrics/summary") {
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(healthFixture));
     return;
   }
   if (url.pathname === "/robots.txt") {

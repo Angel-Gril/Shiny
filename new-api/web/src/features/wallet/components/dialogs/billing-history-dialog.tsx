@@ -16,22 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { CopyButton } from '@/components/copy-button'
 import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -44,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { toIntlLocale } from '@/i18n/languages'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
 
@@ -54,6 +46,7 @@ import {
   getPaymentMethodName,
   formatTimestamp,
 } from '../../lib/billing'
+import { isHostedPayment, paymentCheckLabels } from '../../lib/hosted-payment'
 
 interface BillingHistoryDialogProps {
   open: boolean
@@ -66,7 +59,8 @@ export function BillingHistoryDialog({
   onOpenChange,
   onDataRefresh,
 }: BillingHistoryDialogProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const {
     records,
     total,
@@ -80,10 +74,11 @@ export function BillingHistoryDialog({
     handlePageSizeChange,
     handleSearch,
     handleCompleteOrder,
+    handleCheckPayment,
+    checkingTradeNo,
   } = useBillingHistory({ enabled: open, onDataRefresh })
 
   const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
-  const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
   const totalPages = Math.ceil(total / pageSize)
 
@@ -202,18 +197,13 @@ export function BillingHistoryDialog({
                             <code className='text-foreground truncate font-mono text-sm'>
                               {record.trade_no}
                             </code>
-                            <Button
+                            <CopyButton
+                              value={record.trade_no}
                               variant='ghost'
                               size='sm'
                               className='h-5 w-5 p-0'
-                              onClick={() => copyToClipboard(record.trade_no)}
-                            >
-                              {copiedText === record.trade_no ? (
-                                <Check className='h-3 w-3' />
-                              ) : (
-                                <Copy className='h-3 w-3' />
-                              )}
-                            </Button>
+                              iconClassName='h-3 w-3'
+                            />
                             {isAdmin && record.user_id != null && (
                               <StatusBadge
                                 label={`${t('User ID')}: ${record.user_id}`}
@@ -254,6 +244,7 @@ export function BillingHistoryDialog({
                               digitsLarge: 2,
                               digitsSmall: 2,
                               abbreviate: false,
+                              locale,
                             })}
                           </div>
                         </div>
@@ -265,24 +256,72 @@ export function BillingHistoryDialog({
                             {record.payment_currency
                               ? `${record.payment_currency} `
                               : ''}
-                            {formatNumber(record.money)}
+                            {record.payment_amount ||
+                              formatNumber(record.money, locale)}
                           </div>
                         </div>
                       </div>
 
                       {/* Admin Actions */}
-                      {isAdmin && record.status === 'pending' && (
-                        <div className='mt-4 flex justify-end'>
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setConfirmTradeNo(record.trade_no)}
-                            disabled={completing}
-                          >
-                            {t('Complete Order')}
-                          </Button>
-                        </div>
-                      )}
+                      {record.status === 'pending' &&
+                        isHostedPayment(
+                          record.payment_provider || record.payment_method
+                        ) && (
+                          <div className='mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3'>
+                            <div className='text-muted-foreground min-w-0 text-xs'>
+                              <p>
+                                {t(
+                                  paymentCheckLabels[
+                                    record.payment_check_status || ''
+                                  ] ||
+                                    'After payment, check this order before paying again.'
+                                )}
+                              </p>
+                              {record.payment_checked_at ? (
+                                <p>
+                                  {t('Last checked')}:{' '}
+                                  {formatTimestamp(record.payment_checked_at)}
+                                </p>
+                              ) : null}
+                            </div>
+                            {isAdmin ? (
+                              <p className='text-muted-foreground text-xs'>
+                                {t(
+                                  'Verify this order in International payments settings.'
+                                )}
+                              </p>
+                            ) : (
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                disabled={Boolean(checkingTradeNo)}
+                                onClick={() => handleCheckPayment(record)}
+                              >
+                                {t(
+                                  checkingTradeNo === record.trade_no
+                                    ? 'Verifying...'
+                                    : 'Check payment status'
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      {isAdmin &&
+                        record.status === 'pending' &&
+                        !isHostedPayment(
+                          record.payment_provider || record.payment_method
+                        ) && (
+                          <div className='mt-4 flex justify-end'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => setConfirmTradeNo(record.trade_no)}
+                              disabled={completing}
+                            >
+                              {t('Complete Order')}
+                            </Button>
+                          </div>
+                        )}
                     </div>
                   )
                 })}
@@ -328,32 +367,17 @@ export function BillingHistoryDialog({
       </Dialog>
 
       {/* Confirm Complete Order Dialog */}
-      <AlertDialog
+      <ConfirmDialog
         open={!!confirmTradeNo}
         onOpenChange={(open) => !open && setConfirmTradeNo(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('Complete Order')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(
-                'Are you sure you want to manually complete this order? The user will be credited with the corresponding quota.'
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={completing}>
-              {t('Cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmComplete}
-              disabled={completing}
-            >
-              {completing ? t('Processing...') : t('Confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t('Complete Order')}
+        desc={t(
+          'Are you sure you want to manually complete this order? The user will be credited with the corresponding quota.'
+        )}
+        isLoading={completing}
+        confirmText={t(completing ? 'Processing...' : 'Confirm')}
+        handleConfirm={() => void handleConfirmComplete()}
+      />
     </>
   )
 }

@@ -122,6 +122,10 @@ try {
     "en",
   );
   await page.getByRole("link", { name: "Documentation", exact: true }).click();
+  await page.getByRole("button", { name: "Node.js", exact: true }).click();
+  await page.locator("[data-copy-code]").click();
+  assert.match(await page.evaluate(() => navigator.clipboard.readText()), /baseURL: "https:\/\/ru\.shinyapi\.com\/v1"/);
+  assert.equal(await page.getByRole("button", {name:"Node.js",exact:true}).getAttribute("aria-pressed"),"true");
   await page.getByRole("button", { name: "cURL", exact: true }).click();
   await page.locator("[data-copy-code]").click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
@@ -167,6 +171,54 @@ try {
     .waitFor();
   await page.unroute("**/api/pricing");
 
+  // A pending metrics response must not hold up the independently loaded prices.
+  let releaseHealth;
+  await page.route("**/api/perf-metrics/summary?hours=24", (route) => new Promise((resolveHealth) => {
+    releaseHealth = async () => {
+      await route.fulfill({status:503,body:"metrics unavailable"});
+      resolveHealth();
+    };
+  }));
+  try {
+    await page.goto(origin + "/catalog/?lang=en");
+    await page.locator(".model-card").nth(6).waitFor({timeout:5000});
+    assert.match(await page.locator(".model-card").first().textContent(),/\$15\.00/);
+    assert.match(await page.locator(".model-card").first().textContent(),/Loading request metrics/);
+  } finally {
+    await releaseHealth?.();
+  }
+  await page.getByText("Request metrics are temporarily unavailable").first().waitFor();
+  assert.equal(await page.locator(".model-card").count(),7);
+  await page.unroute("**/api/perf-metrics/summary?hours=24");
+
+  // Full context/cache tiers and time periods remain reachable with the keyboard.
+  const sonnet = page.locator(".model-card").filter({has:page.getByRole("heading",{name:"claude-sonnet-4",exact:true})});
+  await sonnet.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await sonnet.locator("details").getAttribute("open"),"");
+  assert.equal(await sonnet.locator(".price-tier").count(),2);
+  assert.match(await sonnet.locator("details").textContent(),/len <= 200000/);
+  assert.match(await sonnet.locator("details").textContent(),/Cache write · 1h/);
+  assert.match(await sonnet.locator("details").textContent(),/\$12\.00/);
+  const deepseek = page.locator(".model-card").filter({has:page.getByRole("heading",{name:"deepseek-chat",exact:true})});
+  await deepseek.locator("summary").click();
+  assert.equal(await deepseek.locator(".price-tier").count(),2);
+  assert.match(await deepseek.locator("details").textContent(),/Time-based pricing/);
+
+  const healthFixture = JSON.parse(await readFile(new URL("./fixtures/health.json",import.meta.url),"utf8"));
+  healthFixture.data.models[0].success_rate = 0;
+  await page.route("**/api/perf-metrics/summary?hours=24",(route) => route.fulfill({json:healthFixture}));
+  await page.goto(origin + "/status/?lang=en");
+  const gptHealth = page.locator(".model-card").filter({has:page.getByRole("heading",{name:"gpt-4.1",exact:true})});
+  await gptHealth.locator(".model-health").waitFor();
+  assert.match(await gptHealth.textContent(),/0%/);
+  assert.match(await page.locator(".model-card").filter({has:page.getByRole("heading",{name:"gpt-4.1-mini",exact:true})}).textContent(),/No data for this period/);
+  assert.equal(await gptHealth.locator(".health-series span").count(),2);
+  assert.equal(await page.locator(".model-prices").count(),0);
+  assert.match(await page.locator("#health-window").textContent(),/Observation window/);
+  await page.screenshot({path:resolve(root,"output/playwright/ru-status-desktop.png")});
+  await page.unroute("**/api/perf-metrics/summary?hours=24");
+
   // Hostile upstream metadata remains text and the same-origin pricing link.
   const malicious = structuredClone(fixture);
   malicious.data = [
@@ -194,9 +246,9 @@ try {
   // Mobile navigation, language control, and all public routes at narrow widths.
   for (const width of [390, 320, 768]) {
     await page.setViewportSize({ width, height: 844 });
-    for (const path of ["/", "/catalog/", "/docs/", "/legal/"]) {
+    for (const path of ["/", "/catalog/", "/docs/", "/legal/", "/status/"]) {
       await page.goto(origin + path + "?lang=ru");
-      if (path === "/" || path === "/catalog/")
+      if (path === "/" || path === "/catalog/" || path === "/status/")
         await page.locator(".model-card").first().waitFor();
       assert.ok(
         await page.evaluate(
