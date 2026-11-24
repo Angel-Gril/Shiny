@@ -1,12 +1,13 @@
 {
   "schema": 1,
-  "as_of": "2026-11-04",
+  "as_of": "2026-11-24",
   "unit": "site_credits_per_million_tokens",
   "exchange_conversion": false,
   "preserve_group_ratios": true,
   "kimi_k3_cache_reference": "https://platform.kimi.com/docs/pricing/chat",
   "notes": [
     "XKRelay standard input/read/output prices; missing aliases retain reviewed ZeroCat numbers.",
+    "DeepSeek V4 Pro and its aliases use the official 2026-11-24 CNY numeric prices: off-peak 4.5/0.15/13.5, peak 9/0.3/27; other model references remain dated 2026-11-04.",
     "Kimi K3 explicitly prices default/1h writes at 20/40; its public standard input rate is 20.",
     "No credentials, production tokens or expected-version snapshots. Apply through the versioned model-pricing API after reading current configuration."
   ],
@@ -29,18 +30,19 @@
     },
     {
       "model_name": "deepseek-v4-pro",
-      "source": "https://xkrelay.com/pricing",
+      "aliases": ["cn:deepseek-v4-pro"],
+      "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
       "pricing": {
         "billing_setting.billing_mode": "tiered_expr",
-        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 18 + cr * 0.6 + c * 54) : tier(\"off_peak\", p * 9 + cr * 0.3 + c * 27)"
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 9 + cr * 0.3 + c * 27) : tier(\"off_peak\", p * 4.5 + cr * 0.15 + c * 13.5)"
       }
     },
     {
       "model_name": "deepseek-v4-pro-0813",
-      "source": "https://xkrelay.com/pricing",
+      "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
       "pricing": {
         "billing_setting.billing_mode": "tiered_expr",
-        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 18 + cr * 0.6 + c * 54) : tier(\"off_peak\", p * 9 + cr * 0.3 + c * 27)"
+        "billing_setting.billing_expr": "deepseekPeak() ? tier(\"peak\", p * 9 + cr * 0.3 + c * 27) : tier(\"off_peak\", p * 4.5 + cr * 0.15 + c * 13.5)"
       }
     },
     {
