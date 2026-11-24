@@ -154,6 +154,19 @@ func TestHostedPaymentDatabaseMatrix(t *testing.T) {
 					pending, err = HasPendingHostedPayments(order.Provider)
 					require.NoError(t, err)
 					require.False(t, pending)
+					// Recharge history must retain each adapter's original payment
+					// currency, independently of the wallet's display currency.
+					for _, payment := range []HostedPayment{
+						{TradeNo: "HP-cispay-history", Provider: "cispay", Currency: "RUB", Amount: "950.00", State: "pending"},
+						{TradeNo: "HP-zpay-history", Provider: "zpay", Currency: "CNY", Amount: "72.00", State: "pending"},
+					} {
+						history := &TopUp{UserId: user.Id, TradeNo: payment.TradeNo, PaymentProvider: payment.Provider,
+							PaymentMethod: payment.Provider, Amount: 10, CreditedQuota: 12345, Status: common.TopUpStatusPending}
+						require.NoError(t, CreateHostedPayment(history, &payment))
+						require.NoError(t, AttachHostedPaymentDetails([]*TopUp{history}))
+						require.Equal(t, payment.Currency, history.PaymentCurrency)
+						require.Equal(t, "pending", history.PaymentState)
+					}
 					duplicate := order
 					require.Error(t, db.Create(&duplicate).Error)
 					// Ceiling failure must leave both payment state and wallet intact.

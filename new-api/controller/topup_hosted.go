@@ -33,7 +33,7 @@ func GetHostedPaymentSettings(c *gin.Context) {
 		return
 	}
 	for provider, cfg := range settings {
-		settings[provider] = cfg.Public()
+		settings[provider] = cfg.Public(provider)
 	}
 	common.ApiSuccess(c, settings)
 }
@@ -63,6 +63,10 @@ func SaveHostedPaymentSettings(c *gin.Context) {
 	}
 	if request.Config.Enabled && request.Config.Environment != setting.HostedPaymentsEnvironment() {
 		common.ApiErrorT(c, "Payment environment does not match this instance")
+		return
+	}
+	if request.Config.Enabled && request.Config.AcceptNew && !setting.HostedPaymentSelected(request.Provider) {
+		common.ApiErrorT(c, "Payment provider is not selected for this deployment")
 		return
 	}
 	if err := request.Config.Validate(request.Provider); err != nil {
@@ -95,7 +99,7 @@ func SaveHostedPaymentSettings(c *gin.Context) {
 		return
 	}
 	logger.LogInfo(c.Request.Context(), common.LogText("Hosted payment settings updated provider=%s user_id=%d", request.Provider, c.GetInt("id")))
-	common.ApiSuccess(c, request.Config.Public())
+	common.ApiSuccess(c, request.Config.Public(request.Provider))
 }
 
 func hostedPaymentConfig(c *gin.Context, newPayment bool) (setting.HostedPaymentConfig, bool) {
@@ -103,7 +107,7 @@ func hostedPaymentConfig(c *gin.Context, newPayment bool) (setting.HostedPayment
 	settings, err := setting.GetHostedPaymentSettings()
 	cfg, ok := settings[provider]
 	if err != nil || !ok || !cfg.Enabled || cfg.Validate(provider) != nil || cfg.Environment != setting.HostedPaymentsEnvironment() ||
-		(newPayment && (!cfg.AcceptNew || !isPaymentComplianceConfirmed())) {
+		(newPayment && (!cfg.AcceptNew || !setting.HostedPaymentSelected(provider) || !isPaymentComplianceConfirmed())) {
 		paymentError(c, common.NewMessage("Payment method is unavailable"))
 		return cfg, false
 	}
@@ -202,8 +206,10 @@ func RequestHostedPay(c *gin.Context) {
 	locked = false
 	// The order and immutable quote exist before any external create request.
 	client := service.NewHostedPaymentClient(provider, cfg)
-	checkout, err := client.Create(c.Request.Context(), order, origin+"/wallet?show_history=true",
-		origin+"/api/payments/"+provider+"/webhook/"+cfg.Environment)
+	checkout, err := client.Create(c.Request.Context(), order, service.HostedCheckoutOptions{
+		ReturnURL: origin + "/wallet?show_history=true", WebhookURL: origin + "/api/payments/" + provider + "/webhook/" + cfg.Environment,
+		CustomerID: "user-" + fmt.Sprint(c.GetInt("id")), ClientIP: c.ClientIP(),
+	})
 	if err != nil {
 		_ = model.MarkHostedCreationUnknown(tradeNo)
 		logger.LogWarn(c.Request.Context(), common.LogText("Hosted checkout creation uncertain provider=%s trade_no=%s", provider, tradeNo))
@@ -259,13 +265,22 @@ func verifyHostedOrderPayment(c *gin.Context, cfg setting.HostedPaymentConfig, o
 
 func HostedPaymentWebhook(c *gin.Context) {
 	provider, environment := c.Param("provider"), c.Param("env")
+	if c.Request.Method == http.MethodGet && provider != "zpay" {
+		c.Status(http.StatusMethodNotAllowed)
+		return
+	}
 	settings, err := setting.GetHostedPaymentSettings()
 	cfg, exists := settings[provider]
 	if err != nil || !exists || !cfg.Enabled || cfg.Environment != environment || environment != setting.HostedPaymentsEnvironment() {
 		c.String(http.StatusForbidden, "payment webhook unavailable")
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 256*1024+1))
+	var body []byte
+	if c.Request.Method == http.MethodGet {
+		body = []byte(c.Request.URL.RawQuery)
+	} else {
+		body, err = io.ReadAll(io.LimitReader(c.Request.Body, 256*1024+1))
+	}
 	if err != nil || len(body) > 256*1024 {
 		c.String(http.StatusBadRequest, "invalid payload")
 		return
@@ -276,8 +291,12 @@ func HostedPaymentWebhook(c *gin.Context) {
 		c.String(http.StatusUnauthorized, "invalid payment notification")
 		return
 	}
+	acknowledgement := "OK"
+	if provider == "zpay" {
+		acknowledgement = "success"
+	}
 	if event == nil {
-		c.String(http.StatusOK, "OK")
+		c.String(http.StatusOK, acknowledgement)
 		return
 	}
 	var order *model.HostedPayment
@@ -294,12 +313,12 @@ func HostedPaymentWebhook(c *gin.Context) {
 	}
 	LockOrder(order.TradeNo)
 	defer UnlockOrder(order.TradeNo)
-	if _, err := verifyHostedOrderPayment(c, cfg, order, event.RemoteID, event.PaymentID); err != nil {
+	if paid, err := verifyHostedOrderPayment(c, cfg, order, event.RemoteID, event.PaymentID); err != nil || (event.ExpectsPaid && !paid) {
 		logger.LogWarn(c.Request.Context(), common.LogText("Hosted payment verification failed provider=%s trade_no=%s", provider, order.TradeNo))
 		c.String(http.StatusServiceUnavailable, "retry")
 		return
 	}
-	c.String(http.StatusOK, "OK")
+	c.String(http.StatusOK, acknowledgement)
 }
 
 func ReconcileHostedPayment(c *gin.Context) {
@@ -338,10 +357,10 @@ func appendHostedPaymentMethods(payMethods []map[string]string) []map[string]str
 	if err != nil || !isPaymentComplianceConfirmed() {
 		return payMethods
 	}
-	names := map[string]string{"lianlian": "LianLian", "nowpayments": "Crypto · NOWPayments", "paypal": "PayPal"}
+	names := map[string]string{"cispay": "cisPay", "lianlian": "LianLian", "nowpayments": "Crypto · NOWPayments", "paypal": "PayPal", "zpay": "ZPAY"}
 	for _, provider := range setting.HostedPaymentProviders {
 		cfg := settings[provider]
-		if cfg.Enabled && cfg.AcceptNew && cfg.Validate(provider) == nil && cfg.Environment == setting.HostedPaymentsEnvironment() {
+		if setting.HostedPaymentSelected(provider) && cfg.Enabled && cfg.AcceptNew && cfg.Validate(provider) == nil && cfg.Environment == setting.HostedPaymentsEnvironment() {
 			payMethods = append(payMethods, map[string]string{"name": names[provider], "type": provider,
 				"min_topup": fmt.Sprint(cfg.MinTopUp), "currency": cfg.Currency, "unit_price": cfg.UnitPrice})
 		}

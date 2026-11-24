@@ -70,9 +70,16 @@ export function HostedProviderForm(props: {
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const selected = props.config.deployment_selected !== false
   const form = useForm<HostedConfigValues>({
     resolver: zodResolver(hostedConfigSchema),
-    defaultValues: props.config,
+    defaultValues: {
+      ...props.config,
+      accept_new:
+        selected &&
+        !(props.provider === 'cispay' && props.config.environment === 'test') &&
+        props.config.accept_new,
+    },
   })
   const save = useMutation({
     mutationFn: (values: HostedConfigValues) =>
@@ -88,6 +95,8 @@ export function HostedProviderForm(props: {
     },
   })
   const environment = form.watch('environment')
+  const canCreate =
+    selected && !(props.provider === 'cispay' && environment === 'test')
   const webhook = `${props.serverAddress.replace(/\/$/, '')}/api/payments/${props.provider}/webhook/${environment}`
   const commonFields: HostedTextField[] = [
     { key: 'currency', label: 'Settlement currency' },
@@ -96,7 +105,9 @@ export function HostedProviderForm(props: {
   return (
     <Form {...form}>
       <SettingsForm
-        onSubmit={form.handleSubmit((values) => save.mutate(values))}
+        onSubmit={form.handleSubmit((values) =>
+          save.mutate({ ...values, accept_new: canCreate && values.accept_new })
+        )}
         data-no-autosubmit='true'
       >
         <Alert>
@@ -106,6 +117,33 @@ export function HostedProviderForm(props: {
             )}
           </AlertDescription>
         </Alert>
+        {props.provider === 'cispay' && (
+          <Alert>
+            <AlertDescription>
+              {t(
+                'cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.'
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        {!selected && (
+          <Alert>
+            <AlertDescription>
+              {t(
+                'This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.'
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        {props.provider === 'cispay' && environment === 'test' && (
+          <Alert>
+            <AlertDescription>
+              {t(
+                'Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders.'
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         {props.provider === 'nowpayments' && (
           <Alert>
             <AlertDescription>
@@ -154,8 +192,9 @@ export function HostedProviderForm(props: {
               </SettingsSwitchContent>
               <FormControl>
                 <Switch
-                  checked={field.value}
+                  checked={field.value && canCreate}
                   onCheckedChange={field.onChange}
+                  disabled={!canCreate}
                 />
               </FormControl>
             </SettingsSwitchItem>
@@ -238,31 +277,37 @@ export function HostedProviderForm(props: {
             />
           )
         )}
-        {props.provider === 'lianlian' && (
+        {(props.provider === 'cispay' ||
+          props.provider === 'lianlian' ||
+          props.provider === 'zpay') && (
           <>
-            <FormField
-              control={form.control}
-              name='signature_type'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Signature type')}</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value='HMAC-SHA256'>HMAC-SHA256</SelectItem>
-                        <SelectItem value='RSA'>RSA</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {props.provider === 'lianlian' && (
+              <FormField
+                control={form.control}
+                name='signature_type'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Signature type')}</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value='HMAC-SHA256'>
+                            HMAC-SHA256
+                          </SelectItem>
+                          <SelectItem value='RSA'>RSA</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name='checkout_hosts'

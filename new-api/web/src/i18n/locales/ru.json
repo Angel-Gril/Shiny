@@ -7509,7 +7509,17 @@
     "Verifying...": "Проверка…",
     "Webhook ID": "ID вебхука",
     "Webhook signing secret": "Секрет подписи вебхука",
-    "Payment environment does not match this instance": "Среда платежей не соответствует этому экземпляру"
+    "Payment environment does not match this instance": "Среда платежей не соответствует этому экземпляру",
+    "cisPay Shop ID": "ID магазина cisPay",
+    "cisPay API Key": "API-ключ cisPay",
+    "cisPay payment method (CARD, SBP, CRYPTO)": "Способ оплаты cisPay (CARD, SBP, CRYPTO)",
+    "cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.": "cisPay использует собственную страницу оплаты. Оставьте способ оплаты пустым, чтобы использовать методы, подключённые для магазина; для CARD и SBP требуется RUB.",
+    "ZPAY merchant ID": "ID продавца ZPAY",
+    "ZPAY merchant key": "Ключ продавца ZPAY",
+    "ZPAY payment method (alipay, wxpay)": "Способ оплаты ZPAY (alipay, wxpay)",
+    "Payment provider is not selected for this deployment": "Платёжный провайдер не выбран для этого экземпляра",
+    "This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.": "В этом экземпляре провайдер не принимает новые платежи. Уведомления и восстановление ранее созданных платежей доступны.",
+    "Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders.": "Создавайте тестовые платежи в кабинете cisPay. Этот тестовый экземпляр только проверяет уведомления и восстанавливает тестовые заказы."
   },
   "Legacy Shiny audit": "Прежний аудит Shiny",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Новые правила задавайте в обработке запросов. Прежние настройки оставлены для совместимости; не включайте обе проверки для одного запроса."

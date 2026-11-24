@@ -7509,7 +7509,17 @@
     "Verifying...": "Đang xác minh…",
     "Webhook ID": "ID webhook",
     "Webhook signing secret": "Bí mật ký webhook",
-    "Payment environment does not match this instance": "Môi trường thanh toán không khớp với phiên bản này"
+    "Payment environment does not match this instance": "Môi trường thanh toán không khớp với phiên bản này",
+    "cisPay Shop ID": "ID cửa hàng cisPay",
+    "cisPay API Key": "Khóa API cisPay",
+    "cisPay payment method (CARD, SBP, CRYPTO)": "Phương thức thanh toán cisPay (CARD, SBP, CRYPTO)",
+    "cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.": "cisPay sử dụng trang thanh toán do họ lưu trữ. Để trống phương thức để dùng các phương thức đã bật cho cửa hàng; CARD và SBP yêu cầu RUB.",
+    "ZPAY merchant ID": "ID người bán ZPAY",
+    "ZPAY merchant key": "Khóa người bán ZPAY",
+    "ZPAY payment method (alipay, wxpay)": "Phương thức thanh toán ZPAY (alipay, wxpay)",
+    "Payment provider is not selected for this deployment": "Nhà cung cấp thanh toán chưa được chọn cho triển khai này",
+    "This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.": "Nhà cung cấp này không nhận thanh toán mới trong triển khai này. Thông báo và khôi phục thanh toán hiện có vẫn khả dụng.",
+    "Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders.": "Tạo thanh toán sandbox trong bảng điều khiển cisPay. Phiên bản thử nghiệm này chỉ xác minh thông báo và khôi phục đơn sandbox."
   },
   "Legacy Shiny audit": "Kiểm tra Shiny cũ",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu."

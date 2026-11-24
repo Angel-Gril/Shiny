@@ -45,6 +45,7 @@ export const hostedConfigSchema = z.object({
   goods_url: z.string(),
   shipping_provider: z.string(),
   pay_currency: z.string(),
+  payment_method: z.string(),
   client_id: z.string(),
   client_secret: z.string(),
   merchant_id: z.string(),
@@ -63,11 +64,21 @@ export type HostedTextField = {
 }
 
 export const hostedProviderNames: Record<HostedProvider, string> = {
+  cispay: 'cisPay',
   lianlian: 'LianLian',
   nowpayments: 'NOWPayments',
   paypal: 'PayPal',
+  zpay: 'ZPAY',
 }
 export const hostedProviderFields: Record<HostedProvider, HostedTextField[]> = {
+  cispay: [
+    { key: 'store_id', label: 'cisPay Shop ID' },
+    { key: 'api_key', label: 'cisPay API Key', secret: true },
+    {
+      key: 'payment_method',
+      label: 'cisPay payment method (CARD, SBP, CRYPTO)',
+    },
+  ],
   lianlian: [
     { key: 'api_key', label: 'API Key', secret: true },
     { key: 'api_secret', label: 'API Secret (Base64)', secret: true },
@@ -102,5 +113,10 @@ export const hostedProviderFields: Record<HostedProvider, HostedTextField[]> = {
     { key: 'client_secret', label: 'Client secret', secret: true },
     { key: 'merchant_id', label: 'Merchant ID' },
     { key: 'webhook_id', label: 'Webhook ID' },
+  ],
+  zpay: [
+    { key: 'merchant_id', label: 'ZPAY merchant ID' },
+    { key: 'api_secret', label: 'ZPAY merchant key', secret: true },
+    { key: 'payment_method', label: 'ZPAY payment method (alipay, wxpay)' },
   ],
 }

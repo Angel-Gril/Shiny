@@ -207,7 +207,7 @@ func (client *HostedPaymentClient) verifyNOWPayments(body []byte, headers http.H
 	if !regexp.MustCompile(`^\d{1,30}$`).MatchString(paymentID) {
 		return nil, errors.New("invalid payment ID")
 	}
-	return &HostedPaymentEvent{Reference: data.OrderID, PaymentID: paymentID}, nil
+	return &HostedPaymentEvent{Reference: data.OrderID, PaymentID: paymentID, ExpectsPaid: data.Status == "finished"}, nil
 }
 
 func (client *HostedPaymentClient) queryNOWPayments(ctx context.Context, paymentID string) (*HostedPaymentResult, error) {

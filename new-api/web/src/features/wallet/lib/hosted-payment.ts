@@ -21,7 +21,7 @@ import { api } from '@/lib/api'
 import type { AmountResponse, PaymentResponse } from '../types'
 
 export function isHostedPayment(type: string): boolean {
-  return ['lianlian', 'nowpayments', 'paypal'].includes(type)
+  return ['cispay', 'lianlian', 'nowpayments', 'paypal', 'zpay'].includes(type)
 }
 
 export async function calculateHostedAmount(

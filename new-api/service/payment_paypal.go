@@ -159,10 +159,10 @@ func (client *HostedPaymentClient) verifyPayPal(ctx context.Context, body []byte
 		return nil, errors.New("invalid PayPal signature")
 	}
 	if event.EventType == "CHECKOUT.ORDER.APPROVED" {
-		return &HostedPaymentEvent{RemoteID: event.Resource.ID}, nil
+		return &HostedPaymentEvent{RemoteID: event.Resource.ID, ExpectsPaid: true}, nil
 	}
 	if event.EventType == "PAYMENT.CAPTURE.COMPLETED" {
-		return &HostedPaymentEvent{RemoteID: event.Resource.SupplementaryData.RelatedIDs.OrderID}, nil
+		return &HostedPaymentEvent{RemoteID: event.Resource.SupplementaryData.RelatedIDs.OrderID, ExpectsPaid: true}, nil
 	}
 	return nil, nil
 }

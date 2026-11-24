@@ -19,7 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
-export const hostedProviders = ['lianlian', 'nowpayments', 'paypal'] as const
+export const hostedProviders = [
+  'cispay',
+  'lianlian',
+  'nowpayments',
+  'paypal',
+  'zpay',
+] as const
 export type HostedProvider = (typeof hostedProviders)[number]
 
 export interface HostedPaymentConfig {
@@ -45,11 +51,13 @@ export interface HostedPaymentConfig {
   goods_url: string
   shipping_provider: string
   pay_currency: string
+  payment_method: string
   client_id: string
   client_secret: string
   merchant_id: string
   webhook_id: string
   secrets_configured?: string[]
+  deployment_selected?: boolean
 }
 
 interface HostedResponse<T> {

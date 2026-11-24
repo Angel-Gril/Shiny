@@ -4,11 +4,13 @@ on:
     paths:
       - 'new-api/**'
       - 'ops/ru/payment-native*'
+      - 'ops/payments/**'
       - '.github/workflows/native-payments.yml'
   pull_request:
     paths:
       - 'new-api/**'
       - 'ops/ru/payment-native*'
+      - 'ops/payments/**'
       - '.github/workflows/native-payments.yml'
 permissions:
   contents: read

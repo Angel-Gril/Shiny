@@ -7509,7 +7509,17 @@
     "Verifying...": "確認中…",
     "Webhook ID": "Webhook ID",
     "Webhook signing secret": "Webhook 署名シークレット",
-    "Payment environment does not match this instance": "決済環境がこのインスタンスと一致しません"
+    "Payment environment does not match this instance": "決済環境がこのインスタンスと一致しません",
+    "cisPay Shop ID": "cisPay ショップ ID",
+    "cisPay API Key": "cisPay API キー",
+    "cisPay payment method (CARD, SBP, CRYPTO)": "cisPay 支払い方法（CARD、SBP、CRYPTO）",
+    "cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.": "cisPay のホステッド決済ページを使用します。支払い方法を空欄にするとショップで有効な方法を使用します。CARD と SBP には RUB が必要です。",
+    "ZPAY merchant ID": "ZPAY 加盟店 ID",
+    "ZPAY merchant key": "ZPAY 加盟店キー",
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支払い方法（alipay、wxpay）",
+    "Payment provider is not selected for this deployment": "このデプロイでは決済プロバイダーが選択されていません",
+    "This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.": "このデプロイではこのプロバイダーでの新規決済は停止されています。既存決済の通知と復旧は引き続き利用できます。",
+    "Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders.": "cisPay の加盟店管理画面でサンドボックス決済を作成してください。このテスト環境は通知検証とテスト注文の復旧のみを行います。"
   },
   "Legacy Shiny audit": "従来の Shiny 監査",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新しいルールは「リクエスト処理」で設定してください。従来の設定は互換性のために残されています。同じリクエストに両方の監査を有効にしないでください。"

@@ -45,7 +45,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 - 可以共用已验证的 `shinyapi.com` 发信域名及邮件供应商；**RU 实例要单独填自己的 SMTP/发信设置、品牌、站点 URL**，可使用 `no-reply@shinyapi.com` 或专用地址。需要辨别“CF 邮箱”：Cloudflare Email Routing 是收信转发，不等于 SMTP 发信服务；若主站使用 Worker/其他发信服务，需核验它允许 RU 站点链接及发件人。
 - Cloudflare Turnstile 是另一项配置；现有 site key 若未授权 `ru.shinyapi.com`，需添加域名或新建独立 key，并填入 RU 实例。验收注册、重置密码、链接域名和验证码。
 - 当前网页已有俄语翻译；后端 `DEFAULT_LANGUAGE` 模板设为 `en`，因为当前支持的系统邮件语言为 en/zh-CN/zh-TW。俄语事务邮件是后续工作，不能仅改前端语言就声称已完成。
-- 推荐 [原生国际支付](payment-native.md)：在 RU `/system-settings/billing/international-payments` 分别配置 NOWPayments、连连全球收单和 PayPal，默认关闭。通知直接到 RU New API，不需要新增支付服务或子域名；需使用本分支构建的候选二进制。原有 Stripe/Creem/Waffo/ZPAY 等继续独立配置。不能升级 New API 时才考虑可选 [payment-bridge](../../payment-bridge/README.md)；两种模式不要重复开放同一个支付商。
+- 推荐 [原生国际支付](payment-native.md)：在 RU `/system-settings/billing/international-payments` 分别配置 cisPay、NOWPayments、连连全球收单、PayPal 和 ZPAY，默认关闭。[支付模块分组](../payments/README.md) 提供按需组合；模板 `PAYMENTS_PROVIDERS=none` 先关闭新充值，开户后再选择已批准渠道。通知直接到 RU New API，不需要新增支付服务或子域名；需使用本分支构建的候选二进制。原有 Stripe/Creem/Waffo/易支付等继续独立配置，不受新清单控制。不能升级 New API 时才考虑可选 [payment-bridge](../../payment-bridge/README.md)；两种模式不要重复开放同一个支付商。
 - `/user-agreement`、`/privacy-policy` 复用 RU 控制台，运营方须配置本服务实际条款、支持联系方式及隐私说明后开放收款。
 
 ## 必做候选验收

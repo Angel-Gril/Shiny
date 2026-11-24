@@ -45,7 +45,8 @@ func GetHostedPayment(tradeNo string) (*HostedPayment, error) {
 func AttachHostedPaymentDetails(topups []*TopUp) error {
 	refs := []string{}
 	for _, topup := range topups {
-		if topup.PaymentProvider == "lianlian" || topup.PaymentProvider == "nowpayments" || topup.PaymentProvider == "paypal" {
+		if topup.PaymentProvider == "cispay" || topup.PaymentProvider == "lianlian" ||
+			topup.PaymentProvider == "nowpayments" || topup.PaymentProvider == "paypal" || topup.PaymentProvider == "zpay" {
 			refs = append(refs, topup.TradeNo)
 		}
 	}

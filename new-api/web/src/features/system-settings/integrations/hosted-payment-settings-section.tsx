@@ -77,7 +77,14 @@ function HostedReconcileForm(props: { provider: HostedProvider }) {
   const fields = [
     { key: 'trade_no', label: 'Shiny order number' },
     { key: 'remote_id', label: 'Provider order ID (optional)' },
-    { key: 'payment_id', label: 'NOWPayments Payment ID (optional)' },
+    ...(props.provider === 'nowpayments'
+      ? [
+          {
+            key: 'payment_id',
+            label: 'NOWPayments Payment ID (optional)',
+          } as const,
+        ]
+      : []),
   ] as const
   return (
     <Form {...form}>
@@ -122,7 +129,7 @@ function HostedReconcileForm(props: { provider: HostedProvider }) {
 
 export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
   const { t } = useTranslation()
-  const [provider, setProvider] = useState<HostedProvider>('lianlian')
+  const [provider, setProvider] = useState<HostedProvider | null>(null)
   const query = useQuery({
     queryKey: ['hosted-payments'],
     queryFn: getHostedSettings,
@@ -131,17 +138,22 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
   if (query.isError || !query.data) {
     return <ErrorState onRetry={() => void query.refetch()} />
   }
+  const initialProvider =
+    hostedProviders.find(
+      (item) => query.data[item]?.deployment_selected !== false
+    ) ?? 'cispay'
+  const activeProvider = provider ?? initialProvider
   return (
     <SettingsSection title={t('International payments')}>
       <Tabs
-        value={provider}
+        value={activeProvider}
         onValueChange={(value) => {
           if (hostedProviders.includes(value as HostedProvider)) {
             setProvider(value as HostedProvider)
           }
         }}
       >
-        <TabsList>
+        <TabsList className='max-w-full justify-start overflow-x-auto'>
           {hostedProviders.map((item) => (
             <TabsTrigger key={item} value={item}>
               {hostedProviderNames[item]}

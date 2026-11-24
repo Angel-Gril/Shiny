@@ -3,16 +3,20 @@ package controller
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Calcium-Ion/go-epay/epay"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
@@ -165,6 +169,95 @@ func TestHostedCheckoutAndVerifiedCallbackCreditTheSavedQuoteOnce(t *testing.T) 
 	require.Empty(t, order.CheckoutURL)
 }
 
+func TestHostedCisPayKeepsCustomerIdentityAndRejectsSandboxBeforeCrediting(t *testing.T) {
+	hostedControllerFixture(t)
+	previousAddress, previousQuota := system_setting.ServerAddress, common.QuotaPerUnit
+	previousDiscounts := operation_setting.GetPaymentSetting().AmountDiscount
+	previousDisplay, previousTransport := operation_setting.GetGeneralSetting().QuotaDisplayType, http.DefaultTransport
+	t.Cleanup(func() {
+		system_setting.ServerAddress, common.QuotaPerUnit = previousAddress, previousQuota
+		operation_setting.GetPaymentSetting().AmountDiscount = previousDiscounts
+		operation_setting.GetGeneralSetting().QuotaDisplayType, http.DefaultTransport = previousDisplay, previousTransport
+	})
+	system_setting.ServerAddress, common.QuotaPerUnit = "https://ru.example.com", 500000
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	operation_setting.GetPaymentSetting().AmountDiscount = map[int]float64{}
+	user := model.User{Username: "cispay-checkout", Group: "default", Status: common.UserStatusEnabled, Quota: 100}
+	require.NoError(t, model.DB.Create(&user).Error)
+	cfg := setting.DefaultHostedPaymentConfig("cispay")
+	cfg.Enabled, cfg.AcceptNew, cfg.Environment, cfg.UnitPrice = true, true, "live", "95"
+	cfg.StoreID, cfg.APIKey = "019ad028-2100-7000-8000-000000000001", "cis_sec_fixture-key"
+	cfg.CheckoutHosts, cfg.PaymentMethod = []string{"checkout.cispay.app"}, "SBP"
+	raw, err := common.Marshal(setting.HostedPaymentSettings{"cispay": cfg})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	tradeNo, remoteID := "", "019ad028-2100-7000-8000-000000000002"
+	sandbox, paymentAmount, queries := true, int64(95000), 0
+	http.DefaultTransport = hostedControllerTransport(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "api.cispay.app", request.URL.Host)
+		var response map[string]any
+		switch request.URL.Path {
+		case "/payments":
+			var payload map[string]any
+			require.NoError(t, common.DecodeJson(request.Body, &payload))
+			tradeNo = payload["order_id"].(string)
+			require.Equal(t, "user-"+fmt.Sprint(user.Id), payload["customer_id"])
+			require.Equal(t, float64(95000), payload["amount"])
+			response = map[string]any{"id": remoteID, "order_id": tradeNo, "status": "PENDING", "amount": 95000,
+				"charged_amount": 96000, "payment_url": "https://checkout.cispay.app/pay/fixture"}
+		case "/payments/status":
+			queries++
+			require.Equal(t, remoteID, request.URL.Query().Get("id"))
+			response = map[string]any{"id": remoteID, "order_id": tradeNo, "status": "PAID", "amount": paymentAmount,
+				"charged_amount": 96000, "currency": "RUB", "is_sandbox": sandbox, "payment_method": "SBP"}
+		default:
+			t.Fatalf("unexpected provider request: %s", request.URL.Path)
+		}
+		body, err := common.Marshal(response)
+		require.NoError(t, err)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(body))}, nil
+	})
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", user.Id)
+	ctx.Params = gin.Params{{Key: "provider", Value: "cispay"}}
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(`{"amount":10}`))
+	RequestHostedPay(ctx)
+	require.Contains(t, recorder.Body.String(), "checkout_url")
+	callback := func(signatureValid bool) int {
+		body, err := common.Marshal(map[string]any{"id": remoteID, "store_id": cfg.StoreID, "order_id": tradeNo,
+			"status": "PAID", "amount": 95000, "currency": "RUB", "is_sandbox": false})
+		require.NoError(t, err)
+		mac := hmac.New(sha256.New, []byte(cfg.APIKey))
+		mac.Write(body)
+		response := httptest.NewRecorder()
+		context, _ := gin.CreateTestContext(response)
+		context.Params = gin.Params{{Key: "provider", Value: "cispay"}, {Key: "env", Value: "live"}}
+		context.Request = httptest.NewRequest(http.MethodPost, "/webhook/live", bytes.NewReader(body))
+		if signatureValid {
+			context.Request.Header.Set("X-Signature", hex.EncodeToString(mac.Sum(nil)))
+		}
+		HostedPaymentWebhook(context)
+		return response.Code
+	}
+	require.Equal(t, http.StatusUnauthorized, callback(false))
+	require.Zero(t, queries, "an invalid signature must not contact the provider")
+	require.Equal(t, http.StatusServiceUnavailable, callback(true), "sandbox money cannot credit the live wallet")
+	sandbox, paymentAmount = false, 95001
+	require.Equal(t, http.StatusServiceUnavailable, callback(true), "an amount mismatch cannot credit the wallet")
+	require.Equal(t, common.TopUpStatusPending, model.GetTopUpByTradeNo(tradeNo).Status)
+	paymentAmount = 95000
+	require.Equal(t, http.StatusOK, callback(true))
+	require.Equal(t, http.StatusOK, callback(true))
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 5000100, credited.Quota, "credit the stored quote once, without the customer's processing fee")
+	orders := []*model.TopUp{model.GetTopUpByTradeNo(tradeNo)}
+	require.NoError(t, model.AttachHostedPaymentDetails(orders))
+	require.Equal(t, "RUB", orders[0].PaymentCurrency)
+	require.Equal(t, "paid", orders[0].PaymentState)
+}
+
 func TestHostedSettingsKeepSecretsAndPreservePausedWebhook(t *testing.T) {
 	cfg := hostedControllerFixture(t)
 	cfg.AcceptNew, cfg.APIKey, cfg.APISecret, cfg.WebhookSecret = false, "", "", ""
@@ -191,6 +284,93 @@ func TestHostedSettingsKeepSecretsAndPreservePausedWebhook(t *testing.T) {
 	require.False(t, available)
 	_, available = hostedPaymentConfig(ctx, false)
 	require.True(t, available)
+}
+
+func TestHostedDeploymentSelectionStopsNewSalesAndPreservesExistingCallbacks(t *testing.T) {
+	cfg := hostedControllerFixture(t)
+	t.Setenv("PAYMENTS_PROVIDERS", "cispay,nowpayments")
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Params = gin.Params{{Key: "provider", Value: "lianlian"}}
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(`{"amount":10}`))
+	_, available := hostedPaymentConfig(ctx, true)
+	require.False(t, available, "deployment selection must be enforced on the server")
+	_, available = hostedPaymentConfig(ctx, false)
+	require.True(t, available, "removed providers must still drain existing payments")
+	require.Empty(t, appendHostedPaymentMethods(nil))
+	public := cfg.Public("lianlian")
+	require.NotNil(t, public.DeploymentSelected)
+	require.False(t, *public.DeploymentSelected)
+	require.Empty(t, public.APIKey)
+	for _, selection := range []string{"none", "cispay,cispay", "cispay,unknown", ""} {
+		t.Setenv("PAYMENTS_PROVIDERS", selection)
+		providers, err := setting.SelectedHostedPaymentProviders()
+		switch selection {
+		case "none":
+			require.NoError(t, err)
+			require.Empty(t, providers)
+		case "cispay,cispay":
+			require.NoError(t, err)
+			require.Equal(t, []string{"cispay"}, providers)
+		default:
+			require.Error(t, err, "invalid deployment names cannot silently enable everything")
+		}
+	}
+}
+
+func TestHostedZPayGetCallbackUsesVerifiedQueryAndAcknowledgesDuplicates(t *testing.T) {
+	hostedControllerFixture(t)
+	previousTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	t.Setenv("PAYMENTS_PROVIDERS", "none") // Drain a gateway removed from new sales.
+	cfg := setting.DefaultHostedPaymentConfig("zpay")
+	cfg.Enabled, cfg.AcceptNew, cfg.MerchantID, cfg.APISecret = true, false, "123456", "fixture-secret"
+	cfg.CheckoutHosts = []string{"zpayz.cn"}
+	raw, err := common.Marshal(setting.HostedPaymentSettings{"zpay": cfg})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{setting.HostedPaymentOption: string(raw)}))
+	user := model.User{Username: "zpay-callback", Status: common.UserStatusEnabled, Quota: 50}
+	require.NoError(t, model.DB.Create(&user).Error)
+	order := model.HostedPayment{TradeNo: "HP-zpay", Provider: "zpay", Identity: cfg.Identity("zpay"), RemoteID: "202611240001", Amount: "10.50", Currency: "CNY", State: "pending"}
+	require.NoError(t, model.CreateHostedPayment(&model.TopUp{UserId: user.Id, TradeNo: order.TradeNo, Amount: 1, CreditedQuota: 1000,
+		Money: 10.5, PaymentProvider: "zpay", PaymentMethod: "zpay", Status: common.TopUpStatusPending}, &order))
+	sdk, err := epay.NewClient(&epay.Config{PartnerID: cfg.MerchantID, Key: cfg.APISecret}, "https://zpayz.cn")
+	require.NoError(t, err)
+	params, err := sdk.SignParams(map[string]string{"out_trade_no": order.TradeNo, "trade_no": order.RemoteID, "money": order.Amount, "type": "alipay", "trade_status": "TRADE_SUCCESS"})
+	require.NoError(t, err)
+	values := url.Values{}
+	for key, value := range params {
+		values.Set(key, value)
+	}
+	money, paymentStatus := "10.51", 0
+	http.DefaultTransport = hostedControllerTransport(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "zpayz.cn", request.URL.Host)
+		body, err := common.Marshal(map[string]any{"code": 1, "pid": cfg.MerchantID, "out_trade_no": order.TradeNo,
+			"trade_no": order.RemoteID, "money": money, "status": paymentStatus, "type": "alipay"})
+		require.NoError(t, err)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(body))}, nil
+	})
+	callback := func() *httptest.ResponseRecorder {
+		response := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(response)
+		ctx.Params = gin.Params{{Key: "provider", Value: "zpay"}, {Key: "env", Value: "live"}}
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/api/payments/zpay/webhook/live?"+values.Encode(), nil)
+		HostedPaymentWebhook(ctx)
+		return response
+	}
+	require.Equal(t, http.StatusServiceUnavailable, callback().Code)
+	money = order.Amount
+	require.Equal(t, http.StatusServiceUnavailable, callback().Code, "do not acknowledge a paid notification before the query confirms payment")
+	var credited model.User
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 50, credited.Quota)
+	paymentStatus = 1
+	for range 2 {
+		response := callback()
+		require.Equal(t, http.StatusOK, response.Code)
+		require.Equal(t, "success", response.Body.String())
+	}
+	require.NoError(t, model.DB.First(&credited, user.Id).Error)
+	require.Equal(t, 1050, credited.Quota)
 }
 
 func TestHostedSettingsRejectMerchantChangeWhenPaymentPending(t *testing.T) {

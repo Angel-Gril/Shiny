@@ -179,7 +179,7 @@ func (client *HostedPaymentClient) verifyLianLian(body []byte, headers http.Head
 	if event.DeveloperUserID != client.Config.DeveloperUserID || event.Data.UserID != client.Config.UserID || event.Data.StoreID != client.Config.StoreID {
 		return nil, errors.New("payment merchant mismatch")
 	}
-	return &HostedPaymentEvent{Reference: event.Data.MerchantOrderNo, RemoteID: event.Data.PayOrderNo}, nil
+	return &HostedPaymentEvent{Reference: event.Data.MerchantOrderNo, RemoteID: event.Data.PayOrderNo, ExpectsPaid: true}, nil
 }
 
 func (client *HostedPaymentClient) queryLianLian(ctx context.Context, remoteID string) (*HostedPaymentResult, error) {

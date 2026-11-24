@@ -7509,7 +7509,17 @@
     "Verifying...": "Verifying...",
     "Webhook ID": "Webhook ID",
     "Webhook signing secret": "Webhook signing secret",
-    "Payment environment does not match this instance": "Payment environment does not match this instance"
+    "Payment environment does not match this instance": "Payment environment does not match this instance",
+    "cisPay Shop ID": "cisPay Shop ID",
+    "cisPay API Key": "cisPay API Key",
+    "cisPay payment method (CARD, SBP, CRYPTO)": "cisPay payment method (CARD, SBP, CRYPTO)",
+    "cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.": "cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.",
+    "ZPAY merchant ID": "ZPAY merchant ID",
+    "ZPAY merchant key": "ZPAY merchant key",
+    "ZPAY payment method (alipay, wxpay)": "ZPAY payment method (alipay, wxpay)",
+    "Payment provider is not selected for this deployment": "Payment provider is not selected for this deployment",
+    "This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.": "This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.",
+    "Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders.": "Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders."
   },
   "Legacy Shiny audit": "Legacy Shiny audit",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests."

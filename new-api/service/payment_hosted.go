@@ -29,10 +29,22 @@ type HostedCheckout struct {
 	URL      string
 }
 
+// Customer facts are supplied by the authenticated request and never inferred
+// from an order number or supplied by an untrusted checkout payload.
+type HostedCheckoutOptions struct {
+	ReturnURL  string
+	WebhookURL string
+	CustomerID string
+	ClientIP   string
+}
+
 type HostedPaymentEvent struct {
 	Reference string
 	RemoteID  string
 	PaymentID string
+	// A successful notification must be retried if the authoritative query has
+	// not caught up; acknowledging it early can leave a paid order uncredited.
+	ExpectsPaid bool
 }
 
 type HostedPaymentResult struct {
@@ -51,14 +63,18 @@ func NewHostedPaymentClient(provider string, cfg setting.HostedPaymentConfig) *H
 	}}
 }
 
-func (client *HostedPaymentClient) Create(ctx context.Context, order *model.HostedPayment, returnURL, webhookURL string) (*HostedCheckout, error) {
+func (client *HostedPaymentClient) Create(ctx context.Context, order *model.HostedPayment, options HostedCheckoutOptions) (*HostedCheckout, error) {
 	switch client.Provider {
+	case "cispay":
+		return client.createCisPay(ctx, order, options)
+	case "zpay":
+		return client.createZPay(ctx, order, options)
 	case "lianlian":
-		return client.createLianLian(ctx, order, returnURL)
+		return client.createLianLian(ctx, order, options.ReturnURL)
 	case "nowpayments":
-		return client.createNOWPayments(ctx, order, returnURL, webhookURL)
+		return client.createNOWPayments(ctx, order, options.ReturnURL, options.WebhookURL)
 	case "paypal":
-		return client.createPayPal(ctx, order, returnURL)
+		return client.createPayPal(ctx, order, options.ReturnURL)
 	default:
 		return nil, errors.New("unsupported payment provider")
 	}
@@ -66,6 +82,10 @@ func (client *HostedPaymentClient) Create(ctx context.Context, order *model.Host
 
 func (client *HostedPaymentClient) VerifyWebhook(ctx context.Context, body []byte, headers http.Header) (*HostedPaymentEvent, error) {
 	switch client.Provider {
+	case "cispay":
+		return client.verifyCisPay(body, headers)
+	case "zpay":
+		return client.verifyZPay(body)
 	case "lianlian":
 		return client.verifyLianLian(body, headers)
 	case "nowpayments":
@@ -79,6 +99,10 @@ func (client *HostedPaymentClient) VerifyWebhook(ctx context.Context, body []byt
 
 func (client *HostedPaymentClient) Query(ctx context.Context, order *model.HostedPayment, remoteID, paymentID string) (*HostedPaymentResult, error) {
 	switch client.Provider {
+	case "cispay":
+		return client.queryCisPay(ctx, order, remoteID)
+	case "zpay":
+		return client.queryZPay(ctx, order, remoteID)
 	case "lianlian":
 		return client.queryLianLian(ctx, remoteID)
 	case "nowpayments":

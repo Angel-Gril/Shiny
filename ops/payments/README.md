@@ -1,0 +1,65 @@
+# 可选支付模块
+
+支付模块在商业分支 `commercial/ru-portal` 内单独归组：这里保存供应商清单与部署组合，原生实现位于 `new-api/service/payment_*.go`，管理入口为 `/system-settings/billing/international-payments`。功能范围是托管收银台钱包充值，包括创建订单、验签、官方查单、金额与商户核对、一次入账和人工查单恢复。
+
+RU New API 直接对接支付商，收银台由支付商提供。无需搭建第三方支付平台、额外支付服务或 `pay-ru` 子域名。RU 账户、订单、余额和日志使用独立数据库；模型渠道仍可通过服务器内专用 Key 使用主站。参见 [RU 架构](../ru/README.md) 和 [各支付商配置](../ru/payment-native.md)。
+
+## 协议与适用组合
+
+| 模块名 | 官方协议 | 当前充值接入 | 部署选择 |
+| --- | --- | --- | --- |
+| `cispay` | Merchant REST API，`X-Shop-ID` / `X-Api-Key`，原始通知 HMAC-SHA256 | RUB 卡/SBP、Shop 已启用的 CRYPTO；核对原报价，正式创单 | `ru-local.env.example` |
+| `nowpayments` | Invoice REST API，API Key，排序 JSON 的 IPN HMAC-SHA512 | USD 报价，托管币/网络选择，完成且足额后入账 | `crypto.env.example` |
+| `lianlian` | Open Platform v1 acquiring CHECKOUT，Bearer、HMAC/RSA | 已获批全球收单商户，响应与通知验签、权威查单 | `international.env.example` |
+| `paypal` | Orders v2、OAuth2、官方 webhook 验签 | 商户/金额核对后幂等 capture，完成后入账 | `international.env.example` |
+| `zpay` | 易支付兼容 MD5，multipart 创单、GET 回调 | CNY 支付宝/微信 `payurl` 托管跳转、验签后查单 | `zpay.env.example` |
+
+[providers.json](providers.json) 记录原生模块、环境和官方文档地址。Stripe、Creem、Waffo、Waffo Pancake、易支付沿用 New API 已有配置页，**不受下面的 `PAYMENTS_PROVIDERS` 控制**；关闭它们须在对应设置页操作。不要通过原生 ZPAY 和旧易支付同时开放同一商户的相同支付方式。
+
+支付商开户及可受理地区取决于实际合同与商户能力。俄区初期可评估 cisPay 本地方式和 NOWPayments；连连需要明确的 CHECKOUT 权限，资料审核通知不能作为充值成功通知。PayPal 用于平台允许的地区，不作为俄罗斯本地付款的默认方案。
+
+## 按需启用
+
+一次构建包含全部原生适配器，部署时只启用所需渠道。关闭的模块不会创建支付请求或运行额外进程；无需为了省服务器资源分别编译。单独从 Git 复制某个 Go 文件不能形成完整接入，订单、路由、钱包和数据库需要使用同一版本。
+
+在 RU 服务的**完整环境文件**中合并一种组合，例如：
+
+```dotenv
+PAYMENTS_ENVIRONMENT=live
+PAYMENTS_PROVIDERS=cispay,nowpayments
+```
+
+`PAYMENTS_PROVIDERS` 支持 `cispay,lianlian,nowpayments,paypal,zpay` 的任意组合。未设置时全部可供配置，但每个商户默认仍关闭。`none` 停止全部原生新充值；空值或未知模块名导致启动失败，避免拼写错误后意外开放渠道。不要使用只有两行的组合文件覆盖数据库、会话等完整配置。
+
+环境变量只是服务器允许的渠道清单。超级管理员还要在国际支付页填写商户凭据、币种、单价和收银台域名，并开启「启用支付接入」与「接受新付款」。保存后钱包显示按钮；无需另填易支付 `PayMethods`。更改部署清单需要重启 **RU 服务**；更改页面商户配置不需要重新构建。
+
+撤下渠道时先关闭「接受新付款」，再从部署清单移除。保留「启用支付接入」、原商户凭据及 webhook，以便存量订单继续验签、查单和入账。清单选择仅限制新创单，不中断旧单；管理员仍可访问已移除渠道的回调配置和恢复表单。更换商户/环境或彻底禁用前，必须处理 pending 订单。
+
+沙箱用独立域名、实例和数据库，设置 `PAYMENTS_ENVIRONMENT=test`。PayPal/连连支持原生沙箱创单；cisPay 官方文档只说明商户后台创建沙箱交易，本适配器不虚构 API 沙箱开关，测试实例禁止线上创建充值。后台沙箱交易须能够对应已有测试订单才能恢复，本版不提供后台订单导入。NOWPayments/ZPAY 本适配器只支持 live。
+
+## 拉取与构建候选版本
+
+在独立工作目录拉取商业分支；以下命令只准备候选源码和构建产物，不安装服务或更新国内主站：
+
+```bash
+git clone --single-branch --branch commercial/ru-portal https://github.com/Angel-Gril/Shiny.git shiny-ru-candidate
+cd shiny-ru-candidate
+git rev-parse HEAD
+cd new-api/web
+bun install --frozen-lockfile
+bun run typecheck
+bun run build
+cd ..
+mkdir -p candidate
+CGO_ENABLED=0 GOWORK=off go build -o candidate/new-api .
+```
+
+也可从仓库根目录执行 `docker build -f new-api/Dockerfile -t shiny-ru-newapi:candidate new-api`。Dockerfile 构建控制台和 Go 服务，镜像标签只用于候选验收。固定已通过 CI 的 commit 和构建产物摘要，按照 [RU 候选部署顺序](../ru/README.md) 发布独立 release；国内主站保留原 release。
+
+已有本地 checkout 时先提交或保留工作区变更，使用 `git fetch origin commercial/ru-portal`、`git switch commercial/ru-portal`、`git pull --ff-only origin commercial/ru-portal` 获取更新。不要用强制 reset 丢弃服务器私有文件或修改；私有环境文件应放在仓库外。
+
+## 验收边界
+
+自动化验证入口为 [native-payments.yml](../../.github/workflows/native-payments.yml)，覆盖协议失败、通知重试、单次入账、SQLite/MySQL/PostgreSQL 新建与升级及独立日志库，还有钱包/管理页、类型检查、lint 和构建。
+
+上线前用获准商户完成供应商联调和小额真实支付，并验证 RU 网络、回调可达及两站账户隔离。本模块不包含商户开户、订阅自动扣款、自动退款/拒付、提现结算、独立链上监听器或定时对账任务。已支付订单的退款继续使用实际收退款记录和已有账务流程。

@@ -7514,7 +7514,17 @@
     "Verifying...": "正在核验…",
     "Webhook ID": "Webhook ID",
     "Webhook signing secret": "Webhook 签名密钥",
-    "Payment environment does not match this instance": "支付环境与当前实例不匹配"
+    "Payment environment does not match this instance": "支付环境与当前实例不匹配",
+    "cisPay Shop ID": "cisPay 商店 ID",
+    "cisPay API Key": "cisPay API 密钥",
+    "cisPay payment method (CARD, SBP, CRYPTO)": "cisPay 支付方式（CARD、SBP、CRYPTO）",
+    "cisPay uses its hosted checkout. Leave payment method blank for the methods enabled on the Shop; CARD and SBP require RUB.": "cisPay 使用其托管收银台。支付方式留空时使用商店已启用的方式；CARD 和 SBP 需要 RUB。",
+    "ZPAY merchant ID": "ZPAY 商户 ID",
+    "ZPAY merchant key": "ZPAY 商户密钥",
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）",
+    "Payment provider is not selected for this deployment": "此部署未选择该支付渠道",
+    "This provider is not selected for new payments in this deployment. Existing payment callbacks and recovery remain available.": "此部署未选择该渠道接受新付款，已有付款的回调与恢复仍可使用。",
+    "Create cisPay sandbox payments in its merchant dashboard. This test instance only verifies callbacks and recovers sandbox orders.": "请在 cisPay 商户后台创建沙箱付款。此测试实例仅验证回调并恢复沙箱订单。"
   },
   "Legacy Shiny audit": "旧版 Shiny 审计",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新规则请使用“请求处理”。此处保留旧版兼容设置，请勿对同一请求同时启用两套审核。"

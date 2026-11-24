@@ -68,6 +68,8 @@ describe('native hosted payment routing', () => {
       'https://nowpayments.io/payment/fixture'
     )
     expect(isHostedPayment('paypal')).toBe(true)
+    expect(isHostedPayment('cispay')).toBe(true)
+    expect(isHostedPayment('zpay')).toBe(true)
     expect(isHostedPayment('alipay')).toBe(false)
   })
 })

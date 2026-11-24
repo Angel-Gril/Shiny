@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "branch": "commercial/ru-portal",
+  "integration": "hosted_wallet_recharge",
+  "settings_path": "/system-settings/billing/international-payments",
+  "deployment_selection_variable": "PAYMENTS_PROVIDERS",
+  "environment_variable": "PAYMENTS_ENVIRONMENT",
+  "default_enabled": false,
+  "selection_controls": "new_orders_only",
+  "docs_checked_on": "2026-11-24",
+  "providers": [
+    {
+      "id": "cispay",
+      "name": "cisPay",
+      "source": "new-api/service/payment_cispay.go",
+      "protocol": "merchant_rest_x_shop_id_x_api_key",
+      "notification_verification": "raw_body_hmac_sha256_hex",
+      "webhook_method": "POST",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live", "test"],
+      "methods": ["CARD", "SBP", "CRYPTO"],
+      "currencies": ["RUB", "USD"],
+      "credit_status": "PAID",
+      "notes": "Stable authenticated customer ID. RUB crypto conversions must retain matching source amount and currency. Official sandbox creation is in the merchant dashboard; no API create flag is documented.",
+      "docs": [
+        "https://cispay.app/developers",
+        "https://cispay.app/api/merchant/v1/openapi.json"
+      ]
+    },
+    {
+      "id": "lianlian",
+      "name": "LianLian global acquiring",
+      "source": "new-api/service/payment_lianlian.go",
+      "protocol": "open_platform_v1_acquiring_checkout",
+      "notification_verification": "timestamp_event_id_raw_body_hmac_or_rsa",
+      "webhook_method": "POST",
+      "checkout_environments": ["live", "test"],
+      "callback_environments": ["live", "test"],
+      "credit_event": "acquiring.payment.succeeded",
+      "credit_status": "SUCCESS",
+      "notes": "Requires acquiring CHECKOUT entitlement, approved digital product data and exact checkout hosts. Document audit and payout events cannot credit a wallet.",
+      "docs": [
+        "https://global.lianlianpay.com/docs/api_docs#op-createOrder",
+        "https://global.lianlianpay.com/docs/api_docs#op-queryOrder",
+        "https://global.lianlianpay.com/docs/guide/getting_started"
+      ]
+    },
+    {
+      "id": "nowpayments",
+      "name": "NOWPayments",
+      "source": "new-api/service/payment_nowpayments.go",
+      "protocol": "invoice_rest_api_key",
+      "notification_verification": "recursive_sorted_json_hmac_sha512_hex",
+      "webhook_method": "POST",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live"],
+      "currencies": ["USD"],
+      "credit_status": "finished_and_fully_paid",
+      "notes": "Provider coin/network code is optional. Invoice ID and Payment ID are distinct. Partial payment never credits the saved quota.",
+      "docs": ["https://documenter.getpostman.com/view/7907941/S1a32n38"]
+    },
+    {
+      "id": "paypal",
+      "name": "PayPal",
+      "source": "new-api/service/payment_paypal.go",
+      "protocol": "oauth2_orders_v2",
+      "notification_verification": "official_verify_webhook_signature",
+      "webhook_method": "POST",
+      "checkout_environments": ["live", "test"],
+      "callback_environments": ["live", "test"],
+      "currencies": ["USD", "EUR", "GBP"],
+      "credit_events": ["CHECKOUT.ORDER.APPROVED", "PAYMENT.CAPTURE.COMPLETED"],
+      "credit_status": "matching_completed_capture",
+      "notes": "Server verifies the merchant and saved quote before idempotent capture. Merchant and payer country availability must be confirmed with PayPal.",
+      "docs": [
+        "https://developer.paypal.com/docs/api/orders/v2/",
+        "https://developer.paypal.com/docs/api/webhooks/v1/#verify-webhook-signature_post"
+      ]
+    },
+    {
+      "id": "zpay",
+      "name": "ZPAY",
+      "source": "new-api/service/payment_zpay.go",
+      "protocol": "epay_compatible_md5_multipart",
+      "notification_verification": "sdk_canonical_md5_plus_authoritative_query",
+      "webhook_method": "GET",
+      "webhook_success_body": "success",
+      "checkout_environments": ["live"],
+      "callback_environments": ["live"],
+      "methods": ["alipay", "wxpay"],
+      "currencies": ["CNY"],
+      "credit_status": "1",
+      "notes": "Hosted payurl only. Merchant secret in the documented HTTPS query URL must never be logged. Existing Epay configuration remains available separately.",
+      "docs": ["https://z-pay.cn/doc.html"]
+    }
+  ],
+  "existing_integrations": [
+    "epay",
+    "stripe",
+    "creem",
+    "waffo",
+    "waffo_pancake"
+  ],
+  "existing_integrations_use_their_own_settings": true
+}

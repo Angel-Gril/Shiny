@@ -16,7 +16,35 @@ import (
 
 const HostedPaymentOption = "HostedPaymentConfig"
 
-var HostedPaymentProviders = []string{"lianlian", "nowpayments", "paypal"}
+var HostedPaymentProviders = []string{"cispay", "lianlian", "nowpayments", "paypal", "zpay"}
+
+// Deployment selection controls new sales, not callbacks for already-created
+// orders. An operator can drain a removed provider without losing its keys.
+func SelectedHostedPaymentProviders() ([]string, error) {
+	raw, exists := os.LookupEnv("PAYMENTS_PROVIDERS")
+	if !exists {
+		return slices.Clone(HostedPaymentProviders), nil
+	}
+	if strings.TrimSpace(raw) == "none" {
+		return []string{}, nil
+	}
+	providers := []string{}
+	for item := range strings.SplitSeq(raw, ",") {
+		provider := strings.TrimSpace(item)
+		if !slices.Contains(HostedPaymentProviders, provider) {
+			return nil, errors.New("PAYMENTS_PROVIDERS contains an unsupported provider")
+		}
+		if !slices.Contains(providers, provider) {
+			providers = append(providers, provider)
+		}
+	}
+	return providers, nil
+}
+
+func HostedPaymentSelected(provider string) bool {
+	providers, err := SelectedHostedPaymentProviders()
+	return err == nil && slices.Contains(providers, provider)
+}
 
 // A process serves one financial environment. Sandbox payments must never
 // credit a production instance's real wallet.
@@ -30,46 +58,58 @@ func HostedPaymentsEnvironment() string {
 // Each instance persists its own merchant configuration in its existing options
 // table. Secrets are never included in the general options response.
 type HostedPaymentConfig struct {
-	Enabled           bool     `json:"enabled"`
-	AcceptNew         bool     `json:"accept_new"`
-	Environment       string   `json:"environment"`
-	Currency          string   `json:"currency"`
-	UnitPrice         string   `json:"unit_price"`
-	MinTopUp          int64    `json:"min_topup"`
-	AccountID         string   `json:"account_id"`
-	APIKey            string   `json:"api_key"`
-	APISecret         string   `json:"api_secret"`
-	WebhookSecret     string   `json:"webhook_secret"`
-	SignatureType     string   `json:"signature_type"`
-	PrivateKey        string   `json:"private_key"`
-	PlatformPublicKey string   `json:"platform_public_key"`
-	StoreID           string   `json:"store_id"`
-	UserID            string   `json:"user_id"`
-	DeveloperUserID   string   `json:"developer_user_id"`
-	OnBehalfOf        string   `json:"on_behalf_of"`
-	CountryCode       string   `json:"country_code"`
-	CheckoutHosts     []string `json:"checkout_hosts"`
-	GoodsURL          string   `json:"goods_url"`
-	ShippingProvider  string   `json:"shipping_provider"`
-	PayCurrency       string   `json:"pay_currency"`
-	ClientID          string   `json:"client_id"`
-	ClientSecret      string   `json:"client_secret"`
-	MerchantID        string   `json:"merchant_id"`
-	WebhookID         string   `json:"webhook_id"`
-	SecretsConfigured []string `json:"secrets_configured,omitempty"`
+	Enabled            bool     `json:"enabled"`
+	AcceptNew          bool     `json:"accept_new"`
+	Environment        string   `json:"environment"`
+	Currency           string   `json:"currency"`
+	UnitPrice          string   `json:"unit_price"`
+	MinTopUp           int64    `json:"min_topup"`
+	AccountID          string   `json:"account_id"`
+	APIKey             string   `json:"api_key"`
+	APISecret          string   `json:"api_secret"`
+	WebhookSecret      string   `json:"webhook_secret"`
+	SignatureType      string   `json:"signature_type"`
+	PrivateKey         string   `json:"private_key"`
+	PlatformPublicKey  string   `json:"platform_public_key"`
+	StoreID            string   `json:"store_id"`
+	UserID             string   `json:"user_id"`
+	DeveloperUserID    string   `json:"developer_user_id"`
+	OnBehalfOf         string   `json:"on_behalf_of"`
+	CountryCode        string   `json:"country_code"`
+	CheckoutHosts      []string `json:"checkout_hosts"`
+	GoodsURL           string   `json:"goods_url"`
+	ShippingProvider   string   `json:"shipping_provider"`
+	PayCurrency        string   `json:"pay_currency"`
+	PaymentMethod      string   `json:"payment_method"`
+	ClientID           string   `json:"client_id"`
+	ClientSecret       string   `json:"client_secret"`
+	MerchantID         string   `json:"merchant_id"`
+	WebhookID          string   `json:"webhook_id"`
+	SecretsConfigured  []string `json:"secrets_configured,omitempty"`
+	DeploymentSelected *bool    `json:"deployment_selected,omitempty"`
 }
 
 type HostedPaymentSettings map[string]HostedPaymentConfig
 
 func DefaultHostedPaymentConfig(provider string) HostedPaymentConfig {
 	environment := "test"
-	if provider == "nowpayments" {
+	if provider == "nowpayments" || provider == "cispay" || provider == "zpay" {
 		environment = "live" // This adapter uses the documented production invoice API.
 	}
-	return HostedPaymentConfig{
-		Environment: environment, Currency: "USD", UnitPrice: "1", MinTopUp: 1,
+	currency := "USD"
+	if provider == "cispay" {
+		currency = "RUB"
+	} else if provider == "zpay" {
+		currency = "CNY"
+	}
+	cfg := HostedPaymentConfig{
+		Environment: environment, Currency: currency, UnitPrice: "1", MinTopUp: 1,
 		SignatureType: "HMAC-SHA256", CheckoutHosts: []string{},
 	}
+	if provider == "zpay" {
+		cfg.PaymentMethod, cfg.SignatureType = "alipay", "MD5"
+	}
+	return cfg
 }
 
 func GetHostedPaymentSettings() (HostedPaymentSettings, error) {
@@ -108,9 +148,10 @@ func (cfg *HostedPaymentConfig) MergeSecrets(saved HostedPaymentConfig) {
 		}
 	}
 	cfg.SecretsConfigured = nil
+	cfg.DeploymentSelected = nil
 }
 
-func (cfg HostedPaymentConfig) Public() HostedPaymentConfig {
+func (cfg HostedPaymentConfig) Public(provider string) HostedPaymentConfig {
 	fields := map[string]*string{"api_key": &cfg.APIKey, "api_secret": &cfg.APISecret,
 		"webhook_secret": &cfg.WebhookSecret, "private_key": &cfg.PrivateKey,
 		"client_id": &cfg.ClientID, "client_secret": &cfg.ClientSecret}
@@ -122,6 +163,8 @@ func (cfg HostedPaymentConfig) Public() HostedPaymentConfig {
 		*value = ""
 	}
 	slices.Sort(cfg.SecretsConfigured)
+	selected := HostedPaymentSelected(provider)
+	cfg.DeploymentSelected = &selected
 	return cfg
 }
 
@@ -143,6 +186,40 @@ func (cfg HostedPaymentConfig) Validate(provider string) error {
 		return errors.New("invalid payment environment")
 	}
 	switch provider {
+	case "cispay":
+		if !regexp.MustCompile(`^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`).MatchString(cfg.StoreID) || !strings.HasPrefix(cfg.APIKey, "cis_sec_") || strings.ContainsAny(cfg.APIKey, "\r\n") {
+			return errors.New("incomplete cisPay merchant configuration")
+		}
+		if !slices.Contains([]string{"RUB", "USD"}, cfg.Currency) {
+			return errors.New("unsupported cisPay settlement currency")
+		}
+		if len(cfg.CheckoutHosts) == 0 {
+			return errors.New("cisPay requires approved checkout hosts")
+		}
+		if cfg.PaymentMethod != "" && !slices.Contains([]string{"CARD", "SBP", "CRYPTO"}, cfg.PaymentMethod) {
+			return errors.New("invalid cisPay payment method")
+		}
+		if (cfg.PaymentMethod == "CARD" || cfg.PaymentMethod == "SBP") && cfg.Currency != "RUB" {
+			return errors.New("cisPay card and SBP require RUB")
+		}
+		if cfg.Environment == "test" && cfg.AcceptNew {
+			return errors.New("cisPay sandbox creation is only available in its merchant dashboard")
+		}
+		for _, host := range cfg.CheckoutHosts {
+			if !regexp.MustCompile(`^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$`).MatchString(host) {
+				return errors.New("checkout hosts must be exact HTTPS host names")
+			}
+		}
+	case "zpay":
+		if cfg.Environment != "live" || cfg.Currency != "CNY" || cfg.MerchantID == "" || cfg.APISecret == "" || len(cfg.CheckoutHosts) == 0 ||
+			!slices.Contains([]string{"alipay", "wxpay"}, cfg.PaymentMethod) {
+			return errors.New("ZPAY requires a live CNY merchant, secret and payment method")
+		}
+		for _, host := range cfg.CheckoutHosts {
+			if !regexp.MustCompile(`^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$`).MatchString(host) {
+				return errors.New("checkout hosts must be exact HTTPS host names")
+			}
+		}
 	case "lianlian":
 		if cfg.APIKey == "" || cfg.StoreID == "" || cfg.UserID == "" || cfg.DeveloperUserID == "" ||
 			!regexp.MustCompile(`^[A-Z]{2}$`).MatchString(cfg.CountryCode) || len(cfg.CheckoutHosts) == 0 || cfg.ShippingProvider == "" {

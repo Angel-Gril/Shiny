@@ -51,6 +51,7 @@ function fixtureConfig(): HostedPaymentConfig {
     goods_url: '',
     shipping_provider: '',
     pay_currency: '',
+    payment_method: '',
     client_id: '',
     client_secret: '',
     merchant_id: '',
@@ -138,9 +139,11 @@ describe('hosted payment admin form', () => {
         data: {
           success: true,
           data: {
+            cispay: fixtureConfig(),
             lianlian: fixtureConfig(),
             nowpayments: fixtureConfig(),
             paypal: fixtureConfig(),
+            zpay: fixtureConfig(),
           },
         },
       })
@@ -155,6 +158,97 @@ describe('hosted payment admin form', () => {
     await user.click(await screen.findByRole('button', { name: 'Retry' }))
     expect(await screen.findByRole('tab', { name: 'LianLian' })).toBeVisible()
     expect(get).toHaveBeenCalledTimes(2)
+    client.clear()
+  })
+
+  it('opens the first deployment-selected provider and keeps removed callbacks configurable', async () => {
+    const user = userEvent.setup()
+    const removed = {
+      ...fixtureConfig(),
+      enabled: true,
+      accept_new: true,
+      deployment_selected: false,
+    }
+    const put = vi.spyOn(api, 'put').mockResolvedValue({
+      data: { success: true, data: { ...removed, accept_new: false } },
+    })
+    vi.spyOn(api, 'get').mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          cispay: removed,
+          lianlian: removed,
+          nowpayments: { ...fixtureConfig(), deployment_selected: true },
+          paypal: removed,
+          zpay: removed,
+        },
+      },
+    })
+    const client = new QueryClient()
+    render(
+      <QueryClientProvider client={client}>
+        <HostedPaymentSettingsSection serverAddress='https://ru.shinyapi.com' />
+      </QueryClientProvider>
+    )
+    expect(
+      await screen.findByRole('tab', { name: 'NOWPayments' })
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tablist')).toHaveClass(
+      'max-w-full',
+      'overflow-x-auto'
+    )
+    await user.click(screen.getByRole('tab', { name: 'ZPAY' }))
+    expect(screen.getByLabelText('ZPAY merchant key')).toHaveAttribute(
+      'type',
+      'password'
+    )
+    expect(
+      screen.getByRole('switch', { name: 'Accept new payments' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByRole('switch', { name: 'Accept new payments' })
+    ).not.toBeChecked()
+    expect(
+      screen.getByRole('switch', { name: 'Enable payment integration' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Verify payment' })).toBeEnabled()
+    expect(
+      screen.getByText('https://ru.shinyapi.com/api/payments/zpay/webhook/live')
+    ).toBeVisible()
+    await user.click(
+      screen.getByRole('button', { name: 'Save payment integration' })
+    )
+    await waitFor(() => expect(put).toHaveBeenCalled())
+    expect(put.mock.calls[0][1]).toMatchObject({
+      provider: 'zpay',
+      config: { enabled: true, accept_new: false },
+    })
+    client.clear()
+  })
+
+  it('prevents cisPay sandbox creation while keeping sandbox notification setup available', () => {
+    const config = { ...fixtureConfig(), environment: 'test', currency: 'RUB' }
+    const client = new QueryClient()
+    render(
+      <QueryClientProvider client={client}>
+        <HostedProviderForm
+          provider='cispay'
+          config={config}
+          serverAddress='https://test.example.com'
+        />
+      </QueryClientProvider>
+    )
+    expect(
+      screen.getByRole('switch', { name: 'Accept new payments' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByRole('switch', { name: 'Enable payment integration' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByText(
+        'https://test.example.com/api/payments/cispay/webhook/test'
+      )
+    ).toBeVisible()
     client.clear()
   })
 })
