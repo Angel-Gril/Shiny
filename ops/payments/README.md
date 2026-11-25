@@ -1,8 +1,16 @@
 # 可选支付模块
 
-支付模块在商业分支 `commercial/ru-portal` 内单独归组：这里保存供应商清单与部署组合，原生实现位于 `new-api/service/payment_*.go`，管理入口为 `/system-settings/billing/international-payments`。功能范围是托管收银台钱包充值，包括创建订单、通知验证、官方查单、金额与商户核对、一次入账、待支付告警及人工/定时查单恢复。
+支付模块在商业分支 `commercial/ru-portal` 内单独归组：这里保存供应商清单与部署组合，原生实现位于 `new-api/service/payment_*.go`，管理入口为 `/system-settings/billing/payment`。功能范围是托管收银台钱包充值，包括创建订单、通知验证、官方查单、金额与商户核对、一次入账、待支付告警及人工/定时查单恢复。
 
 RU New API 直接对接支付商，收银台由支付商提供。无需搭建第三方支付平台、额外支付服务或 `pay-ru` 子域名。RU 账户、订单、余额和日志使用独立数据库；模型渠道仍可通过服务器内专用 Key 使用主站。参见 [RU 架构](../ru/README.md) 和 [各支付商配置](../ru/payment-native.md)。
+
+## 统一设置入口（独立开发分支）
+
+`feat/unified-payment-settings` 从 `commercial/ru-portal` 的 `c0eae777` 增量开发，只整合控制台入口，不代表已合并或部署。进入「计费与支付 → 支付设置」，从商户选择器选渠道；Creem、Waffo Pancake 各显示一次，可选择「钱包充值」或「原有接入」。新钱包充值使用本页的独立保存、待支付核查和恢复；原有接入继续支持原钱包/套餐及订阅流程。共用的支付确认和原有充值选项在「常规」，新增自动核对在「支付核对」。
+
+旧 `/system-settings/billing/international-payments` 书签会跳到统一页面。切换视图不保存、不启停支付、不复制商户秘密；未保存草稿在当前页面内切换后保留，离开或刷新页面不保证保留。页面顶部「保存原有接入设置」只保存原有接入的所有草稿；「保存支付接入」只保存当前新增钱包商户，「保存支付核对设置」只保存核查参数。
+
+两个底层处理器及 webhook 继续兼容，配置仍独立：Pancake 原有 `/api/waffo-pancake/webhook/prod` 对应原有接入，新钱包 `/api/payments/waffo_pancake_native/webhook/live` 对应钱包充值。不要把一个接入的回调填写到另一个接入，也不要同时为同一商户的同种付款方式开放两个充值入口。`PAYMENTS_PROVIDERS` 仍只控制新增钱包接入；关闭所有收款还需核对原有接入。
 
 ## 协议与适用组合
 

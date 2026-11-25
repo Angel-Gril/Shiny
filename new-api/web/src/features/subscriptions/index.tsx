@@ -59,7 +59,7 @@ function SubscriptionsContent() {
               <Alert variant='destructive' className='shrink-0'>
                 <AlertDescription>
                   {t(
-                    'Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment Gateway settings.'
+                    'Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.'
                   )}
                 </AlertDescription>
               </Alert>

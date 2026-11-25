@@ -21,8 +21,7 @@ import { parseCurrencyDisplayType } from '@/lib/currency'
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
-import { HostedPaymentSettingsSection } from '../integrations/hosted-payment-settings-section'
-import { PaymentSettingsSection } from '../integrations/payment-settings-section'
+import { UnifiedPaymentSettingsSection } from '../integrations/unified-payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
@@ -131,9 +130,10 @@ const BILLING_SECTIONS = [
   },
   {
     id: 'payment',
-    titleKey: 'Payment Gateway',
+    titleKey: 'Payment settings',
     build: (settings: BillingSettings) => (
-      <PaymentSettingsSection
+      <UnifiedPaymentSettingsSection
+        serverAddress={settings.ServerAddress || ''}
         defaultValues={{
           PayAddress: settings.PayAddress,
           EpayId: settings.EpayId,
@@ -204,15 +204,6 @@ const BILLING_SECTIONS = [
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
         }}
-      />
-    ),
-  },
-  {
-    id: 'international-payments',
-    titleKey: 'International payments',
-    build: (settings: BillingSettings) => (
-      <HostedPaymentSettingsSection
-        serverAddress={settings.ServerAddress || ''}
       />
     ),
   },

@@ -7600,7 +7600,16 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "ID продавца ZPAY",
     "ZPAY merchant key": "Ключ продавца ZPAY",
-    "ZPAY payment method (alipay, wxpay)": "Способ оплаты ZPAY (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "Способ оплаты ZPAY (alipay, wxpay)",
+    "Payment settings": "Настройки платежей",
+    "Wallet top-up": "Пополнение кошелька",
+    "Original integration": "Исходная интеграция",
+    "Payment integration": "Платёжная интеграция",
+    "Save original gateway settings": "Сохранить исходные настройки",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "Эта кнопка сохраняет только черновики исходной интеграции. Пополнение кошелька и сверка сохраняются отдельно.",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "Пополнение кошелька и исходная интеграция используют отдельные ключи и обратные вызовы. Исходная интеграция также поддерживает кошелёк и подписки. Для одного способа оплаты одного продавца выберите одну интеграцию. Переключение вида не включает, не отключает и не переносит платежи.",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "Создание и изменение планов подписки заблокированы, пока администратор не подтвердит условия соответствия в настройках платежей.",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "Ненулевые награды за приглашения требуют подтверждения соответствия в настройках платежей."
   },
   "Legacy Shiny audit": "Прежний аудит Shiny",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Новые правила задавайте в обработке запросов. Прежние настройки оставлены для совместимости; не включайте обе проверки для одного запроса."

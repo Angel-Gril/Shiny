@@ -7600,7 +7600,16 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "ID người bán ZPAY",
     "ZPAY merchant key": "Khóa người bán ZPAY",
-    "ZPAY payment method (alipay, wxpay)": "Phương thức thanh toán ZPAY (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "Phương thức thanh toán ZPAY (alipay, wxpay)",
+    "Payment settings": "Cài đặt thanh toán",
+    "Wallet top-up": "Nạp ví",
+    "Original integration": "Tích hợp hiện có",
+    "Payment integration": "Tích hợp thanh toán",
+    "Save original gateway settings": "Lưu cài đặt tích hợp hiện có",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "Nút này chỉ lưu bản nháp của tích hợp hiện có. Nạp ví và đối soát có nút lưu riêng.",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "Nạp ví và tích hợp hiện có dùng thông tin xác thực và callback riêng. Tích hợp hiện có cũng hỗ trợ ví và đăng ký. Chọn một tích hợp cho cùng phương thức thanh toán của một người bán; chuyển chế độ xem không bật, tắt hay di chuyển thanh toán.",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "Việc tạo và thay đổi gói đăng ký bị khóa cho đến khi quản trị viên xác nhận điều khoản tuân thủ trong cài đặt Cổng thanh toán.",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "Phần thưởng mời khác 0 yêu cầu xác nhận tuân thủ trong cài đặt Cổng thanh toán."
   },
   "Legacy Shiny audit": "Kiểm tra Shiny cũ",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu."

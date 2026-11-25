@@ -134,7 +134,10 @@ function HostedReconcileForm(props: { provider: HostedProvider }) {
   )
 }
 
-export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
+export function HostedPaymentSettingsSection(props: {
+  serverAddress: string
+  provider?: HostedProvider
+}) {
   const { t } = useTranslation()
   const [provider, setProvider] = useState<HostedProvider | null>(null)
   const tabListRef = useRef<HTMLDivElement>(null)
@@ -146,7 +149,11 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
     hostedProviders.find(
       (item) => query.data?.[item]?.deployment_selected !== false
     ) ?? 'cispay'
-  const activeProvider = provider ?? initialProvider
+  const activeProvider = props.provider ?? provider ?? initialProvider
+  const [visited, setVisited] = useState<Set<HostedProvider>>(() => new Set())
+  useEffect(() => {
+    setVisited((previous) => new Set([...previous, activeProvider]))
+  }, [activeProvider])
   useEffect(() => {
     const list = tabListRef.current
     if (!list) return
@@ -182,8 +189,12 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
   }
   return (
     <SettingsSection title={t('International payments')}>
-      <HostedPaymentOperations />
-      <Separator className='my-6' />
+      {!props.provider && (
+        <>
+          <HostedPaymentOperations />
+          <Separator className='my-6' />
+        </>
+      )}
       <Tabs
         value={activeProvider}
         onValueChange={(value) => {
@@ -193,6 +204,7 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
         }}
       >
         <TabsList
+          hidden={!!props.provider}
           ref={tabListRef}
           aria-label={t('Payment provider')}
           className='max-w-full justify-start overflow-x-auto'
@@ -207,6 +219,7 @@ export function HostedPaymentSettingsSection(props: { serverAddress: string }) {
           <TabsContent
             key={item}
             value={item}
+            keepMounted={!!props.provider && visited.has(item)}
             className='mt-6 min-w-0 space-y-6'
           >
             <HostedProviderForm

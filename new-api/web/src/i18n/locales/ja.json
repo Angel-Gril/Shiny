@@ -7600,7 +7600,16 @@
     "Zoom": "ズーム",
     "ZPAY merchant ID": "ZPAY 加盟店 ID",
     "ZPAY merchant key": "ZPAY 加盟店キー",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY 支払い方法（alipay、wxpay）"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支払い方法（alipay、wxpay）",
+    "Payment settings": "支払い設定",
+    "Wallet top-up": "ウォレットへの入金",
+    "Original integration": "既存の連携",
+    "Payment integration": "支払い連携",
+    "Save original gateway settings": "既存の連携設定を保存",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "このボタンは既存の連携の下書きのみを保存します。ウォレット入金と照合は個別に保存します。",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "ウォレット入金と既存の連携は別々の認証情報とコールバックを使用します。既存の連携もウォレット決済とサブスクリプションをサポートします。同じ加盟店の同じ決済方法には一方を選択してください。表示の切り替えでは決済の有効化・無効化・移行は行われません。",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "管理者が支払い設定でコンプライアンス条件を確認するまで、サブスクリプションプランの作成と変更はロックされます。",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "0 以外の招待報酬には、支払い設定でのコンプライアンス確認が必要です。"
   },
   "Legacy Shiny audit": "従来の Shiny 監査",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新しいルールは「リクエスト処理」で設定してください。従来の設定は互換性のために残されています。同じリクエストに両方の監査を有効にしないでください。"

@@ -7600,7 +7600,16 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "Identifiant marchand ZPAY",
     "ZPAY merchant key": "Clé du marchand ZPAY",
-    "ZPAY payment method (alipay, wxpay)": "Mode de paiement ZPAY (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "Mode de paiement ZPAY (alipay, wxpay)",
+    "Payment settings": "Paramètres de paiement",
+    "Wallet top-up": "Recharge du portefeuille",
+    "Original integration": "Intégration existante",
+    "Payment integration": "Intégration de paiement",
+    "Save original gateway settings": "Enregistrer les paramètres existants",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "Ce bouton enregistre uniquement les brouillons de l’intégration existante. La recharge et le rapprochement disposent de leurs propres boutons.",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "La recharge et l’intégration existante utilisent des identifiants et des callbacks distincts. L’intégration existante prend aussi en charge le portefeuille et les abonnements. Choisissez une seule intégration pour le même moyen de paiement d’un marchand. Changer de vue n’active, ne désactive et ne migre aucun paiement.",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "La création et la modification des forfaits d’abonnement sont verrouillées jusqu’à ce que l’administrateur confirme les conditions de conformité dans les paramètres de la paiement.",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "Les récompenses d’invitation non nulles nécessitent une confirmation de conformité dans les paramètres de la paiement."
   },
   "Legacy Shiny audit": "Audit Shiny hérité",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Utilisez le traitement des requêtes pour les nouvelles règles. Ces réglages hérités restent disponibles pour la compatibilité ; évitez les deux contrôles sur une même requête."

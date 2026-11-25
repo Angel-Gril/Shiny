@@ -7600,7 +7600,16 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "ZPAY merchant ID",
     "ZPAY merchant key": "ZPAY merchant key",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY payment method (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY payment method (alipay, wxpay)",
+    "Payment settings": "Payment settings",
+    "Wallet top-up": "Wallet top-up",
+    "Original integration": "Original integration",
+    "Payment integration": "Payment integration",
+    "Save original gateway settings": "Save original gateway settings",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings settings.",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "Non-zero invitation rewards require compliance confirmation in Payment settings settings."
   },
   "Legacy Shiny audit": "Legacy Shiny audit",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests."

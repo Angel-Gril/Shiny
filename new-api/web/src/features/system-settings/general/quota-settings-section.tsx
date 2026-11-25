@@ -123,7 +123,7 @@ export function QuotaSettingsSection({
         <Alert variant='destructive'>
           <AlertDescription>
             {t(
-              'Non-zero invitation rewards require compliance confirmation in Payment Gateway settings.'
+              'Non-zero invitation rewards require compliance confirmation in Payment settings.'
             )}
           </AlertDescription>
         </Alert>

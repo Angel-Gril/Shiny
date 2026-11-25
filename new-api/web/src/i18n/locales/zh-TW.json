@@ -7600,7 +7600,16 @@
     "Zoom": "縮放",
     "ZPAY merchant ID": "ZPAY 商戶 ID",
     "ZPAY merchant key": "ZPAY 商戶密鑰",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）",
+    "Payment settings": "付款設定",
+    "Wallet top-up": "錢包儲值",
+    "Original integration": "原有整合",
+    "Payment integration": "付款整合方式",
+    "Save original gateway settings": "儲存原有整合設定",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "此按鈕只儲存原有整合中的草稿；錢包儲值整合及付款核對分別儲存。",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "錢包儲值與原有整合使用各自的憑證和回呼。原有整合也支援錢包付款和訂閱。同一商戶的相同付款方式請選擇一套整合；切換此檢視不會啟停或遷移付款。",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "管理員在付款設定設定中確認合規條款之前，訂閱套餐的建立和修改會被鎖定。",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "非零邀請獎勵需要先在付款設定設定中確認合規條款。"
   },
   "Legacy Shiny audit": "舊版 Shiny 審計",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。"

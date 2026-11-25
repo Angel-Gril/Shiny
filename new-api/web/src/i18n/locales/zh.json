@@ -7600,7 +7600,16 @@
     "Zoom": "缩放",
     "ZPAY merchant ID": "ZPAY 商户 ID",
     "ZPAY merchant key": "ZPAY 商户密钥",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）",
+    "Payment settings": "支付设置",
+    "Wallet top-up": "钱包充值",
+    "Original integration": "原有接入",
+    "Payment integration": "支付接入方式",
+    "Save original gateway settings": "保存原有接入设置",
+    "Save original gateway settings applies only to drafts in the original integration. Wallet integrations and reconciliation have their own save buttons.": "此按钮只保存原有接入中的草稿；钱包充值接入和支付核对分别保存。",
+    "Wallet top-ups and the original integration keep separate credentials and callbacks. The original integration also supports wallet payments and subscriptions. Choose one integration for the same merchant payment method; switching this view does not enable, disable or migrate payments.": "钱包充值与原有接入使用各自的凭据和回调。原有接入也支持钱包付款和订阅。同一商户的相同付款方式请选择一套接入；切换此视图不会启停或迁移支付。",
+    "Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment settings.": "管理员在支付设置设置中确认合规条款之前，订阅套餐的创建和修改会被锁定。",
+    "Non-zero invitation rewards require compliance confirmation in Payment settings.": "非零邀请奖励需要先在支付设置设置中确认合规条款。"
   },
   "Legacy Shiny audit": "旧版 Shiny 审计",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新规则请使用“请求处理”。此处保留旧版兼容设置，请勿对同一请求同时启用两套审核。"

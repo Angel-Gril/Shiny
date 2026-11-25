@@ -79,7 +79,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 - 可以共用已验证的 `shinyapi.com` 发信域名及邮件供应商；**RU 实例要单独填自己的 SMTP/发信设置、品牌、站点 URL**，可使用 `no-reply@shinyapi.com` 或专用地址。需要辨别“CF 邮箱”：Cloudflare Email Routing 是收信转发，不等于 SMTP 发信服务；若主站使用 Worker/其他发信服务，需核验它允许 RU 站点链接及发件人。
 - Cloudflare Turnstile 是另一项配置；现有 site key 若未授权 `ru.shinyapi.com`，需添加域名或新建独立 key，并填入 RU 实例。验收注册、重置密码、链接域名和验证码。
 - 门户支持 RU/EN，RU 默认控制台和事务邮件已加入本分支；模板 `DEFAULT_LANGUAGE=ru`。邮件供应商、模板链接、品牌及注册/重置流程仍须在候选环境实际收信验收。
-- 推荐 [原生国际支付](payment-native.md)：在 RU `/system-settings/billing/international-payments` 配置独立商户。当前预选为 **Creem、Waffo Pancake、TryBit（原 CryptoCloud）、NOWPayments、OxaPay、Apirone**；连连、PayPal、cisPay、ZPAY、Platega、FreeKassa、Lava.top 作为可选项，合计 13 个模块，全部默认不开放新付款。[支付模块分组](../payments/README.md) 和 [预选配置](../payments/preselected.env.example) 提供按需组合；完整 RU 模板先以 `PAYMENTS_PROVIDERS=none` 关闭新充值，开户后填写已批准的模块 ID，再在 RU 管理页填写凭据并打开 enabled/accept_new。通知直接到 RU New API，不需要新增支付服务或子域名；需使用本分支构建的候选二进制。
+- 推荐 [原生国际支付](payment-native.md)：在 RU `/system-settings/billing/payment` 配置独立商户。当前预选为 **Creem、Waffo Pancake、TryBit（原 CryptoCloud）、NOWPayments、OxaPay、Apirone**；连连、PayPal、cisPay、ZPAY、Platega、FreeKassa、Lava.top 作为可选项，合计 13 个模块，全部默认不开放新付款。[支付模块分组](../payments/README.md) 和 [预选配置](../payments/preselected.env.example) 提供按需组合；完整 RU 模板先以 `PAYMENTS_PROVIDERS=none` 关闭新充值，开户后填写已批准的模块 ID，再在 RU 管理页填写凭据并打开 enabled/accept_new。通知直接到 RU New API，不需要新增支付服务或子域名；需使用本分支构建的候选二进制。
 - 原生钱包使用 `creem_native`、`waffo_pancake_native`，与原有 Creem/Pancake 套餐或订阅设置分开；旧 Stripe/Creem/Waffo/易支付继续使用原配置，不受新清单控制。部署清单只控制新付款，移除模块后仍接收存量订单通知；有待支付订单时保留原商户、环境和凭据。不能升级 New API 时才考虑可选 [payment-bridge](../../payment-bridge/README.md)，两种模式不要重复开放同一个支付商。这里只完成协议接入，真实商户批准和小额支付仍须验收。
 - `/user-agreement`、`/privacy-policy` 复用 RU 控制台，运营方须配置本服务实际条款、支持联系方式及隐私说明后开放收款。
 
@@ -96,7 +96,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 | 第三方登录、Passkey | 与国内一样可以先关闭。开放时，在 `/system-settings/auth/oauth` 或 `custom-oauth` 配置 RU 应用/回调；GitHub/LinuxDO URL 依赖提供方应用注册的回调地址，复用仅登记主站的 client ID 会回主站。其他提供方也须允许 RU `/oauth/<provider>`。`/system-settings/auth/passkey` 配 RU RP ID/origin；不复制国内凭据或会话。 |
 | Key、余额、用量 | 控制台的创建/限制/撤销 Key、钱包历史、日志筛选与导出沿用现有实现，请求为同源 `/api/*`。独立实例/数据库隔离数据；门户页面本身不实现隔离。后台内部上游 Key 不进入客户页面。日志保存/导出规则在 `/system-settings/operations/logs` 配。 |
 | 模型与价格 | RU 仅公开 `default`，国内分组规则保留在主站。RU `/system-settings/billing/model-pricing`、`group-pricing`、`currency` 分别配置售价/倍率/USD。单组缺省值已提供，实际销售模型和商业价格需运营填写；不会自动复制或同步主站。门户 `/catalog/` 与控制台 `/pricing` 都读取 RU。 |
-| 收款与入账 | `/system-settings/billing/international-payments` 管理独立 RU 商户、币种、报价、通知与待支付核查。部署允许清单和后台 enabled/accept_new 都需开启；默认不收款。支付商页面返回不等于到账，入账仍由已校验通知/查单确认。未实现自动退款/拒付扣回，不能把人工核查表描述成退款系统。 |
+| 收款与入账 | `/system-settings/billing/payment` 管理独立 RU 商户、币种、报价、通知与待支付核查。部署允许清单和后台 enabled/accept_new 都需开启；默认不收款。支付商页面返回不等于到账，入账仍由已校验通知/查单确认。未实现自动退款/拒付扣回，不能把人工核查表描述成退款系统。 |
 | 首页、导航、文档 | 自定义 RU/EN 门户和同源控制台导航，不跳国内控制台。`general_setting.docs_link` 填 `https://ru.shinyapi.com/docs/`。`SystemName` / Logo / Footer 影响控制台；`HomePageContent` 不修改静态门户首页，门户版面文案仍在 `portal-ru/` 修改后构建发布。 |
 | 状态广场与客服 | 历史统计来自 RU 的模型请求；`/system-settings/operations/alerts` 管理统计采集。没有历史样本不等于模型不可用。真实客服联系方式、运营主体、退款时效仍需填入 RU 协议/公告；本分支没有编造客服账号。 |
 

@@ -1029,4 +1029,5 @@ export const STATIC_I18N_KEYS = [
   'Payment needs support verification',
   'Payment verification unavailable; try again later',
   'Payment reconciliation',
+  'Payment settings',
 ] as const

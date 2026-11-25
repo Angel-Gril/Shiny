@@ -216,6 +216,10 @@ type PaymentSettingsSectionProps = {
   waffoPancakeProvisionedStoreID?: string
   waffoPancakeProvisionedProductID?: string
   complianceDefaults: PaymentComplianceDefaults
+  activeTab?: string
+  showTabs?: boolean
+  showGatewayForm?: boolean
+  children?: React.ReactNode
 }
 
 function parseWaffoPayMethods(value: string): PayMethod[] {
@@ -234,8 +238,20 @@ export function PaymentSettingsSection({
   waffoPancakeProvisionedStoreID,
   waffoPancakeProvisionedProductID,
   complianceDefaults,
+  activeTab,
+  showTabs = true,
+  showGatewayForm = true,
+  children,
 }: PaymentSettingsSectionProps) {
   const { t } = useTranslation()
+  const [visitedTabs, setVisitedTabs] = React.useState<Set<string>>(
+    () => new Set(['general'])
+  )
+  React.useEffect(() => {
+    if (activeTab) {
+      setVisitedTabs((previous) => new Set([...previous, activeTab]))
+    }
+  }, [activeTab])
   const queryClient = useQueryClient()
   const updateOption = useUpdateOption()
   const initialFormValues = React.useMemo<PaymentFormValues>(
@@ -846,6 +862,7 @@ export function PaymentSettingsSection({
 
   return (
     <SettingsSection title={t('Payment Gateway')}>
+      {children}
       {!complianceConfirmed ? (
         <Alert variant='destructive' className='mb-6'>
           <ShieldAlert className='h-4 w-4' />
@@ -911,6 +928,7 @@ export function PaymentSettingsSection({
 
       <Form {...form}>
         <SettingsForm
+          hidden={!showGatewayForm}
           onSubmit={form.handleSubmit(onSubmit)}
           className={cn(
             'gap-y-8',
@@ -918,13 +936,19 @@ export function PaymentSettingsSection({
           )}
           data-no-autosubmit='true'
         >
-          <SettingsPageFormActions
-            onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending || isSubmitting}
-            saveLabel='Save all settings'
-          />
-          <Tabs defaultValue='general' className='min-w-0'>
-            <div className='overflow-x-auto pb-1'>
+          {showGatewayForm && (
+            <SettingsPageFormActions
+              onSave={form.handleSubmit(onSubmit)}
+              isSaving={updateOption.isPending || isSubmitting}
+              saveLabel={
+                showTabs
+                  ? 'Save all settings'
+                  : 'Save original gateway settings'
+              }
+            />
+          )}
+          <Tabs defaultValue='general' value={activeTab} className='min-w-0'>
+            <div hidden={!showTabs} className='overflow-x-auto pb-1'>
               <TabsList className='grid min-w-[44rem] grid-cols-6'>
                 <TabsTrigger value='general'>{t('General')}</TabsTrigger>
                 <TabsTrigger value='epay'>Epay</TabsTrigger>
@@ -935,7 +959,11 @@ export function PaymentSettingsSection({
               </TabsList>
             </div>
 
-            <TabsContent value='general' className={paymentTabContentClassName}>
+            <TabsContent
+              value='general'
+              className={paymentTabContentClassName}
+              keepMounted={!showTabs && visitedTabs.has('general')}
+            >
               <div className='space-y-4'>
                 <div>
                   <h3 className='text-lg font-medium'>
@@ -1182,7 +1210,11 @@ export function PaymentSettingsSection({
               </div>
             </TabsContent>
 
-            <TabsContent value='epay' className={paymentTabContentClassName}>
+            <TabsContent
+              value='epay'
+              className={paymentTabContentClassName}
+              keepMounted={!showTabs && visitedTabs.has('epay')}
+            >
               <div className='space-y-4'>
                 <div>
                   <h3 className='text-lg font-medium'>{t('Epay Gateway')}</h3>
@@ -1388,7 +1420,11 @@ export function PaymentSettingsSection({
               </div>
             </TabsContent>
 
-            <TabsContent value='stripe' className={paymentTabContentClassName}>
+            <TabsContent
+              value='stripe'
+              className={paymentTabContentClassName}
+              keepMounted={!showTabs && visitedTabs.has('stripe')}
+            >
               <div className='space-y-4'>
                 <div>
                   <h3 className='text-lg font-medium'>{t('Stripe Gateway')}</h3>
@@ -1580,7 +1616,11 @@ export function PaymentSettingsSection({
               </div>
             </TabsContent>
 
-            <TabsContent value='creem' className={paymentTabContentClassName}>
+            <TabsContent
+              value='creem'
+              className={paymentTabContentClassName}
+              keepMounted={!showTabs && visitedTabs.has('creem')}
+            >
               <div className='space-y-4'>
                 <div>
                   <h3 className='text-lg font-medium'>{t('Creem Gateway')}</h3>
@@ -1742,6 +1782,7 @@ export function PaymentSettingsSection({
             <TabsContent
               value='waffo-pancake'
               className={paymentTabContentClassName}
+              keepMounted={!showTabs && visitedTabs.has('waffo-pancake')}
             >
               <WaffoPancakeSettingsSection
                 defaultValues={waffoPancakeDefaultValues}
@@ -1753,7 +1794,11 @@ export function PaymentSettingsSection({
               />
             </TabsContent>
 
-            <TabsContent value='waffo' className={paymentTabContentClassName}>
+            <TabsContent
+              value='waffo'
+              className={paymentTabContentClassName}
+              keepMounted={!showTabs && visitedTabs.has('waffo')}
+            >
               <WaffoSettingsSection
                 values={waffoValues}
                 onValueChange={setWaffoValue}
