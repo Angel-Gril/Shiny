@@ -47,6 +47,8 @@ go build -o /path/to/ru-candidate .
 
 真实数据库版本：SQLite **3.50.4**、MySQL **5.7.44**、PostgreSQL **9.6.24**。每种引擎覆盖新建库、上一个分支版本 schema 升级、重复迁移两次、独立日志库、数据/唯一索引保留、并发只入账一次、精确金额/币种拒绝、钱包溢出事务回滚、待支付队列与核查历史、RU 缺省值/旧键别名/管理员既有配置保留。新增远端发票归属约束跨进程拒绝重复发票，包括升级前已付款但没有 claim 的历史行；FreeKassa nonce 在失败请求后仍递增。没有数据库跳过项。
 
+升级范围限于支付模块：矩阵使用当前 User/TopUp/Log/Option 模型建立基础表，再用旧 HostedPayment 结构验证支付表升级；没有使用生产 rc.51 完整 schema/代表性数据运行整个 `migrateDB()` / `migrateLOGDB()` 的候选启动升级。上述结果不能视为国内整库升级已验收。国内主站继续使用旧 release 时，新建 RU 库可单独测试；更新国内主站前必须补完整升级、重复启动、关键数据/约束保留及备份恢复验证。
+
 ```sh
 # 指向本地独立 fixture/fixture_logs；凭据不写入仓库。
 # 设置 TEST_MYSQL_DSN、TEST_MYSQL_LOG_DSN、
@@ -97,10 +99,15 @@ RU 日志 `upstream_request_id` 与主站 `request_id` 对应。取消测试验�
 
 ## 候选环境仍须验收
 
+- 国内主站若需要升级，补生产 rc.51 代表性独立数据库的完整候选启动/重复迁移与恢复验证；现有支付表矩阵和新建双实例不能替代这一项。
 - Linux Nginx/systemd、DNS/证书、RU 独立 SMTP/邮件链接与 Turnstile、备份及 RU 回滚。
 - 每个实际上游、售价覆盖真实成本、异步任务/音频/Realtime/WebSocket、俄区可达性和目标并发下的两站资源余量。本地合成上游没有验证这些生产能力。
 - 支付商实际批准的主体/地区/卡或 SBP/币链，小额成功、取消、欠付/超付、迟到和重复通知、退款及退款来源核对。本轮没有真实商户付款，也未实现自动/部分退款或拒付扣回。
 - TryBit 公开查单 schema 包含 `fiat_currency`，示例却省略；代码缺失币种时拒绝入账，必须核验正式商户响应。Apirone 官方没有签名通知，使用本地逐单回调令牌加私有查单；代理/CDN 访问与错误日志都须隐藏回调 query。本分支 Nginx 模板已为支付回调单独关闭访问及请求错误日志。
 - 主站采用旧 release 时，新增内部用户并发覆盖不能生效；需要先验证含此功能的候选二进制，或按旧版普通用户容量规划。完整部署顺序和配置位置见 [部署说明](README.md) 与 [原生支付](payment-native.md)。
+
+未付款订单终结流程尚未实现，长期 pending 会阻止彻底停用或更换商户。本版只能暂停新收款并保留存量单处理能力；正式增加取消/过期关单时需验证支付商状态和迟到/部分付款，不能把当前核查功能描述为完整关单系统。
+
+部署交接补充只更新本文件和 [README.md](README.md)，不修改程序、依赖、数据库结构、生产环境或国内定价。功能测试基线仍为 `8d166676f70163930ce4d8efc9080e5d2fdce4a3`；其 [RU 门户](https://github.com/Angel-Gril/Shiny/actions/runs/45599918847)、[原生支付](https://github.com/Angel-Gril/Shiny/actions/runs/45599918648)、[源码检查](https://github.com/Angel-Gril/Shiny/actions/runs/45599918950) 共 6 个任务通过。交接文档提交的 CI 结果以相应提交为准，不能借用功能基线的记录代称新提交已通过。
 
 只读工具 `configuration_passed` 表示可自动检查的配置通过；`deployment_accepted` 始终为 false。它不会将本地测试、DNS/TLS 或商户 fixture 当作生产验收完成。
