@@ -35,7 +35,7 @@ node preview.mjs
 
 `site.config.mjs` 仅含公开配置。API 地址为 **`https://ru.shinyapi.com/v1`**。不要把 `catalogEndpoint` 指向国内实例；前端会拒绝多个可用分组，实际账号隔离由独立 RU 实例和数据库保障。后台需让匿名访客及普通 RU 用户都只能使用 `default` 一个分组。
 
-语言选择写入同源 `i18nextLng`，进入控制台后使用俄语/英语。本分支 RU 实例的 `SHINY_SITE_PROFILE=ru` 会让直接首次打开控制台也默认俄语，已保存的语言偏好优先。`DEFAULT_LANGUAGE=ru` 支持俄语 API 错误、事务邮件和通知，用户的明确语言偏好仍优先。
+语言选择写入同源 `i18nextLng`，进入控制台后使用俄语/英语。返回门户时，有效的 `?lang=ru|en` 优先，其次读取控制台最新的 RU/EN 偏好，再使用门户历史选择或默认俄语；无效 `lang` 不重置偏好。控制台选择其他语言时，双语门户保留该控制台记录，仅在用户明确点击 RU/EN 时更新它。浏览器禁止存储时仍能切换语言。本分支 RU 实例的 `SHINY_SITE_PROFILE=ru` 会让直接首次打开控制台也默认俄语，已保存的语言偏好优先。`DEFAULT_LANGUAGE=ru` 支持俄语 API 错误、事务邮件和通知，用户的明确语言偏好仍优先。
 
 ## 构建与发布
 

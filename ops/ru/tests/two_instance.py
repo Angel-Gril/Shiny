@@ -327,6 +327,10 @@ def run(binary):
             main.initialize()
             ru.initialize()
             for instance in instances:
+                instance.option("ServerAddress", instance.origin)
+                instance.option("general_setting.docs_link", instance.origin + "/docs/")
+                instance.option("legal.user_agreement", instance.label + " fixture terms")
+                instance.option("legal.privacy_policy", instance.label + " fixture privacy")
                 instance.option("QuotaForNewUser", "0")
                 instance.option("QuotaForInviter", "0")
                 instance.option("QuotaForInvitee", "0")
@@ -364,6 +368,10 @@ def run(binary):
             for destination, key in ((main, ru_key), (ru, domestic_key)):
                 assert destination.request("/v1/models", token=key)[0] == 401
             assert ru.api("/api/status")["default_language"] == "ru"
+            assert ru.api("/api/status")["user_agreement_enabled"] is True
+            assert ru.api("/api/status")["privacy_policy_enabled"] is True
+            assert ru.api("/api/user-agreement") == "ru fixture terms"
+            assert main.api("/api/user-agreement") == "main fixture terms"
             assert set(json.loads(ru.request("/api/pricing")[2])["usable_group"]) == {"default"}
             assert "domestic" in json.loads(main.request("/api/pricing")[2])["usable_group"]
             outcomes.append("Independent registrations, sessions, keys and public single-group pricing")
@@ -468,6 +476,21 @@ def run(binary):
                 result = readiness.inspect_configuration(argparse.Namespace(ru_url=ru.origin, main_url=main.origin, ru_env=None, main_env=None,
                     service_user=[service_user], target_concurrency=4, domestic_headroom=4, min_internal_usd=0))
                 assert result["configuration_passed"], "Readiness rejected: " + ", ".join(item["check"] for item in result["checks"] if item["status"] == "fail")
+                ru.option("ServerAddress", "https://ru.fixture.test")
+                result = readiness.inspect_configuration(argparse.Namespace(ru_url=ru.origin, ru_public_url="https://ru.fixture.test", main_url=main.origin,
+                    ru_env=None, main_env=None, service_user=[service_user], target_concurrency=4, domestic_headroom=4, min_internal_usd=0))
+                assert result["configuration_passed"], "Readiness confused the internal management address with the public RU origin"
+                ru.option("ServerAddress", main.origin)
+                result = readiness.inspect_configuration(argparse.Namespace(ru_url=ru.origin, main_url=main.origin, ru_env=None, main_env=None,
+                    service_user=[service_user], target_concurrency=4, domestic_headroom=4, min_internal_usd=0))
+                assert any(item["check"] == "ru_public_address" and item["status"] == "fail" for item in result["checks"]), "Readiness missed a main-site email/payment return address"
+                ru.option("ServerAddress", ru.origin)
+                ru.option("legal.privacy_policy", "")
+                result = readiness.inspect_configuration(argparse.Namespace(ru_url=ru.origin, main_url=main.origin, ru_env=None, main_env=None,
+                    service_user=[service_user], target_concurrency=4, domestic_headroom=4, min_internal_usd=0))
+                assert any(item["check"] == "legal_documents" and item["status"] == "fail" for item in result["checks"]), "Readiness missed an empty privacy policy that disables consent"
+                assert main.api("/api/privacy-policy") == "main fixture privacy", "RU legal settings changed the main site"
+                ru.option("legal.privacy_policy", "ru fixture privacy")
                 ru.option("GroupRatio", '{"default":1,"unexpected":2}')
                 result = readiness.inspect_configuration(argparse.Namespace(ru_url=ru.origin, main_url=main.origin, ru_env=None, main_env=None,
                     service_user=[service_user], target_concurrency=4, domestic_headroom=4, min_internal_usd=0))
@@ -479,7 +502,7 @@ def run(binary):
                     else:
                         os.environ[key] = value
             assert not provider.invalid_key, "A customer credential leaked into the provider hop"
-            outcomes.append("Readiness accepts the isolated configuration and rejects hidden alternate groups; provider sees only its synthetic secret")
+            outcomes.append("Independent legal documents; readiness rejects wrong-site return addresses, empty policies and hidden alternate groups; provider sees only its synthetic secret")
         except Exception:
             for instance in instances:
                 if instance.process.poll() is not None:

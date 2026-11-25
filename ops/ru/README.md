@@ -59,6 +59,25 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 - 原生钱包使用 `creem_native`、`waffo_pancake_native`，与原有 Creem/Pancake 套餐或订阅设置分开；旧 Stripe/Creem/Waffo/易支付继续使用原配置，不受新清单控制。部署清单只控制新付款，移除模块后仍接收存量订单通知；有待支付订单时保留原商户、环境和凭据。不能升级 New API 时才考虑可选 [payment-bridge](../../payment-bridge/README.md)，两种模式不要重复开放同一个支付商。这里只完成协议接入，真实商户批准和小额支付仍须验收。
 - `/user-agreement`、`/privacy-policy` 复用 RU 控制台，运营方须配置本服务实际条款、支持联系方式及隐私说明后开放收款。
 
+## 与国内现有版本的功能对照
+
+2026-11-25 通过主站匿名 `/api/status` 核实国内运行版本为 `shiny-rc51-50f7591`，邮箱验证、Turnstile、账号密码注册/登录、用户协议和隐私政策、USD 额度显示、用量导出均已开启；GitHub、Discord、OIDC、Telegram、LinuxDO 登录关闭。比对该部署 revision 的公开源文件，注册表单、协议勾选、Key 管理 API、用量日志 API、站点配置入口与本分支一致。主站内部设置与真实业务数据未读取；RU 尚未部署，不能把这些线上开关视为 RU 已配置。
+
+| 部分 | RU 行为及部署配置位置 |
+| --- | --- |
+| 条款、隐私、勾选 | 按国内既有流程：正文由 RU `/system-settings/site/system-info` 的 `legal.user_agreement` / `legal.privacy_policy` 写入 RU 数据库，前端注册勾选；没有另加服务端协议版本或接受时间记录。空正文会隐藏对应勾选，应在实际用户测试前填写。Git 管理展示流程，实际运营正文部署后维护。`/legal/` 仍是开源归属页。 |
+| 注册、登录、邮箱 | 同一套控制台流程、独立 RU 账户库和登录状态。`/system-settings/auth/basic-auth` 单独配置注册、密码登录、邮箱验证；要与国内一致需在 RU 开启邮箱验证。现有注册代码只有开启邮箱验证时才保存邮箱，关闭时用户需到个人资料绑定邮箱才能使用要求邮箱的付款方式。 |
+| 发信、找回密码 | `/system-settings/operations/email` 填 RU SMTP/Resend、发件人及提醒；可共用已验证发信域名。`/system-settings/site/system-info` 的 `ServerAddress` 必须填 RU 的公开 origin，确保找回密码及支付返回仍在 RU。 |
+| 俄区邮箱、机器人验证 | 如开启邮箱域名限制，在 `basic-auth` 白名单加入运营允许的 `mail.ru`、`yandex.ru` 等；默认不开限制。`/system-settings/auth/bot-protection` 填已授权 RU 域名的 Turnstile key，不能只复制国内开关。 |
+| 第三方登录、Passkey | 与国内一样可以先关闭。开放时，在 `/system-settings/auth/oauth` 或 `custom-oauth` 配置 RU 应用/回调；GitHub/LinuxDO URL 依赖提供方应用注册的回调地址，复用仅登记主站的 client ID 会回主站。其他提供方也须允许 RU `/oauth/<provider>`。`/system-settings/auth/passkey` 配 RU RP ID/origin；不复制国内凭据或会话。 |
+| Key、余额、用量 | 控制台的创建/限制/撤销 Key、钱包历史、日志筛选与导出沿用现有实现，请求为同源 `/api/*`。独立实例/数据库隔离数据；门户页面本身不实现隔离。后台内部上游 Key 不进入客户页面。日志保存/导出规则在 `/system-settings/operations/logs` 配。 |
+| 模型与价格 | RU 仅公开 `default`，国内分组规则保留在主站。RU `/system-settings/billing/model-pricing`、`group-pricing`、`currency` 分别配置售价/倍率/USD。单组缺省值已提供，实际销售模型和商业价格需运营填写；不会自动复制或同步主站。门户 `/catalog/` 与控制台 `/pricing` 都读取 RU。 |
+| 收款与入账 | `/system-settings/billing/international-payments` 管理独立 RU 商户、币种、报价、通知与待支付核查。部署允许清单和后台 enabled/accept_new 都需开启；默认不收款。支付商页面返回不等于到账，入账仍由已校验通知/查单确认。未实现自动退款/拒付扣回，不能把人工核查表描述成退款系统。 |
+| 首页、导航、文档 | 自定义 RU/EN 门户和同源控制台导航，不跳国内控制台。`general_setting.docs_link` 填 `https://ru.shinyapi.com/docs/`。`SystemName` / Logo / Footer 影响控制台；`HomePageContent` 不修改静态门户首页，门户版面文案仍在 `portal-ru/` 修改后构建发布。 |
+| 状态广场与客服 | 历史统计来自 RU 的模型请求；`/system-settings/operations/alerts` 管理统计采集。没有历史样本不等于模型不可用。真实客服联系方式、运营主体、退款时效仍需填入 RU 协议/公告；本分支没有编造客服账号。 |
+
+此轮认证相关对照采用 OWASP [Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)、[Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) 的实例边界、精确 Origin、服务器鉴权和非秘密语言存储要求。真实双实例验证跨站会话/Key 拒绝、独立协议及日志；未修改认证实现，也未进行全量 ASVS 5.0 认证审计或实际 OAuth/邮件收信验收。
+
 ## 必做候选验收
 
 | 场景 | 通过条件 |
@@ -77,7 +96,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 
 ## 只读候选检查
 
-`readiness.py` 使用 Python 标准库，通过 GET 检查 RU 单组实际配置、公开价格/登录后的倍率、USD 换算、渠道目的地、主站内部账户余额和并发。凭据通过进程环境 `SHINY_RU_ADMIN_ACCESS_TOKEN` / `SHINY_MAIN_ADMIN_ACCESS_TOKEN` 提供，使用有相应只读管理权限的访问令牌；不是模型调用 Key。工具不输出令牌、DSN 或支付凭据，拒绝管理请求跳转、非本机 HTTP 管理地址。`--main-url` 使用 RU 渠道实际填写的主站 origin，不带 `/v1`。
+`readiness.py` 使用 Python 标准库，通过 GET 检查 RU 默认语言、公开站点地址、非空协议/隐私、单组实际配置、公开价格/登录后的倍率、USD 换算、渠道目的地、主站内部账户余额和并发。协议检查只核对正文及启用状态，不判断文本法律效力，不要求服务端协议接受记录。凭据通过进程环境 `SHINY_RU_ADMIN_ACCESS_TOKEN` / `SHINY_MAIN_ADMIN_ACCESS_TOKEN` 提供，使用有相应只读管理权限的访问令牌；不是模型调用 Key。工具不输出令牌、DSN 或支付凭据，拒绝管理请求跳转、非本机 HTTP 管理地址。`--main-url` 使用 RU 渠道实际填写的主站 origin，不带 `/v1`。
 
 ```sh
 python ops/ru/readiness.py \
@@ -90,5 +109,7 @@ python ops/ru/readiness.py \
 ```
 
 可重复 `--service-user` 检查所有内部账户，参数只是示例目标，不是性能承诺。应在可连接两个内部 origin、能读取私有配置的候选机器运行。SQL/Redis 的用户名或密码不同不能证明数据隔离；工具比较已识别的主机/端口/数据库，无法识别的连接以及 DNS 别名、代理和挂载仍列为人工核验。输出 `configuration_passed` 仅表示可自动核查的配置通过；`deployment_accepted` 始终为 false，实际渠道成本、商户支付、并发压测和俄区网络需继续验收。
+
+若 `--ru-url` 为 `http://127.0.0.1:3001` 等内部管理地址，另传 `--ru-public-url https://ru.shinyapi.com`；站点地址将与后者比较。候选域名变化时使用实际候选公开 origin，避免把正确公开地址误判为错误。这个比较读取配置，不探测尚未部署的 DNS/TLS。
 
 本地双实例回归：先构建控制台及候选 Go 文件，再执行 `python ops/ru/tests/two_instance.py --binary <候选二进制绝对路径>`。脚本生成独立临时数据库与合成上游，不使用生产渠道/商户/Key；结束后关闭自身进程并清理临时文件。结果及尚未验证范围见 [验证记录](VALIDATION.md)。

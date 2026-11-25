@@ -84,6 +84,62 @@ try {
     await page.evaluate(() => localStorage.getItem("i18nextLng")),
     "ru",
   );
+  // A console language change must take precedence over an older portal choice.
+  await page.evaluate(() => localStorage.setItem("i18nextLng", "en"));
+  await page.reload();
+  assert.equal(await page.locator("html").getAttribute("lang"), "en");
+  await page.goto(origin + "/?lang=ru");
+  assert.equal(await page.locator("html").getAttribute("lang"), "ru");
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("i18nextLng")),
+    "ru",
+  );
+  await page.evaluate(() => localStorage.setItem("i18nextLng", "en"));
+  await page.goto(origin + "/?lang=unknown");
+  assert.equal(await page.locator("html").getAttribute("lang"), "en");
+  // Visiting the bilingual portal must preserve other supported console languages.
+  await page.evaluate(() => {
+    localStorage.setItem("shiny-ru-language", "ru");
+    localStorage.setItem("i18nextLng", "fr");
+  });
+  await page.goto(origin);
+  assert.equal(await page.locator("html").getAttribute("lang"), "ru");
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("i18nextLng")),
+    "fr",
+  );
+  await page.getByRole("button", { name: "English", exact: true }).click();
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("i18nextLng")),
+    "en",
+  );
+  const storageBlocked = await browser.newContext();
+  await storageBlocked.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() {
+        throw new DOMException("Storage blocked", "SecurityError");
+      },
+    });
+  });
+  try {
+    const blockedPage = await storageBlocked.newPage();
+    await blockedPage.goto(origin);
+    assert.equal(
+      await blockedPage.locator("html").getAttribute("lang"),
+      "ru",
+    );
+    await blockedPage
+      .getByRole("button", { name: "English", exact: true })
+      .click();
+    assert.equal(
+      await blockedPage.locator("html").getAttribute("lang"),
+      "en",
+    );
+  } finally {
+    await storageBlocked.close();
+  }
+  await page.goto(origin + "/?lang=ru");
+  await page.locator(".model-card").first().waitFor();
   assert.ok(await page.locator("#preview-note").isVisible());
   await page.screenshot({
     path: resolve(root, "output/playwright/ru-home-desktop.png"),
@@ -223,7 +279,7 @@ try {
   const malicious = structuredClone(fixture);
   malicious.data = [
     {
-      model_name: '\"><img src=x onerror="window.injected=true">',
+      model_name: '"><img src=x onerror="window.injected=true">',
       enable_groups: ["default"],
       vendor_name: "<script>evil</script>",
       supported_endpoint_types: ["<svg/onload=alert(1)>"],

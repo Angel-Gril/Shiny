@@ -16,15 +16,21 @@ const path =
   location.pathname === "/" ? "/" : `${location.pathname.replace(/\/+$/, "")}/`;
 if (!publicRoutes.includes(path)) throw new Error("Not a portal route");
 const root = document.querySelector("#app");
-let savedLanguage;
+let savedLanguage, consoleLanguage;
 try {
   savedLanguage = localStorage.getItem("shiny-ru-language");
+  consoleLanguage = localStorage.getItem("i18nextLng");
 } catch {
   /* Storage is optional. */
 }
-let language = getLanguage(
-  new URLSearchParams(location.search).get("lang") || savedLanguage,
-);
+const requestedLanguage = new URLSearchParams(location.search).get("lang");
+const explicitLanguage =
+  requestedLanguage === "ru" || requestedLanguage === "en";
+const sharedLanguage = consoleLanguage === "ru" || consoleLanguage === "en";
+let preference = savedLanguage;
+if (sharedLanguage) preference = consoleLanguage;
+if (explicitLanguage) preference = requestedLanguage;
+let language = getLanguage(preference);
 let catalog = { state: "loading", models: [], demo: false };
 let health = {state:"loading"};
 let query = "",
@@ -36,11 +42,12 @@ let request,
   toastTimer;
 const t = () => translations[language];
 
-function saveLanguage() {
+function saveLanguage(updateConsolePreference) {
   try {
     localStorage.setItem("shiny-ru-language", language);
     // The same-origin New API console uses this i18next detector key.
-    localStorage.setItem("i18nextLng", language);
+    if (updateConsolePreference)
+      localStorage.setItem("i18nextLng", language);
   } catch {
     /* The portal still works with blocked browser storage. */
   }
@@ -94,7 +101,7 @@ function fillFilters() {
   form.elements.protocol.value = protocol;
 }
 
-function render() {
+function render(updateConsolePreference = true) {
   document.documentElement.lang = language;
   document.title =
     path === "/"
@@ -104,7 +111,7 @@ function render() {
   codeKind = "python";
   fillFilters();
   drawCatalog();
-  saveLanguage();
+  saveLanguage(updateConsolePreference);
 }
 
 async function loadCatalog() {
@@ -235,5 +242,6 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".site-header")) closeMenu();
 });
-render();
+// A bilingual portal must not overwrite another console language on arrival.
+render(explicitLanguage || !consoleLanguage || sharedLanguage);
 loadCatalog();

@@ -81,6 +81,16 @@ python -m unittest discover -s ops/ru/tests -p '*_test.py' -v
 
 RU 日志 `upstream_request_id` 与主站 `request_id` 对应。取消测试验证断开传递且不重试；已经生成的用量按既有规则结算，不承诺取消一律免费。
 
+## 国内流程对照与候选配置补充
+
+2026-11-25 主站公开状态为 `shiny-rc51-50f7591`：用户协议和隐私政策均启用且正文非空，账号密码注册/登录、邮箱验证、Turnstile、USD 额度显示及用量导出开启，内置第三方登录关闭。通过公开源码比对该 revision，注册表单、协议勾选、法律配置、Key API、用量日志 API、站点配置入口、OAuth URL 构造及旧钱包 API 与本分支一致；没有读取主站用户或商户数据。依照用户确认，RU 保留国内的前端协议勾选，正文在部署后的 RU 管理页保存，不增加服务端协议版本/接受时间机制。详细设置位置见 [功能对照](README.md#与国内现有版本的功能对照)。
+
+门户语言偏好问题先由浏览器失败用例复现：控制台将 `i18nextLng` 改为 `en` 后刷新门户，旧代码仍显示 `ru`。修复后真实 Chrome 回归通过控制台最新 RU/EN 偏好、显式 URL 优先、无效 URL 不重置、其他控制台语言不被覆盖、浏览器阻止存储时仍可切换，以及原有目录/复制/错误/手机布局；`node tests/browser.mjs`、16 项门户测试和生产构建通过。涉及两个 `.mjs` 文件的 oxlint correctness 与 Node 语法检查通过；没有改动 TypeScript、前端依赖或认证实现。
+
+只读 readiness 增加 `ru_public_address`、`legal_documents` 检查；`--ru-public-url` 区分公开站点地址与本机管理 origin，不要求对尚未部署的域名进行网络探测。真实双实例回归先复现旧工具漏检主站返回地址，再验证合理配置通过、内部管理地址搭配正确公开 origin 通过、主站返回地址/空隐私/额外组拒绝、RU 修改正文不影响主站。`python ops/ru/tests/two_instance.py --binary <shiny-preselected-payments-candidate.exe>` 与 5 项既有 readiness 单元测试通过。复用上轮从本分支构建的 Go 候选程序；本次未修改 Go 源码、数据库模型或迁移。
+
+本轮只核对实例与导航配置边界，不声称完成全量 ASVS 审计、真实邮件/OAuth/支付验收。国内邮箱验证和 Turnstile 的启用状态不自动复制到 RU；实际 RU 运营正文、SMTP/Turnstile、售价和商户参数仍由运营在候选部署填写。
+
 ## CI 和提交
 
 工作流包含门户测试/构建/浏览器、支付后端及最低数据库版本矩阵、控制台测试/构建与产物、真实双实例/readiness，全部在商业分支运行。提交前执行 `git diff --cached --check` 与 `python scripts/check-secrets.py`；不提交二进制、生成产物、临时浏览器脚本、商户凭据或数据库。当前 commit 的结果见 [该分支 Actions](https://github.com/Angel-Gril/Shiny/actions?query=branch%3Acommercial%2Fru-portal)，历史通过记录不能替代本次结果。

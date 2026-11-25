@@ -142,6 +142,17 @@ def inspect_configuration(args):
     pricing = ru.get("/api/pricing", anonymous=True)
     report("ru_profile", ru_status.get("site_profile") == "ru" and ru_status.get("default_language") == "ru",
            "RU profile and default console language must both be ru")
+    public_origin = AdminClient(getattr(args, "ru_public_url", None) or ru.origin, ru.token).origin
+    site_address = ru_status.get("server_address")
+    report("ru_public_address", isinstance(site_address, str) and site_address in (public_origin, public_origin + "/"),
+           "RU ServerAddress must match its public origin for email links and payment returns")
+    terms = ru.get("/api/user-agreement", anonymous=True).get("data")
+    privacy = ru.get("/api/privacy-policy", anonymous=True).get("data")
+    report("legal_documents", ru_status.get("user_agreement_enabled") is True
+           and ru_status.get("privacy_policy_enabled") is True
+           and isinstance(terms, str) and bool(terms.strip())
+           and isinstance(privacy, str) and bool(privacy.strip()),
+           "Configure RU terms and privacy in the admin; domestic-style frontend consent needs both documents")
     report("public_single_group", set(pricing.get("usable_group", {})) == {"default"}
            and set(pricing.get("group_ratio", {})) == {"default"}
            and Decimal(str(pricing.get("group_ratio", {}).get("default", 0))) > 0,
@@ -231,6 +242,7 @@ def inspect_configuration(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ru-url", required=True)
+    parser.add_argument("--ru-public-url", help="Expected RU public origin when --ru-url uses an internal management address")
     parser.add_argument("--main-url", required=True, help="Use the actual internal origin configured on RU channels")
     parser.add_argument("--ru-env")
     parser.add_argument("--main-env")
