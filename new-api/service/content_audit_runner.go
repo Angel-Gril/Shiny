@@ -309,5 +309,8 @@ func contentAuditSource(cfg ContentAuditConfig) string {
 	if cfg.Provider == "typesafe" {
 		return "typesafe"
 	}
+	if cfg.Provider == "subq" {
+		return "subq"
+	}
 	return "chat_completions"
 }

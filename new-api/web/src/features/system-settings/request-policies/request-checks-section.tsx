@@ -73,11 +73,12 @@ const behaviorAuditSchema = z.object({
 })
 
 const contentAuditSchema = z.object({
-  ContentAuditProvider: z.enum(['chat_completions', 'typesafe']),
+  ContentAuditProvider: z.enum(['chat_completions', 'typesafe', 'subq']),
   ContentAuditMaxChunks: z
     .string()
     .regex(/^(?:[1-9]|1[0-6])$/, 'Enter a whole number from 1 to 16'),
   ContentAuditTypesafePolicy: z.string().max(20000),
+  ContentAuditSubqPolicy: z.string().max(20000),
   ContentAuditEnabled: z.boolean(),
   ContentAuditMode: z.enum(['off', 'shadow', 'preflight']),
   ContentAuditPreflightScope: z.enum(['signal', 'all']),
@@ -99,6 +100,24 @@ const contentAuditSchema = z.object({
 type SensitiveFormValues = z.infer<typeof sensitiveSchema>
 type ContentAuditFormValues = z.infer<typeof contentAuditSchema>
 type BehaviorAuditFormValues = z.infer<typeof behaviorAuditSchema>
+
+const auditProviderPresets = {
+  chat_completions: {
+    label: 'Chat Completions (DeepSeek compatible)',
+    endpoint: '',
+    model: '',
+  },
+  typesafe: {
+    label: 'TypeSafe Jev',
+    endpoint: 'https://api.typesafe.ai/v1/systemone',
+    model: 'jev-1.14.0',
+  },
+  subq: {
+    label: 'SubQ Decisions',
+    endpoint: 'https://api.subq.ai/v1/systemone',
+    model: 'subq-snap-1.2',
+  },
+}
 
 type RequestChecksSectionProps = {
   defaultValues: SensitiveFormValues &
@@ -376,6 +395,7 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     ContentAuditProvider: defaultValues.ContentAuditProvider,
     ContentAuditMaxChunks: defaultValues.ContentAuditMaxChunks,
     ContentAuditTypesafePolicy: defaultValues.ContentAuditTypesafePolicy,
+    ContentAuditSubqPolicy: defaultValues.ContentAuditSubqPolicy,
     ContentAuditEnabled: defaultValues.ContentAuditEnabled,
     ContentAuditMode: defaultValues.ContentAuditMode,
     ContentAuditPreflightScope: defaultValues.ContentAuditPreflightScope,
@@ -436,6 +456,8 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
   }
 
   const auditProvider = form.watch('ContentAuditProvider')
+  const isDecisionProvider =
+    auditProvider === 'typesafe' || auditProvider === 'subq'
   const auditMode = form.watch('ContentAuditMode')
   let auditModeMessage = t(
     'Content audit is disabled; no external audit request will be sent.'
@@ -480,36 +502,44 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
               <FormItem>
                 <FormLabel>{t('Audit provider')}</FormLabel>
                 <Select
+                  disabled={isFetchingModels || form.formState.isSubmitting}
                   value={field.value}
                   onValueChange={(value) => {
-                    if (value !== 'typesafe' && value !== 'chat_completions') {
+                    if (
+                      value !== 'typesafe' &&
+                      value !== 'chat_completions' &&
+                      value !== 'subq'
+                    ) {
                       return
                     }
-                    field.onChange(value)
+                    const previousPreset = auditProviderPresets[field.value]
+                    const nextPreset = auditProviderPresets[value]
                     setApiKey('')
                     setClearApiKey(false)
                     if (
-                      value === 'typesafe' &&
-                      !form.getValues('ContentAuditEndpoint')
+                      !form.getValues('ContentAuditEndpoint') ||
+                      form.getValues('ContentAuditEndpoint') ===
+                        previousPreset.endpoint
                     ) {
-                      form.setValue(
-                        'ContentAuditEndpoint',
-                        'https://api.typesafe.ai/v1/systemone'
-                      )
+                      form.setValue('ContentAuditEndpoint', nextPreset.endpoint)
                     }
                     if (
-                      value === 'typesafe' &&
-                      !form.getValues('ContentAuditModel')
+                      !form.getValues('ContentAuditModel') ||
+                      form.getValues('ContentAuditModel') ===
+                        previousPreset.model
                     ) {
-                      form.setValue('ContentAuditModel', 'jev-1.14.0')
+                      form.setValue('ContentAuditModel', nextPreset.model)
                     }
+                    field.onChange(value)
                     setModelOptions([])
                     setModelFetchError('')
                   }}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue>
+                        {t(auditProviderPresets[field.value].label)}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -518,6 +548,9 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
                         {t('Chat Completions (DeepSeek compatible)')}
                       </SelectItem>
                       <SelectItem value='typesafe'>TypeSafe Jev</SelectItem>
+                      <SelectItem value='subq'>
+                        {t('SubQ Decisions')}
+                      </SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -534,6 +567,15 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
               <AlertDescription>
                 {t(
                   'For Jev use https://api.typesafe.ai/v1/systemone and a fixed model such as jev-1.14.0. Category probabilities require separate threshold calibration; start in shadow mode.'
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+          {auditProvider === 'subq' && (
+            <Alert>
+              <AlertDescription>
+                {t(
+                  'For SubQ use https://api.subq.ai/v1/systemone and subq-snap-1.2. Start in shadow mode and calibrate thresholds for this model.'
                 )}
               </AlertDescription>
             </Alert>
@@ -842,19 +884,27 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
               </FormItem>
             )}
           />
-          {auditProvider === 'typesafe' && (
+          {isDecisionProvider && (
             <FormField
               control={form.control}
-              name='ContentAuditTypesafePolicy'
+              name={
+                auditProvider === 'subq'
+                  ? 'ContentAuditSubqPolicy'
+                  : 'ContentAuditTypesafePolicy'
+              }
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Jev additional decision policy')}</FormLabel>
+                  <FormLabel>
+                    {auditProvider === 'subq'
+                      ? t('SubQ additional decision policy')
+                      : t('Jev additional decision policy')}
+                  </FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={6} />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Add decision boundaries only. Jev uses six independent probability questions and a context classification; do not paste JSON output instructions. The DeepSeek prompt is kept separately.'
+                      'Add decision boundaries only. Decision providers use six probability questions and one context classification. Each provider keeps its own policy; do not paste JSON output instructions.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -862,7 +912,7 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
               )}
             />
           )}
-          <div hidden={auditProvider === 'typesafe'}>
+          <div hidden={isDecisionProvider}>
             <FormField
               control={form.control}
               name='ContentAuditPrompt'

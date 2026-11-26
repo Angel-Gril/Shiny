@@ -37,6 +37,7 @@ const POLICY_SECTIONS = [
           ContentAuditProvider: settings.ContentAuditProvider,
           ContentAuditMaxChunks: settings.ContentAuditMaxChunks,
           ContentAuditTypesafePolicy: settings.ContentAuditTypesafePolicy,
+          ContentAuditSubqPolicy: settings.ContentAuditSubqPolicy,
           ContentAuditEnabled: settings.ContentAuditEnabled,
           ContentAuditMode: settings.ContentAuditMode,
           ContentAuditPreflightScope: settings.ContentAuditPreflightScope,

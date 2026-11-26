@@ -42,9 +42,10 @@ export type FilteringSettings = {
   SensitiveWords: string
   SensitiveWordSignals: string
   BehaviorAuditEnabled: boolean
-  ContentAuditProvider: 'chat_completions' | 'typesafe'
+  ContentAuditProvider: 'chat_completions' | 'typesafe' | 'subq'
   ContentAuditMaxChunks: string
   ContentAuditTypesafePolicy: string
+  ContentAuditSubqPolicy: string
   ContentAuditEnabled: boolean
   ContentAuditMode: 'off' | 'shadow' | 'preflight'
   ContentAuditPreflightScope: 'signal' | 'all'
@@ -89,6 +90,7 @@ export const defaultRequestPolicySettings: RequestPolicySettings = {
   ContentAuditProvider: 'chat_completions',
   ContentAuditMaxChunks: '4',
   ContentAuditTypesafePolicy: '',
+  ContentAuditSubqPolicy: '',
   ContentAuditEnabled: false,
   ContentAuditMode: 'off',
   ContentAuditPreflightScope: 'signal',

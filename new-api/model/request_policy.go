@@ -67,6 +67,7 @@ func requestPolicyDefaultOptions() map[string]string {
 	defaults["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	defaults["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
 	defaults["ContentAuditTypesafePolicy"] = ""
+	defaults["ContentAuditSubqPolicy"] = ""
 	defaults["ContentAuditProvider"] = "chat_completions"
 	defaults["ContentAuditMaxChunks"] = "4"
 	defaults["ContentAuditEnabled"] = "false"
@@ -83,7 +84,7 @@ func requestPolicyDefaultOptions() map[string]string {
 }
 
 func IsRequestPolicyOption(key string) bool {
-	if key == "ContentAuditTypesafePolicy" || key == "ContentAuditProvider" || key == "ContentAuditMaxChunks" || key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" {
+	if key == "ContentAuditTypesafePolicy" || key == "ContentAuditSubqPolicy" || key == "ContentAuditProvider" || key == "ContentAuditMaxChunks" || key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" {
 		return true
 	}
 	if strings.HasPrefix(key, "channel_affinity_setting.") {
@@ -189,7 +190,7 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 	if _, err := strconv.ParseBool(raw["ContentAuditEnabled"]); err != nil {
 		return nil, fmt.Errorf("invalid boolean: ContentAuditEnabled")
 	}
-	if raw["ContentAuditProvider"] != "chat_completions" && raw["ContentAuditProvider"] != "typesafe" {
+	if raw["ContentAuditProvider"] != "chat_completions" && raw["ContentAuditProvider"] != "typesafe" && raw["ContentAuditProvider"] != "subq" {
 		return nil, fmt.Errorf("invalid ContentAuditProvider")
 	}
 	if count, err := strconv.Atoi(raw["ContentAuditMaxChunks"]); err != nil || count < 1 || count > 16 {
@@ -208,7 +209,7 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 			return nil, fmt.Errorf("invalid ContentAuditEndpoint")
 		}
 	}
-	if len(raw["ContentAuditModel"]) > 128 || len(raw["ContentAuditPrompt"]) > 20000 || len(raw["ContentAuditTypesafePolicy"]) > 20000 {
+	if len(raw["ContentAuditModel"]) > 128 || len(raw["ContentAuditPrompt"]) > 20000 || len(raw["ContentAuditTypesafePolicy"]) > 20000 || len(raw["ContentAuditSubqPolicy"]) > 20000 {
 		return nil, fmt.Errorf("content audit model or prompt is too long")
 	}
 	timeoutMs, err := strconv.Atoi(raw["ContentAuditTimeoutMs"])
@@ -351,7 +352,7 @@ func UpdateRequestPolicySettings(values map[string]string, credentials map[strin
 		persistedValues[key] = encrypted
 	}
 	for key := range persistedValues {
-		if !IsRequestPolicyOption(key) && key != "ContentAuditChatCompletionsApiKey" && key != "ContentAuditTypesafeApiKey" {
+		if !IsRequestPolicyOption(key) && !IsContentAuditCredentialOption(key) {
 			return fmt.Errorf("not a request policy option: %s", key)
 		}
 	}
@@ -388,9 +389,17 @@ func contentAuditCredentialOption(provider string) (string, bool) {
 		return "ContentAuditChatCompletionsApiKey", true
 	case "typesafe":
 		return "ContentAuditTypesafeApiKey", true
+	case "subq":
+		return "ContentAuditSubqApiKey", true
 	default:
 		return "", false
 	}
+}
+
+// IsContentAuditCredentialOption keeps all encrypted audit keys out of generic
+// settings writers, which accept plaintext values.
+func IsContentAuditCredentialOption(key string) bool {
+	return key == "ContentAuditChatCompletionsApiKey" || key == "ContentAuditTypesafeApiKey" || key == "ContentAuditSubqApiKey"
 }
 
 // ContentAuditCredential returns a decrypted console credential when present,
@@ -410,6 +419,8 @@ func ContentAuditCredential(provider string) (string, string, error) {
 	envKey := "CONTENT_AUDIT_API_KEY"
 	if provider == "typesafe" {
 		envKey = "TYPESAFE_API_KEY"
+	} else if provider == "subq" {
+		envKey = "SUBQ_API_KEY"
 	}
 	if credential := strings.TrimSpace(os.Getenv(envKey)); credential != "" {
 		return credential, "environment", nil

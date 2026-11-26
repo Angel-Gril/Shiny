@@ -24,6 +24,7 @@ export type PolicyConfig = {
   credentials?: {
     chat_completions?: AuditCredentialStatus
     typesafe?: AuditCredentialStatus
+    subq?: AuditCredentialStatus
     store_ready?: boolean
   }
 }

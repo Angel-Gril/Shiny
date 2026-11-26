@@ -13,11 +13,13 @@ import (
 func GetRequestPolicy(c *gin.Context) {
 	chatConfigured, chatSource, chatError := model.ContentAuditCredentialStatus("chat_completions")
 	jevConfigured, jevSource, jevError := model.ContentAuditCredentialStatus("typesafe")
+	subqConfigured, subqSource, subqError := model.ContentAuditCredentialStatus("subq")
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
 		"options": model.CurrentRequestPolicy().Options,
 		"credentials": gin.H{
 			"chat_completions": gin.H{"configured": chatConfigured, "source": chatSource, "error": chatError},
 			"typesafe":         gin.H{"configured": jevConfigured, "source": jevSource, "error": jevError},
+			"subq":             gin.H{"configured": subqConfigured, "source": subqSource, "error": subqError},
 			"store_ready":      model.ContentAuditCredentialStoreReady(),
 		},
 	}})

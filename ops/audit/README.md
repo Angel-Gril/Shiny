@@ -1,8 +1,8 @@
 # Shiny request audit
 
 This describes the optional content-audit provider and the Abuse Reviews
-operator page. The feature branch adds a TypeSafe/Jev adapter; it does not
-enable Jev or change the production provider. Existing Chat Completions
+operator page. The feature branch supports TypeSafe/Jev and SubQ Decisions;
+it does not enable either or change the production provider. Existing Chat Completions
 (including DeepSeek) remains the default, existing review history is retained,
 and no account ban, balance, quota, or permission change is automated.
 
@@ -30,8 +30,55 @@ and no account ban, balance, quota, or permission change is automated.
    with an operator note. Tune thresholds against labeled benign, defensive,
    quoted, ambiguous, and abusive examples before considering **Preflight**.
 
-The Jev adapter sends one structured request containing six independent abuse
-questions and one request-context classification. It does not ask Jev to write
+## SubQ Decisions setup
+
+Use the same **Content audit** settings page and select **SubQ Decisions**.
+The official presets are:
+
+| Field | Value |
+| --- | --- |
+| Endpoint | `https://api.subq.ai/v1/systemone` |
+| Model | `subq-snap-1.2` |
+| Initial mode | `Shadow` |
+| API key | Enter in the password field; save encrypts it on the server |
+
+Use **Test connection and fetch models** to check the model-list endpoint with
+an unsaved or saved SubQ key. This action does not run a content-classification
+test. SubQ discovery reads `data[].id`; Jev continues to read `models[].name`.
+Switching providers replaces empty fields or the previous official presets.
+Custom endpoints/models are preserved and should be checked before saving.
+
+SubQ has its own encrypted key slot (`ContentAuditSubqApiKey`) and additional
+policy (`ContentAuditSubqPolicy`). A console-saved key takes precedence over
+the optional `SUBQ_API_KEY` environment fallback. It never uses a Jev or Chat
+Completions key. Other providers' keys and policies survive switching.
+Mode, thresholds, endpoint and model remain the active audit's shared settings;
+switching providers does not automatically enable or reset the audit mode.
+Do not assume thresholds calibrated on another model transfer to SubQ.
+
+SubQ Snap uses the same seven-question decision schema and validation as Jev.
+New evidence records `provider/source=subq`, the returned model version, and
+`subq_*` reason codes. Existing Jev evidence remains readable. A missing or
+invalid answer, provider error, or rate limit remains an audit failure; it is
+never treated as a clean result and is not automatically retried.
+
+As checked on 2026-11-26, Snap 1.2 costs `$0.04 / 1M input tokens`, with free
+output. SubQ documents deletion of ordinary Decisions inputs/outputs within
+60 days, with investigation/legal exceptions; ZDR requires separate activation.
+Confirm current terms before production use. The authorized initial probe used
+14 synthetic Chinese examples with the shared seven-question policy: all
+responses passed schema checks and all matched the expected flag/no-flag labels.
+This is an integration smoke check, not a production accuracy or latency claim.
+
+Sources: [Decisions API](https://docs.subq.ai/endpoints/decisions-api/),
+[Models/prices](https://docs.subq.ai/using-the-api/models/),
+[Model discovery](https://docs.subq.ai/endpoints/models-api/),
+[Retention](https://docs.subq.ai/using-the-api/data-retention/).
+
+## Shared evaluation behavior
+
+The System One adapter sends one structured request containing six independent
+abuse questions and one request-context classification. It does not ask the model to write
 free-form evidence or a policy decision. Code validates the response, applies
 the configured review/rejection thresholds, and maps fixed category IDs to
 reason codes. A malformed or incomplete response is an audit error; it cannot
@@ -131,5 +178,7 @@ copied project code:
   probability answers and explicit context are validated before code maps them
   to review outcomes.
 
-No real Jev API key or production request data was used for the adapter tests.
-Fixture tests prove request/response handling, not Jev accuracy or latency.
+Automated regression tests use synthetic fixtures and no API keys or production
+request data. Fixture tests prove request/response handling, not model accuracy
+or production latency. Real-provider probe credentials and results are not
+stored in this repository.

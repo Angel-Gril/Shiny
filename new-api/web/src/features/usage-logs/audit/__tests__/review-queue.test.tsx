@@ -68,7 +68,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function renderQueue(entry = review) {
+function renderQueue(entry = review, provider = 'typesafe') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -91,8 +91,8 @@ function renderQueue(entry = review) {
                 enabled: true,
                 configured: true,
                 mode: 'shadow',
-                provider: 'typesafe',
-                model: 'jev-1.14.0',
+                provider,
+                model: provider === 'subq' ? 'subq-snap-1.2' : 'jev-1.14.0',
                 input_tokens: 1234,
                 output_tokens: 56,
                 usage_unreported: 2,
@@ -161,4 +161,30 @@ it('opens malformed historical evidence as plain text without rendering HTML', a
   const dialog = await screen.findByRole('dialog', { name: 'Audit evidence' })
   expect(within(dialog).getByText(historical)).toBeVisible()
   expect(dialog.querySelector('script')).toBeNull()
+})
+
+it('labels SubQ health and evidence with its own provider and actual model', async () => {
+  renderQueue(
+    {
+      ...review,
+      evidence_json: JSON.stringify({
+        category: 'credential_theft',
+        source: 'subq',
+        audit_model: 'subq-snap-1.2',
+        audit_model_version: 'subq-snap-1.2',
+      }),
+    },
+    'subq'
+  )
+  await screen.findByText('subq-snap-1.2')
+  expect(screen.getByText(/Signal source: SubQ Decisions/)).toBeVisible()
+  await userEvent.click(screen.getByRole('button', { name: 'View evidence' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Audit evidence' })
+  expect(
+    within(dialog).getByText(/Signal source: SubQ Decisions/)
+  ).toBeVisible()
+  expect(
+    within(dialog).getByText(/Audit model version: subq-snap-1.2/)
+  ).toBeVisible()
+  expect(within(dialog).queryByText(/TypeSafe/)).not.toBeInTheDocument()
 })

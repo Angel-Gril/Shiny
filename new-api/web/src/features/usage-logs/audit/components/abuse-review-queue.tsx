@@ -38,6 +38,12 @@ import {
 import { AbuseEvidenceDialog } from './abuse-evidence-dialog'
 import { AbuseReviewActions } from './abuse-review-actions'
 
+const auditProviderLabels: Record<string, string> = {
+  chat_completions: 'Chat Completions',
+  typesafe: 'TypeSafe / Jev',
+  subq: 'SubQ Decisions',
+}
+
 function formatReviewTime(timestamp: number) {
   if (!timestamp) return '-'
   return new Date(timestamp * 1000).toLocaleString()
@@ -244,9 +250,11 @@ export function AbuseReviewQueue() {
               {summaryQuery.data.content_audit.provider && (
                 <span>
                   {t('Signal source')}:{' '}
-                  {summaryQuery.data.content_audit.provider === 'typesafe'
-                    ? 'TypeSafe / Jev'
-                    : 'Chat Completions'}
+                  {t(
+                    auditProviderLabels[
+                      summaryQuery.data.content_audit.provider
+                    ] ?? summaryQuery.data.content_audit.provider
+                  )}
                 </span>
               )}
               {summaryQuery.data.content_audit.input_tokens !== undefined && (

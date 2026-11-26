@@ -96,7 +96,7 @@ func LoadContentAuditConfig() ContentAuditConfig {
 	if value, err := strconv.Atoi(requestPolicyOptionOrEnv("ContentAuditMaxChunks", "CONTENT_AUDIT_MAX_CHUNKS")); err == nil && value >= 1 && value <= 16 {
 		cfg.MaxChunks = value
 	}
-	cfg.Enabled = cfg.Mode != "off" && (cfg.Provider == "chat_completions" || cfg.Provider == "typesafe")
+	cfg.Enabled = cfg.Mode != "off" && (cfg.Provider == "chat_completions" || cfg.Provider == "typesafe" || cfg.Provider == "subq")
 	cfg.Endpoint = strings.TrimRight(strings.TrimSpace(requestPolicyOptionOrEnv("ContentAuditEndpoint", "CONTENT_AUDIT_ENDPOINT")), "/")
 	var credentialErr error
 	cfg.APIKey, cfg.CredentialSource, credentialErr = model.ContentAuditCredential(cfg.Provider)
@@ -105,6 +105,8 @@ func LoadContentAuditConfig() ContentAuditConfig {
 	cfg.Prompt = requestPolicyOptionOrEnv("ContentAuditPrompt", "CONTENT_AUDIT_PROMPT")
 	if cfg.Provider == "typesafe" {
 		cfg.Prompt = requestPolicyOptionOrEnv("ContentAuditTypesafePolicy", "CONTENT_AUDIT_TYPESAFE_POLICY")
+	} else if cfg.Provider == "subq" {
+		cfg.Prompt = requestPolicyOptionOrEnv("ContentAuditSubqPolicy", "CONTENT_AUDIT_SUBQ_POLICY")
 	}
 	if value := requestPolicyOptionOrEnv("ContentAuditPreflightScope", "CONTENT_AUDIT_PREFLIGHT_SCOPE"); value == "all" {
 		cfg.Scope = "all"
@@ -184,7 +186,7 @@ func FetchContentAuditModelsWithAPIKey(ctx context.Context, endpoint, provider, 
 	cfg := LoadContentAuditConfig()
 	if provider != "" {
 		cfg.Provider = provider
-		if provider != "typesafe" && provider != "chat_completions" {
+		if provider != "typesafe" && provider != "chat_completions" && provider != "subq" {
 			return nil, errors.New("invalid content audit provider")
 		}
 		var credentialErr error
@@ -301,8 +303,8 @@ func EvaluateContentAudit(ctx context.Context, cfg ContentAuditConfig, input str
 	case <-ctx.Done():
 		return ContentAuditResult{}, ctx.Err()
 	}
-	if cfg.Provider == "typesafe" {
-		return evaluateTypesafeAudit(ctx, cfg, input)
+	if cfg.Provider == "typesafe" || cfg.Provider == "subq" {
+		return evaluateSystemOneAudit(ctx, cfg, input)
 	}
 	if cfg.Provider != "" && cfg.Provider != "chat_completions" {
 		return ContentAuditResult{}, ErrContentAuditDisabled

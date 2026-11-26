@@ -317,7 +317,7 @@ func TestTypesafeAuditTypedDecision(t *testing.T) {
 					require.True(t, ok)
 					require.Equal(t, "noul", question["type"])
 					instructions, ok := question["instructions"].(string)
-					require.True(t, ok, "TypeSafe requires instructions as text")
+					require.True(t, ok, "the shared audit policy sends instructions as text")
 					require.Contains(t, instructions, "Treat state")
 					require.Contains(t, instructions, "Fixture additional boundary")
 					require.NotContains(t, question, "operator_policy")
@@ -470,5 +470,107 @@ func TestContentAuditRefusesCredentialRedirect(t *testing.T) {
 	_, err = EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "chat_completions", Endpoint: origin.URL, APIKey: "fixture", Model: "fixture", Timeout: time.Second}, "fixture")
 	require.Error(t, err)
 	require.EqualValues(t, 0, targetCalls.Load(), "audit credentials must not be forwarded through redirects")
+	_, err = EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "subq", Endpoint: origin.URL, APIKey: "fixture", Model: "subq-snap-1.2", Timeout: time.Second}, "fixture")
+	require.Error(t, err)
+	require.Zero(t, targetCalls.Load(), "SubQ credentials must not follow redirects")
 	require.Zero(t, forwardedCredentials.Load())
+}
+
+func TestSubqDecisionProvider(t *testing.T) {
+	t.Setenv("SUBQ_API_KEY", "subq-credential-fixture")
+	t.Setenv("TYPESAFE_API_KEY", "different-jev-fixture")
+	t.Setenv("CONTENT_AUDIT_API_KEY", "different-chat-fixture")
+	for _, scenario := range []string{"direct_request", "defensive", "quoted", "ambiguous", "missing_probability", "invalid_context", "rate_limited"} {
+		t.Run(scenario, func(t *testing.T) {
+			var calls atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "Bearer subq-credential-fixture", r.Header.Get("Authorization"))
+				if r.Method == http.MethodGet {
+					require.Equal(t, "/v1/models", r.URL.Path)
+					_, _ = w.Write([]byte(`{"data":[{"id":"subq-snap-1.2"},{"id":"subq-snap-1.2"},{"id":"subq-snap-latest"}]}`))
+					return
+				}
+				calls.Add(1)
+				require.Equal(t, "/v1/systemone", r.URL.Path)
+				if scenario == "rate_limited" {
+					http.Error(w, "provider-private-error-fixture", http.StatusTooManyRequests)
+					return
+				}
+				var request map[string]any
+				require.NoError(t, common.DecodeJson(r.Body, &request))
+				require.Equal(t, "subq-snap-1.2", request["model"])
+				questions := request["questions"].(map[string]any)
+				require.Len(t, questions, 7)
+				require.Contains(t, questions["credential_theft"].(map[string]any)["instructions"], "SubQ fixture boundary")
+				answers := map[string]any{}
+				for _, category := range []string{"cyber_abuse", "credential_theft", "security_bypass", "bulk_account_abuse", "provider_policy_evasion", "cost_abuse"} {
+					probability := 0.01
+					if category == "credential_theft" {
+						probability = 0.96
+					}
+					answers[category] = map[string]any{"type": "noul", "noul": probability}
+				}
+				contextName := scenario
+				if scenario == "missing_probability" || scenario == "invalid_context" {
+					contextName = "direct_request"
+				}
+				probabilities := map[string]float64{"direct_request": .01, "defensive": .01, "quoted": .01, "ambiguous": .01}
+				probabilities[contextName] = .97
+				if scenario == "missing_probability" {
+					answers["credential_theft"] = map[string]any{"type": "noul"}
+				}
+				if scenario == "invalid_context" {
+					probabilities["direct_request"] = .4
+				}
+				answers["context"] = map[string]any{"type": "choice", "choice": contextName, "probabilities": probabilities}
+				_, _ = w.Write(mustMarshalAuditFixture(t, map[string]any{"model": "subq-snap-1.2", "answers": answers, "usage": map[string]int64{"input_tokens": 1155, "output_tokens": 0}}))
+			}))
+			defer server.Close()
+			models, err := FetchContentAuditModelsForProvider(context.Background(), server.URL+"/v1/systemone", "subq")
+			require.NoError(t, err)
+			require.Equal(t, []string{"subq-snap-1.2", "subq-snap-latest"}, models)
+			key, source, err := model.ContentAuditCredential("subq")
+			require.NoError(t, err)
+			require.Equal(t, "environment", source)
+			cfg := ContentAuditConfig{Provider: "subq", Mode: "shadow", Endpoint: server.URL + "/v1", APIKey: key, Model: "subq-snap-1.2", Timeout: time.Second, ReviewThreshold: .7, Prompt: "SubQ fixture boundary"}
+			result, err := EvaluateContentAudit(context.Background(), cfg, "synthetic audit fixture")
+			require.EqualValues(t, 1, calls.Load())
+			if scenario == "missing_probability" || scenario == "invalid_context" || scenario == "rate_limited" {
+				require.Error(t, err)
+				require.NotContains(t, err.Error(), "provider-private-error-fixture")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, scenario == "direct_request", result.Flagged)
+			require.Equal(t, scenario, result.Context)
+			require.Equal(t, "subq-snap-1.2", result.AuditModel)
+			require.Equal(t, "subq", contentAuditSource(cfg))
+			if result.Flagged {
+				require.Equal(t, "subq_credential_theft", result.ReasonCode)
+			}
+		})
+	}
+	t.Setenv("SUBQ_API_KEY", "")
+	_, err := FetchContentAuditModelsForProvider(context.Background(), "https://api.subq.ai/v1/systemone", "subq")
+	require.Error(t, err, "SubQ must not use a saved or environment key belonging to another provider")
+}
+
+func TestSubqConfigSelectsItsOwnPolicyAndEnvironmentCredential(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	previous := common.OptionMap
+	common.OptionMap = map[string]string{
+		"ContentAuditProvider": "subq", "ContentAuditSubqPolicy": "SubQ-only policy",
+		"ContentAuditTypesafePolicy": "Jev-only policy", "ContentAuditPrompt": "Chat-only policy",
+	}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previous
+		common.OptionMapRWMutex.Unlock()
+	})
+	t.Setenv("SUBQ_API_KEY", "subq-runtime-fixture")
+	t.Setenv("TYPESAFE_API_KEY", "jev-runtime-fixture")
+	cfg := LoadContentAuditConfig()
+	require.Equal(t, "SubQ-only policy", cfg.Prompt)
+	require.Equal(t, "subq-runtime-fixture", cfg.APIKey)
 }

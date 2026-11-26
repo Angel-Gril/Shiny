@@ -300,7 +300,7 @@ func validateOptionValue(key string, value string) error {
 }
 
 func UpdateOption(key string, value string) error {
-	if key == "ContentAuditChatCompletionsApiKey" || key == "ContentAuditTypesafeApiKey" {
+	if IsContentAuditCredentialOption(key) {
 		return fmt.Errorf("audit credentials must be saved through request policy settings")
 	}
 	if IsRequestPolicyOption(key) {
@@ -348,7 +348,7 @@ func UpdateOptionsBulk(values map[string]string) error {
 		}
 	}
 	for key, value := range values {
-		if key == "ContentAuditChatCompletionsApiKey" || key == "ContentAuditTypesafeApiKey" {
+		if IsContentAuditCredentialOption(key) {
 			return fmt.Errorf("audit credentials must be saved through request policy settings")
 		}
 		if err := validateOptionValue(key, value); err != nil {

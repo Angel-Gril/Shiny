@@ -60,6 +60,7 @@ const VALUE_LABELS: Record<string, string> = {
   preflight: 'Preflight audit',
   deepseek: 'DeepSeek',
   typesafe: 'TypeSafe / Jev',
+  subq: 'SubQ Decisions',
   chat_completions: 'Chat Completions',
 }
 const FIELD_LABELS: Record<string, string> = {

@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,13 +12,16 @@ import (
 )
 
 func TestGenericOptionUpdateCannotStoreAuditCredentialsAsPlaintext(t *testing.T) {
-	body := `{"key":"ContentAuditTypesafeApiKey","value":"plain-secret-fixture"}`
-	response := httptest.NewRecorder()
-	context, _ := gin.CreateTestContext(response)
-	context.Request = httptest.NewRequest(http.MethodPut, "/api/option/", strings.NewReader(body))
-	UpdateOption(context)
-	require.Contains(t, response.Body.String(), `"success":false`)
-	require.NotContains(t, response.Body.String(), "plain-secret-fixture")
+	for _, key := range []string{"ContentAuditTypesafeApiKey", "ContentAuditSubqApiKey", "ContentAuditChatCompletionsApiKey"} {
+		body, err := common.Marshal(map[string]string{"key": key, "value": "plain-secret-fixture"})
+		require.NoError(t, err)
+		response := httptest.NewRecorder()
+		context, _ := gin.CreateTestContext(response)
+		context.Request = httptest.NewRequest(http.MethodPut, "/api/option/", strings.NewReader(string(body)))
+		UpdateOption(context)
+		require.Contains(t, response.Body.String(), `"success":false`)
+		require.NotContains(t, response.Body.String(), "plain-secret-fixture")
+	}
 }
 
 func TestAuditModelConnectionCheckDoesNotReturnUnsavedKey(t *testing.T) {
@@ -29,7 +31,7 @@ func TestAuditModelConnectionCheckDoesNotReturnUnsavedKey(t *testing.T) {
 		_, _ = w.Write([]byte(`{"models":[{"name":"jev-1.14.0"}]}`))
 	}))
 	defer server.Close()
-	body, err := json.Marshal(map[string]string{
+	body, err := common.Marshal(map[string]string{
 		"provider": "typesafe",
 		"endpoint": server.URL + "/v1/systemone",
 		"api_key":  "one-time-fixture-key",
@@ -57,15 +59,15 @@ func TestRequestPolicyResponseNeverReturnsAuditCredential(t *testing.T) {
 	if common.OptionMap == nil {
 		common.OptionMap = map[string]string{}
 	}
-	previous, existed := common.OptionMap["ContentAuditTypesafeApiKey"]
-	common.OptionMap["ContentAuditTypesafeApiKey"] = encrypted
+	previous, existed := common.OptionMap["ContentAuditSubqApiKey"]
+	common.OptionMap["ContentAuditSubqApiKey"] = encrypted
 	common.OptionMapRWMutex.Unlock()
 	t.Cleanup(func() {
 		common.OptionMapRWMutex.Lock()
 		if existed {
-			common.OptionMap["ContentAuditTypesafeApiKey"] = previous
+			common.OptionMap["ContentAuditSubqApiKey"] = previous
 		} else {
-			delete(common.OptionMap, "ContentAuditTypesafeApiKey")
+			delete(common.OptionMap, "ContentAuditSubqApiKey")
 		}
 		if previousMapWasNil {
 			common.OptionMap = nil
@@ -86,6 +88,6 @@ func TestRequestPolicyResponseNeverReturnsAuditCredential(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/api/option/", nil)
 	GetOptions(context)
 	require.Equal(t, http.StatusOK, response.Code)
-	require.NotContains(t, response.Body.String(), "ContentAuditTypesafeApiKey")
+	require.NotContains(t, response.Body.String(), "ContentAuditSubqApiKey")
 	require.NotContains(t, response.Body.String(), encrypted)
 }
