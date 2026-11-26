@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -71,6 +72,11 @@ const behaviorAuditSchema = z.object({
 })
 
 const contentAuditSchema = z.object({
+  ContentAuditProvider: z.enum(['chat_completions', 'typesafe']),
+  ContentAuditMaxChunks: z
+    .string()
+    .regex(/^(?:[1-9]|1[0-6])$/, 'Enter a whole number from 1 to 16'),
+  ContentAuditTypesafePolicy: z.string().max(20000),
   ContentAuditEnabled: z.boolean(),
   ContentAuditMode: z.enum(['off', 'shadow', 'preflight']),
   ContentAuditPreflightScope: z.enum(['signal', 'all']),
@@ -359,6 +365,9 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
   })
 
   useResetForm(form, {
+    ContentAuditProvider: defaultValues.ContentAuditProvider,
+    ContentAuditMaxChunks: defaultValues.ContentAuditMaxChunks,
+    ContentAuditTypesafePolicy: defaultValues.ContentAuditTypesafePolicy,
     ContentAuditEnabled: defaultValues.ContentAuditEnabled,
     ContentAuditMode: defaultValues.ContentAuditMode,
     ContentAuditPreflightScope: defaultValues.ContentAuditPreflightScope,
@@ -376,7 +385,8 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     setModelFetchError('')
     try {
       const models = await getContentAuditModels(
-        form.getValues('ContentAuditEndpoint')
+        form.getValues('ContentAuditEndpoint'),
+        form.getValues('ContentAuditProvider')
       )
       setModelOptions(models)
       if (!form.getValues('ContentAuditModel')) {
@@ -402,6 +412,7 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     )
   }
 
+  const auditProvider = form.watch('ContentAuditProvider')
   const auditMode = form.watch('ContentAuditMode')
   let auditModeMessage = t(
     'Content audit is disabled; no external audit request will be sent.'
@@ -437,6 +448,54 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
             isSaving={form.formState.isSubmitting}
             saveLabel='Save audit settings'
           />
+          <FormField
+            control={form.control}
+            name='ContentAuditProvider'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Audit provider')}</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    if (value !== 'typesafe' && value !== 'chat_completions') {
+                      return
+                    }
+                    field.onChange(value)
+                    setModelOptions([])
+                    setModelFetchError('')
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value='chat_completions'>
+                        {t('Chat Completions (DeepSeek compatible)')}
+                      </SelectItem>
+                      <SelectItem value='typesafe'>TypeSafe Jev</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {t(
+                    'Jev uses TYPESAFE_API_KEY; Chat Completions uses CONTENT_AUDIT_API_KEY. Keys stay in the server environment. Changing providers does not migrate keys or enable auditing.'
+                  )}
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+          {auditProvider === 'typesafe' && (
+            <Alert>
+              <AlertDescription>
+                {t(
+                  'For Jev use https://api.typesafe.ai/v1/systemone and a fixed model such as jev-1.14.0. Category probabilities require separate threshold calibration; start in shadow mode.'
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
           <SettingsControlGroup>
             <FormField
               control={form.control}
@@ -670,38 +729,78 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
 
           <FormField
             control={form.control}
-            name='ContentAuditPrompt'
+            name='ContentAuditMaxChunks'
             render={({ field }) => (
               <FormItem>
-                <div className='flex flex-wrap items-center justify-between gap-2'>
-                  <FormLabel>{t('Additional audit instructions')}</FormLabel>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    onClick={() => form.setValue('ContentAuditPrompt', '')}
-                  >
-                    {t('Restore default policy')}
-                  </Button>
-                </div>
+                <FormLabel>{t('Maximum shadow audit chunks')}</FormLabel>
                 <FormControl>
-                  <Textarea
-                    rows={10}
-                    placeholder={t(
-                      'Optional additive instructions for the auditor'
-                    )}
-                    {...field}
-                  />
+                  <Input type='number' min={1} max={16} step={1} {...field} />
                 </FormControl>
                 <FormDescription>
                   {t(
-                    'Keep the category-score JSON protocol. Mode and server policy decide rejection; model results never change account balances or permissions.'
+                    'Each chunk holds up to 3000 characters. Requests beyond the selected budget are marked incomplete; increasing it adds audit work and cost. Preflight keeps its existing bounded coverage checks.'
                   )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
+          {auditProvider === 'typesafe' && (
+            <FormField
+              control={form.control}
+              name='ContentAuditTypesafePolicy'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Jev additional decision policy')}</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} rows={6} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Add decision boundaries only. Jev uses six independent probability questions and a context classification; do not paste JSON output instructions. The DeepSeek prompt is kept separately.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          <div hidden={auditProvider === 'typesafe'}>
+            <FormField
+              control={form.control}
+              name='ContentAuditPrompt'
+              render={({ field }) => (
+                <FormItem>
+                  <div className='flex flex-wrap items-center justify-between gap-2'>
+                    <FormLabel>{t('Additional audit instructions')}</FormLabel>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() => form.setValue('ContentAuditPrompt', '')}
+                    >
+                      {t('Restore default policy')}
+                    </Button>
+                  </div>
+                  <FormControl>
+                    <Textarea
+                      rows={10}
+                      placeholder={t(
+                        'Optional additive instructions for the auditor'
+                      )}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Keep the category-score JSON protocol. Mode and server policy decide rejection; model results never change account balances or permissions.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </SettingsForm>
       </Form>
     </SettingsSection>

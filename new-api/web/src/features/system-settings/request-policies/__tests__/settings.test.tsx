@@ -518,3 +518,39 @@ describe('request policy settings', () => {
     expect(api.put).not.toHaveBeenCalled()
   })
 })
+
+it('configures Jev explicitly without copying the DeepSeek prompt or enabling audit implicitly', async () => {
+  settings.ContentAuditPrompt = 'Existing DeepSeek policy'
+  await renderPolicies('/system-settings/request-policies/legacy-audit')
+  const provider = await screen.findByRole('combobox', {
+    name: 'Audit provider',
+  })
+  await userEvent.click(provider)
+  await userEvent.click(screen.getByRole('option', { name: 'TypeSafe Jev' }))
+  expect(screen.getByLabelText('Jev additional decision policy')).toHaveValue(
+    ''
+  )
+  expect(
+    screen.getByRole('combobox', { name: 'Content audit mode' })
+  ).toHaveTextContent('off')
+  expect(api.patch).not.toHaveBeenCalled()
+  await userEvent.type(
+    screen.getByLabelText('Audit endpoint'),
+    'https://api.typesafe.ai/v1/systemone'
+  )
+  await userEvent.type(screen.getByLabelText('Audit model'), 'jev-1.14.0')
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Save audit settings' })
+  )
+  await waitFor(() => expect(api.patch).toHaveBeenCalled())
+  expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).toMatchObject({
+    options: {
+      ContentAuditProvider: 'typesafe',
+      ContentAuditEndpoint: 'https://api.typesafe.ai/v1/systemone',
+      ContentAuditModel: 'jev-1.14.0',
+    },
+  })
+  expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).not.toMatchObject({
+    options: { ContentAuditPrompt: '' },
+  })
+})
