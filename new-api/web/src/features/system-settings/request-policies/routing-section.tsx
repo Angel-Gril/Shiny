@@ -109,7 +109,7 @@ function RoutingPolicyEditor(props: { config: PolicyConfig }) {
       return
     }
     try {
-      const data = await mutation.mutateAsync(delta)
+      const data = await mutation.mutateAsync({ options: delta })
       form.reset(routingPolicyFormValues(data.options))
     } catch (error) {
       handleServerError(error)

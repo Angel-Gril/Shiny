@@ -296,3 +296,281 @@ func TestEnqueueContentAuditShadowCreatesPendingReview(t *testing.T) {
 	require.Equal(t, 17, review.UserId)
 	require.Equal(t, 19, review.TokenId)
 }
+
+func TestTypesafeAuditTypedDecision(t *testing.T) {
+	for _, contextName := range []string{"direct_request", "defensive", "quoted", "ambiguous"} {
+		t.Run(contextName, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "/v1/systemone", r.URL.Path)
+				require.Equal(t, "Bearer jev-fixture", r.Header.Get("Authorization"))
+				var body map[string]any
+				require.NoError(t, common.DecodeJson(r.Body, &body))
+				require.Equal(t, "jev-1.14.0", body["model"])
+				require.NotContains(t, body, "messages")
+				require.Contains(t, body, "state")
+				questions, ok := body["questions"].(map[string]any)
+				require.True(t, ok)
+				require.Len(t, questions, 7)
+				answers := map[string]any{}
+				for _, category := range []string{"cyber_abuse", "credential_theft", "security_bypass", "bulk_account_abuse", "provider_policy_evasion", "cost_abuse"} {
+					question, ok := questions[category].(map[string]any)
+					require.True(t, ok)
+					require.Equal(t, "noul", question["type"])
+					instructions, ok := question["instructions"].(string)
+					require.True(t, ok, "the shared audit policy sends instructions as text")
+					require.Contains(t, instructions, "Treat state")
+					require.Contains(t, instructions, "Fixture additional boundary")
+					require.NotContains(t, question, "operator_policy")
+					probability := 0.01
+					if category == "credential_theft" {
+						probability = 0.96
+					}
+					answers[category] = map[string]any{"type": "noul", "noul": probability}
+				}
+				probabilities := map[string]float64{"direct_request": 0.01, "defensive": 0.01, "quoted": 0.01, "ambiguous": 0.01}
+				probabilities[contextName] = 0.97
+				answers["context"] = map[string]any{"type": "choice", "choice": contextName, "confidence": 0.96, "probabilities": probabilities}
+				raw, err := common.Marshal(map[string]any{"model": "jev-1.14.0", "answers": answers, "usage": map[string]int64{"input_tokens": 500, "output_tokens": 50}})
+				require.NoError(t, err)
+				_, _ = w.Write(raw)
+			}))
+			defer server.Close()
+			result, err := EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "typesafe", Endpoint: server.URL + "/v1", APIKey: "jev-fixture", Model: "jev-1.14.0", Timeout: time.Second, ReviewThreshold: 0.7, Prompt: "Fixture additional boundary"}, "Current authorized task and quoted history")
+			require.NoError(t, err)
+			require.Equal(t, contextName == "direct_request", result.Flagged)
+			require.Equal(t, 0.96, result.Confidence)
+			require.Equal(t, contextName, result.Context)
+			require.Equal(t, "credential_theft", result.Category)
+			require.Equal(t, "jev-1.14.0", result.AuditModel)
+		})
+	}
+}
+
+func TestTypesafeAuditRejectsMissingProbability(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"model":"jev-1.14.0","answers":{"cyber_abuse":{"type":"noul","noul":0.99}}}`))
+	}))
+	defer server.Close()
+	_, err := EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "preflight", Provider: "typesafe", Endpoint: server.URL, APIKey: "fixture", Model: "jev-1.14.0", Timeout: time.Second}, "input")
+	require.Error(t, err, "incomplete Jev answers must not become an allow")
+}
+
+func TestTypesafeAuditTreatsLowContextProbabilityAsAmbiguous(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		answers := map[string]any{}
+		for _, category := range []string{"cyber_abuse", "credential_theft", "security_bypass", "bulk_account_abuse", "provider_policy_evasion", "cost_abuse"} {
+			probability := 0.02
+			if category == "cyber_abuse" {
+				probability = 0.99
+			}
+			answers[category] = map[string]any{"type": "noul", "noul": probability}
+		}
+		answers["context"] = map[string]any{
+			"type": "choice", "choice": "direct_request",
+			"probabilities": map[string]float64{"direct_request": 0.69, "defensive": 0.11, "quoted": 0.1, "ambiguous": 0.1},
+		}
+		_, _ = w.Write(mustMarshalAuditFixture(t, map[string]any{"model": "jev-1.14.0", "answers": answers}))
+	}))
+	defer server.Close()
+	before := ContentAuditHealthSnapshot()
+	result, err := EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "preflight", Provider: "typesafe", Endpoint: server.URL, APIKey: "fixture", Model: "jev-1.14.0", Timeout: time.Second, ReviewThreshold: 0.7}, "unclear")
+	require.NoError(t, err)
+	require.Equal(t, "ambiguous", result.Context)
+	require.False(t, result.Flagged, "a high category score cannot turn uncertain intent into an abuse flag")
+	after := ContentAuditHealthSnapshot()
+	require.Equal(t, before.InputTokens, after.InputTokens, "missing usage must not be reported as zero-token usage")
+	require.Equal(t, before.OutputTokens, after.OutputTokens)
+	require.Equal(t, before.UsageUnreported+1, after.UsageUnreported)
+}
+
+func TestTypesafeAuditRateLimitDoesNotRetryOrExposeProviderBody(t *testing.T) {
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		http.Error(w, "fixture-provider-secret", http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+	_, err := EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "typesafe", Endpoint: server.URL, APIKey: "fixture", Model: "jev-1.14.0", Timeout: time.Second}, "input")
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "fixture-provider-secret")
+	require.EqualValues(t, 1, calls.Load(), "audit rate limits must not create retries or duplicate charges")
+}
+
+func mustMarshalAuditFixture(t *testing.T, value any) []byte {
+	t.Helper()
+	encoded, err := common.Marshal(value)
+	require.NoError(t, err)
+	return encoded
+}
+
+func TestShadowAuditChunkBudgetIsExplicit(t *testing.T) {
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = w.Write([]byte(`{"model":"jev-1.14.0","answers":{"context":{"type":"choice","choice":"defensive","probabilities":{"direct_request":0.01,"defensive":0.97,"quoted":0.01,"ambiguous":0.01}},"cyber_abuse":{"type":"noul","noul":0.99},"credential_theft":{"type":"noul","noul":0.01},"security_bypass":{"type":"noul","noul":0.01},"bulk_account_abuse":{"type":"noul","noul":0.01},"provider_policy_evasion":{"type":"noul","noul":0.01},"cost_abuse":{"type":"noul","noul":0.01}}}`))
+	}))
+	defer server.Close()
+	input := ContentAuditInput{CoverageComplete: true, Segments: []ContentAuditSegment{{Source: "current", Current: true, Text: strings.Repeat("request", 5000)}}}
+	result, err := evaluateAuditInput(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "typesafe", Endpoint: server.URL, APIKey: "fixture", Model: "jev-1.14.0", Timeout: time.Second, ReviewThreshold: 0.7, MaxChunks: 1}, input)
+	require.ErrorIs(t, err, ErrContentAuditCoverage)
+	require.False(t, result.Flagged, "defensive context must stay unflagged even when a category score is high")
+	require.EqualValues(t, 1, calls.Load(), "only the configured shadow chunk budget is evaluated")
+	require.False(t, result.Categories["none"], "a positive category signal must not contradict the none flag")
+}
+
+func TestTypesafeModelsAndDedicatedKey(t *testing.T) {
+	t.Setenv("CONTENT_AUDIT_API_KEY", "legacy-fixture-key")
+	t.Setenv("TYPESAFE_API_KEY", "jev-fixture-key")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/models", r.URL.Path)
+		require.Equal(t, "Bearer jev-fixture-key", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte(`{"models":[{"name":"jev-latest"},{"name":"jev-latest"},{"name":"jev-1.14.0"}]}`))
+	}))
+	defer server.Close()
+	models, err := FetchContentAuditModelsForProvider(context.Background(), server.URL+"/v1/systemone", "typesafe")
+	require.NoError(t, err)
+	require.Equal(t, []string{"jev-latest", "jev-1.14.0"}, models)
+	t.Setenv("TYPESAFE_API_KEY", "")
+	_, err = FetchContentAuditModelsForProvider(context.Background(), server.URL+"/v1/systemone", "typesafe")
+	require.Error(t, err, "Jev must never fall back to the DeepSeek key")
+}
+
+func TestContentAuditModelCheckUsesUnsavedKeyWithoutReturningIt(t *testing.T) {
+	t.Setenv("CONTENT_AUDIT_API_KEY", "")
+	t.Setenv("TYPESAFE_API_KEY", "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/models", r.URL.Path)
+		require.Equal(t, "Bearer unsaved-credential-fixture", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte(`{"models":[{"name":"jev-1.14.0"}]}`))
+	}))
+	defer server.Close()
+	models, err := FetchContentAuditModelsWithAPIKey(context.Background(), server.URL+"/v1/systemone", "typesafe", "unsaved-credential-fixture")
+	require.NoError(t, err)
+	require.Equal(t, []string{"jev-1.14.0"}, models)
+}
+
+func TestContentAuditRefusesCredentialRedirect(t *testing.T) {
+	var targetCalls atomic.Int64
+	var forwardedCredentials atomic.Int64
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetCalls.Add(1)
+		if r.Header.Get("Authorization") != "" {
+			forwardedCredentials.Add(1)
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"flagged\":false,\"category\":\"none\",\"confidence\":0,\"reason_code\":\"\",\"action\":\"allow\"}"}}]}`))
+	}))
+	defer target.Close()
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer origin.Close()
+	_, err := EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "typesafe", Endpoint: origin.URL, APIKey: "fixture", Model: "fixture", Timeout: time.Second}, "fixture")
+	require.Error(t, err)
+	require.Zero(t, targetCalls.Load(), "TypeSafe audit credentials must not follow redirects")
+	_, err = EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "chat_completions", Endpoint: origin.URL, APIKey: "fixture", Model: "fixture", Timeout: time.Second}, "fixture")
+	require.Error(t, err)
+	require.EqualValues(t, 0, targetCalls.Load(), "audit credentials must not be forwarded through redirects")
+	_, err = EvaluateContentAudit(context.Background(), ContentAuditConfig{Mode: "shadow", Provider: "subq", Endpoint: origin.URL, APIKey: "fixture", Model: "subq-snap-1.2", Timeout: time.Second}, "fixture")
+	require.Error(t, err)
+	require.Zero(t, targetCalls.Load(), "SubQ credentials must not follow redirects")
+	require.Zero(t, forwardedCredentials.Load())
+}
+
+func TestSubqDecisionProvider(t *testing.T) {
+	t.Setenv("SUBQ_API_KEY", "subq-credential-fixture")
+	t.Setenv("TYPESAFE_API_KEY", "different-jev-fixture")
+	t.Setenv("CONTENT_AUDIT_API_KEY", "different-chat-fixture")
+	for _, scenario := range []string{"direct_request", "defensive", "quoted", "ambiguous", "missing_probability", "invalid_context", "rate_limited"} {
+		t.Run(scenario, func(t *testing.T) {
+			var calls atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "Bearer subq-credential-fixture", r.Header.Get("Authorization"))
+				if r.Method == http.MethodGet {
+					require.Equal(t, "/v1/models", r.URL.Path)
+					_, _ = w.Write([]byte(`{"data":[{"id":"subq-snap-1.2"},{"id":"subq-snap-1.2"},{"id":"subq-snap-latest"}]}`))
+					return
+				}
+				calls.Add(1)
+				require.Equal(t, "/v1/systemone", r.URL.Path)
+				if scenario == "rate_limited" {
+					http.Error(w, "provider-private-error-fixture", http.StatusTooManyRequests)
+					return
+				}
+				var request map[string]any
+				require.NoError(t, common.DecodeJson(r.Body, &request))
+				require.Equal(t, "subq-snap-1.2", request["model"])
+				questions := request["questions"].(map[string]any)
+				require.Len(t, questions, 7)
+				require.Contains(t, questions["credential_theft"].(map[string]any)["instructions"], "SubQ fixture boundary")
+				answers := map[string]any{}
+				for _, category := range []string{"cyber_abuse", "credential_theft", "security_bypass", "bulk_account_abuse", "provider_policy_evasion", "cost_abuse"} {
+					probability := 0.01
+					if category == "credential_theft" {
+						probability = 0.96
+					}
+					answers[category] = map[string]any{"type": "noul", "noul": probability}
+				}
+				contextName := scenario
+				if scenario == "missing_probability" || scenario == "invalid_context" {
+					contextName = "direct_request"
+				}
+				probabilities := map[string]float64{"direct_request": .01, "defensive": .01, "quoted": .01, "ambiguous": .01}
+				probabilities[contextName] = .97
+				if scenario == "missing_probability" {
+					answers["credential_theft"] = map[string]any{"type": "noul"}
+				}
+				if scenario == "invalid_context" {
+					probabilities["direct_request"] = .4
+				}
+				answers["context"] = map[string]any{"type": "choice", "choice": contextName, "probabilities": probabilities}
+				_, _ = w.Write(mustMarshalAuditFixture(t, map[string]any{"model": "subq-snap-1.2", "answers": answers, "usage": map[string]int64{"input_tokens": 1155, "output_tokens": 0}}))
+			}))
+			defer server.Close()
+			models, err := FetchContentAuditModelsForProvider(context.Background(), server.URL+"/v1/systemone", "subq")
+			require.NoError(t, err)
+			require.Equal(t, []string{"subq-snap-1.2", "subq-snap-latest"}, models)
+			key, source, err := model.ContentAuditCredential("subq")
+			require.NoError(t, err)
+			require.Equal(t, "environment", source)
+			cfg := ContentAuditConfig{Provider: "subq", Mode: "shadow", Endpoint: server.URL + "/v1", APIKey: key, Model: "subq-snap-1.2", Timeout: time.Second, ReviewThreshold: .7, Prompt: "SubQ fixture boundary"}
+			result, err := EvaluateContentAudit(context.Background(), cfg, "synthetic audit fixture")
+			require.EqualValues(t, 1, calls.Load())
+			if scenario == "missing_probability" || scenario == "invalid_context" || scenario == "rate_limited" {
+				require.Error(t, err)
+				require.NotContains(t, err.Error(), "provider-private-error-fixture")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, scenario == "direct_request", result.Flagged)
+			require.Equal(t, scenario, result.Context)
+			require.Equal(t, "subq-snap-1.2", result.AuditModel)
+			require.Equal(t, "subq", contentAuditSource(cfg))
+			if result.Flagged {
+				require.Equal(t, "subq_credential_theft", result.ReasonCode)
+			}
+		})
+	}
+	t.Setenv("SUBQ_API_KEY", "")
+	_, err := FetchContentAuditModelsForProvider(context.Background(), "https://api.subq.ai/v1/systemone", "subq")
+	require.Error(t, err, "SubQ must not use a saved or environment key belonging to another provider")
+}
+
+func TestSubqConfigSelectsItsOwnPolicyAndEnvironmentCredential(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	previous := common.OptionMap
+	common.OptionMap = map[string]string{
+		"ContentAuditProvider": "subq", "ContentAuditSubqPolicy": "SubQ-only policy",
+		"ContentAuditTypesafePolicy": "Jev-only policy", "ContentAuditPrompt": "Chat-only policy",
+	}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previous
+		common.OptionMapRWMutex.Unlock()
+	})
+	t.Setenv("SUBQ_API_KEY", "subq-runtime-fixture")
+	t.Setenv("TYPESAFE_API_KEY", "jev-runtime-fixture")
+	cfg := LoadContentAuditConfig()
+	require.Equal(t, "SubQ-only policy", cfg.Prompt)
+	require.Equal(t, "subq-runtime-fixture", cfg.APIKey)
+}

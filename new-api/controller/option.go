@@ -191,6 +191,10 @@ func UpdateOption(c *gin.Context) {
 		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
 		return
 	}
+	if model.IsContentAuditCredentialOption(option.Key) {
+		common.ApiErrorT(c, "Audit credentials must be saved through Request policies")
+		return
+	}
 	switch option.Value.(type) {
 	case bool:
 		option.Value = common.Interface2String(option.Value.(bool))

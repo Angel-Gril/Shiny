@@ -281,9 +281,11 @@ export function ChannelHealthSection({
     }
 
     try {
-      await updateOption.mutateAsync(
-        Object.fromEntries(updates.map((key) => [key, String(normalized[key])]))
-      )
+      await updateOption.mutateAsync({
+        options: Object.fromEntries(
+          updates.map((key) => [key, String(normalized[key])])
+        ),
+      })
       baselineRef.current = normalized
     } catch (error) {
       handleServerError(error)

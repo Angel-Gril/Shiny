@@ -164,6 +164,12 @@ beforeEach(() => {
                 String(value),
               ])
             ),
+            credentials: {
+              chat_completions: { configured: false, source: '', error: false },
+              typesafe: { configured: false, source: '', error: false },
+              subq: { configured: false, source: '', error: false },
+              store_ready: true,
+            },
           },
         },
       }
@@ -517,4 +523,177 @@ describe('request policy settings', () => {
     )
     expect(api.put).not.toHaveBeenCalled()
   })
+})
+
+it('configures Jev explicitly without copying the DeepSeek prompt or enabling audit implicitly', async () => {
+  settings.ContentAuditPrompt = 'Existing DeepSeek policy'
+  await renderPolicies('/system-settings/request-policies/legacy-audit')
+  const provider = await screen.findByRole('combobox', {
+    name: 'Audit provider',
+  })
+  await userEvent.click(provider)
+  await userEvent.click(screen.getByRole('option', { name: 'TypeSafe Jev' }))
+  expect(screen.getByLabelText('Jev additional decision policy')).toHaveValue(
+    ''
+  )
+  expect(
+    screen.getByRole('combobox', { name: 'Content audit mode' })
+  ).toHaveTextContent('off')
+  expect(api.patch).not.toHaveBeenCalled()
+  expect(screen.getByLabelText('Audit endpoint')).toHaveValue(
+    'https://api.typesafe.ai/v1/systemone'
+  )
+  expect(screen.getByLabelText('Audit model')).toHaveValue('jev-1.14.0')
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Save audit settings' })
+  )
+  await waitFor(() => expect(api.patch).toHaveBeenCalled())
+  expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).toMatchObject({
+    options: {
+      ContentAuditProvider: 'typesafe',
+      ContentAuditEndpoint: 'https://api.typesafe.ai/v1/systemone',
+      ContentAuditModel: 'jev-1.14.0',
+    },
+  })
+  expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).not.toMatchObject({
+    options: { ContentAuditPrompt: '' },
+  })
+})
+
+it('tests and saves an encrypted Jev credential without reading it back', async () => {
+  const post = vi.spyOn(api, 'post').mockResolvedValue({
+    data: { success: true, data: { models: ['jev-1.14.0'] } },
+  })
+  vi.mocked(api.patch).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        options: {},
+        credentials: {
+          chat_completions: {
+            configured: false,
+            source: '',
+            error: false,
+          },
+          typesafe: { configured: true, source: 'console', error: false },
+          store_ready: true,
+        },
+      },
+    },
+  })
+  await renderPolicies('/system-settings/request-policies/legacy-audit')
+  const provider = await screen.findByRole('combobox', {
+    name: 'Audit provider',
+  })
+  await userEvent.click(provider)
+  await userEvent.click(screen.getByRole('option', { name: 'TypeSafe Jev' }))
+  const apiKey = await screen.findByLabelText('Audit API key')
+  expect(apiKey).toHaveAttribute('type', 'password')
+  await userEvent.type(apiKey, 'jev-secret-fixture')
+  expect(screen.getByLabelText('Audit endpoint')).toHaveValue(
+    'https://api.typesafe.ai/v1/systemone'
+  )
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Test connection and fetch models' })
+  )
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith('/api/option/content_audit/models', {
+      endpoint: 'https://api.typesafe.ai/v1/systemone',
+      provider: 'typesafe',
+      api_key: 'jev-secret-fixture',
+    })
+  )
+  expect(await screen.findByDisplayValue('jev-1.14.0')).toBeInTheDocument()
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Save audit settings' })
+  )
+  await waitFor(() => expect(api.patch).toHaveBeenCalled())
+  expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).toMatchObject({
+    credentials: { typesafe: 'jev-secret-fixture' },
+  })
+  expect(screen.getByLabelText('Audit API key')).toHaveValue('')
+  expect(screen.getByText('Saved key configured')).toBeInTheDocument()
+})
+
+it('switches default Jev presets to SubQ and saves only the SubQ credential and policy', async () => {
+  settings.ContentAuditProvider = 'typesafe'
+  settings.ContentAuditEndpoint = 'https://api.typesafe.ai/v1/systemone'
+  settings.ContentAuditModel = 'jev-1.14.0'
+  settings.ContentAuditTypesafePolicy = 'Keep the existing Jev policy'
+  const post = vi.spyOn(api, 'post').mockResolvedValue({
+    data: { success: true, data: { models: ['subq-snap-1.2'] } },
+  })
+  await renderPolicies('/system-settings/request-policies/legacy-audit')
+  await userEvent.click(
+    await screen.findByRole('combobox', { name: 'Audit provider' })
+  )
+  await userEvent.click(screen.getByRole('option', { name: 'SubQ Decisions' }))
+  expect(
+    screen.getByRole('combobox', { name: 'Audit provider' })
+  ).toHaveTextContent('SubQ Decisions')
+  expect(screen.getByLabelText('Audit endpoint')).toHaveValue(
+    'https://api.subq.ai/v1/systemone'
+  )
+  expect(screen.getByLabelText('Audit model')).toHaveValue('subq-snap-1.2')
+  expect(screen.getByLabelText('SubQ additional decision policy')).toHaveValue(
+    ''
+  )
+  expect(
+    screen.getByRole('combobox', { name: 'Content audit mode' })
+  ).toHaveTextContent('off')
+  await userEvent.type(
+    screen.getByLabelText('Audit API key'),
+    'subq-key-fixture'
+  )
+  await userEvent.type(
+    screen.getByLabelText('SubQ additional decision policy'),
+    'SubQ decision boundary'
+  )
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Test connection and fetch models' })
+  )
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith('/api/option/content_audit/models', {
+      endpoint: 'https://api.subq.ai/v1/systemone',
+      provider: 'subq',
+      api_key: 'subq-key-fixture',
+    })
+  )
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Save audit settings' })
+  )
+  await waitFor(() => expect(api.patch).toHaveBeenCalled())
+  const saved = vi.mocked(api.patch).mock.calls.at(-1)?.[1]
+  expect(saved).toMatchObject({
+    options: {
+      ContentAuditProvider: 'subq',
+      ContentAuditEndpoint: 'https://api.subq.ai/v1/systemone',
+      ContentAuditModel: 'subq-snap-1.2',
+      ContentAuditSubqPolicy: 'SubQ decision boundary',
+    },
+    credentials: { subq: 'subq-key-fixture' },
+  })
+  expect(saved).not.toMatchObject({
+    options: { ContentAuditTypesafePolicy: '' },
+  })
+  expect(screen.getByLabelText('Audit API key')).toHaveValue('')
+})
+
+it('keeps custom endpoint and model when selecting SubQ, and clears an unsaved key on protocol changes', async () => {
+  settings.ContentAuditEndpoint = 'https://my-provider.example/v1'
+  settings.ContentAuditModel = 'custom-model'
+  await renderPolicies('/system-settings/request-policies/legacy-audit')
+  await userEvent.type(
+    await screen.findByLabelText('Audit API key'),
+    'chat-key-fixture'
+  )
+  await userEvent.click(
+    screen.getByRole('combobox', { name: 'Audit provider' })
+  )
+  await userEvent.click(screen.getByRole('option', { name: 'SubQ Decisions' }))
+  expect(screen.getByLabelText('Audit endpoint')).toHaveValue(
+    'https://my-provider.example/v1'
+  )
+  expect(screen.getByLabelText('Audit model')).toHaveValue('custom-model')
+  expect(screen.getByLabelText('Audit API key')).toHaveValue('')
 })

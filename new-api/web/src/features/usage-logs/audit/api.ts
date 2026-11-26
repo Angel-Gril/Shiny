@@ -90,6 +90,11 @@ export interface AbuseReviewSummary {
 }
 
 export interface ContentAuditHealth {
+  provider?: string
+  max_chunks?: number
+  input_tokens?: number
+  output_tokens?: number
+  usage_unreported?: number
   mode?: 'off' | 'shadow' | 'preflight'
   preflight_scope?: 'signal' | 'all'
   p50_ms?: number

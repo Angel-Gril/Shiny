@@ -53,7 +53,7 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			common.SetMainDatabaseType(common.DatabaseType(dialect))
 			initCol()
 			t.Cleanup(func() {
-				require.NoError(t, db.Migrator().DropTable(&Option{}))
+				require.NoError(t, db.Migrator().DropTable(&SystemTask{}, &Option{}))
 				for k, v := range previousSnapshot.Options {
 					require.NoError(t, updateOptionMap(k, v))
 				}
@@ -66,7 +66,7 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 				initCol()
 				require.NoError(t, sqlDB.Close())
 			})
-			require.NoError(t, db.AutoMigrate(&Option{}))
+			require.NoError(t, db.AutoMigrate(&Option{}, &SystemTask{}))
 			var version string
 			query := "SELECT version()"
 			if dialect == "sqlite" {
@@ -76,12 +76,69 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			t.Logf("database version: %s", version)
 			rules := `[{"name":"session","model_regex":[".*"],"key_sources":[{"type":"request_header","key":"X-Session"}],"ttl_seconds":0,"skip_retry_on_failure":false,"include_using_group":false,"param_override_template":{"temperature":0},"future_field":{"enabled":false}}]`
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"RetryTimes": "2", "channel_affinity_setting.rules": rules}))
-			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditMode": "shadow", "ContentAuditPreflightScope": "signal", "SensitiveWordSignals": "窃取 API 密钥\nbypass billing", "SensitiveWords": ""}))
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditMode": "shadow", "ContentAuditProvider": "typesafe", "ContentAuditMaxChunks": "8", "ContentAuditTypesafePolicy": "Judge current intent", "ContentAuditPreflightScope": "signal", "SensitiveWordSignals": "窃取 API 密钥\nbypass billing", "SensitiveWords": ""}))
+			previousCryptoSecret, previousCryptoConfigured := common.CryptoSecret, common.PersistentCryptoSecretConfigured
+			common.CryptoSecret, common.PersistentCryptoSecretConfigured = "stable-policy-test-secret-with-entropy", true
+			t.Cleanup(func() {
+				common.CryptoSecret, common.PersistentCryptoSecretConfigured = previousCryptoSecret, previousCryptoConfigured
+			})
+			require.NoError(t, UpdateRequestPolicySettings(nil, map[string]string{"typesafe": "private-jev-fixture"}, nil))
+			var secretOption Option
+			require.NoError(t, db.Where(map[string]any{"key": "ContentAuditTypesafeApiKey"}).First(&secretOption).Error)
+			assert.NotContains(t, secretOption.Value, "private-jev-fixture")
+			assert.Contains(t, secretOption.Value, "enc:v1:")
+			secret, source, err := ContentAuditCredential("typesafe")
+			require.NoError(t, err)
+			assert.Equal(t, "private-jev-fixture", secret)
+			assert.Equal(t, "console", source)
+			t.Setenv("TYPESAFE_API_KEY", "environment-jev-fixture")
+			require.NoError(t, UpdateRequestPolicySettings(nil, nil, []string{"typesafe"}))
+			secret, source, err = ContentAuditCredential("typesafe")
+			require.NoError(t, err)
+			assert.Equal(t, "environment-jev-fixture", secret)
+			assert.Equal(t, "environment", source)
+			t.Setenv("TYPESAFE_API_KEY", "")
+			_, source, err = ContentAuditCredential("typesafe")
+			require.NoError(t, err)
+			assert.Empty(t, source)
+			t.Setenv("TYPESAFE_API_KEY", "environment-jev-fixture")
+			require.NoError(t, UpdateRequestPolicySettings(map[string]string{
+				"ContentAuditProvider": "subq", "ContentAuditEndpoint": "https://api.subq.ai/v1/systemone", "ContentAuditModel": "subq-snap-1.2", "ContentAuditSubqPolicy": "SubQ-only boundary",
+			}, map[string]string{"subq": "private-subq-fixture"}, nil))
+			require.NoError(t, LoadOptionsFromDatabase())
+			require.NoError(t, LoadOptionsFromDatabase())
+			secretOption = Option{}
+			require.NoError(t, db.Where(map[string]any{"key": "ContentAuditSubqApiKey"}).First(&secretOption).Error)
+			assert.NotContains(t, secretOption.Value, "private-subq-fixture")
+			secret, source, err = ContentAuditCredential("subq")
+			require.NoError(t, err)
+			assert.Equal(t, "private-subq-fixture", secret)
+			assert.Equal(t, "console", source)
+			assert.Equal(t, "SubQ-only boundary", CurrentRequestPolicy().Options["ContentAuditSubqPolicy"])
+			assert.Equal(t, "Judge current intent", CurrentRequestPolicy().Options["ContentAuditTypesafePolicy"])
+			assert.NotContains(t, CurrentRequestPolicy().Options, "ContentAuditSubqApiKey")
+			assert.Error(t, UpdateOption("ContentAuditSubqApiKey", "must-not-be-plaintext"))
+			assert.Error(t, UpdateOptionsBulk(map[string]string{"ContentAuditSubqApiKey": "must-not-be-plaintext"}))
+			require.NoError(t, UpdateRequestPolicySettings(nil, nil, []string{"subq"}))
+			t.Setenv("SUBQ_API_KEY", "")
+			secret, source, err = ContentAuditCredential("subq")
+			require.NoError(t, err)
+			assert.Empty(t, secret, "SubQ never falls back to the Jev credential")
+			assert.Empty(t, source)
+			t.Setenv("SUBQ_API_KEY", "environment-subq-fixture")
+			secret, source, err = ContentAuditCredential("subq")
+			require.NoError(t, err)
+			assert.Equal(t, "environment-subq-fixture", secret)
+			assert.Equal(t, "environment", source)
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditProvider": "typesafe"}))
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "false"}))
 			require.NoError(t, LoadOptionsFromDatabase())
 			require.NoError(t, LoadOptionsFromDatabase())
 			assert.False(t, CurrentRequestPolicy().BehaviorAuditEnabled)
 			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"])
+			assert.Equal(t, "typesafe", CurrentRequestPolicy().Options["ContentAuditProvider"])
+			assert.Equal(t, "8", CurrentRequestPolicy().Options["ContentAuditMaxChunks"])
+			assert.Equal(t, "Judge current intent", CurrentRequestPolicy().Options["ContentAuditTypesafePolicy"])
 			require.NoError(t, UpdateOption("BehaviorAuditEnabled", "true"))
 			assert.True(t, CurrentRequestPolicy().BehaviorAuditEnabled)
 			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"], "behavior auditing never changes the content audit mode")
@@ -151,6 +208,8 @@ func TestContentAuditPolicyOptionsValidateWithoutSecrets(t *testing.T) {
 
 	for key, value := range map[string]string{
 		"ContentAuditEndpoint":         "ftp://audit.example/v1/chat/completions",
+		"ContentAuditProvider":         "unknown",
+		"ContentAuditMaxChunks":        "17",
 		"ContentAuditTimeoutMs":        "50",
 		"ContentAuditSampleRate":       "1.5",
 		"ContentAuditReviewThreshold":  "-0.1",
@@ -162,5 +221,11 @@ func TestContentAuditPolicyOptionsValidateWithoutSecrets(t *testing.T) {
 			_, err := BuildRequestPolicy(invalid)
 			return err
 		}())
+	}
+	for _, endpoint := range []string{"http://audit.example/v1/chat/completions", "https://user:password@audit.example/v1/chat/completions", "https://audit.example/v1/chat/completions?key=value"} {
+		invalid := maps.Clone(options)
+		invalid["ContentAuditEndpoint"] = endpoint
+		_, err := BuildRequestPolicy(invalid)
+		assert.Error(t, err, "credential-bearing content audit endpoints must not include HTTP remotes or embedded credentials")
 	}
 }

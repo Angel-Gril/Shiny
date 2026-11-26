@@ -50,7 +50,10 @@ func InitEnv() {
 	DefaultLanguage = os.Getenv("DEFAULT_LANGUAGE")
 	SetLogLanguage(DefaultLanguage)
 
-	if os.Getenv("SESSION_SECRET") != "" {
+	sessionSecretConfigured := os.Getenv("SESSION_SECRET") != ""
+	cryptoSecretConfigured := os.Getenv("CRYPTO_SECRET") != ""
+	PersistentCryptoSecretConfigured = sessionSecretConfigured || cryptoSecretConfigured
+	if sessionSecretConfigured {
 		ss := os.Getenv("SESSION_SECRET")
 		if ss == "random_string" {
 			log.Println(LogText("WARNING: SESSION_SECRET is set to the default value 'random_string', please change it to a random string."))
@@ -59,7 +62,7 @@ func InitEnv() {
 			SessionSecret = ss
 		}
 	}
-	if os.Getenv("CRYPTO_SECRET") != "" {
+	if cryptoSecretConfigured {
 		CryptoSecret = os.Getenv("CRYPTO_SECRET")
 	} else {
 		CryptoSecret = SessionSecret

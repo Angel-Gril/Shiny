@@ -25,7 +25,7 @@ import { RoutingPolicySection } from './routing-section'
 const POLICY_SECTIONS = [
   {
     id: 'legacy-audit',
-    titleKey: 'Legacy Shiny audit',
+    titleKey: 'Content audit',
     build: (settings: RequestPolicySettings) => (
       <RequestChecksSection
         defaultValues={{
@@ -34,6 +34,10 @@ const POLICY_SECTIONS = [
           SensitiveWords: settings.SensitiveWords,
           SensitiveWordSignals: settings.SensitiveWordSignals,
           BehaviorAuditEnabled: settings.BehaviorAuditEnabled,
+          ContentAuditProvider: settings.ContentAuditProvider,
+          ContentAuditMaxChunks: settings.ContentAuditMaxChunks,
+          ContentAuditTypesafePolicy: settings.ContentAuditTypesafePolicy,
+          ContentAuditSubqPolicy: settings.ContentAuditSubqPolicy,
           ContentAuditEnabled: settings.ContentAuditEnabled,
           ContentAuditMode: settings.ContentAuditMode,
           ContentAuditPreflightScope: settings.ContentAuditPreflightScope,
