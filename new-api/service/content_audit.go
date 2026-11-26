@@ -42,6 +42,8 @@ type ContentAuditConfig struct {
 	Scope            string
 	Endpoint         string
 	APIKey           string
+	CredentialSource string
+	CredentialError  bool
 	Model            string
 	Timeout          time.Duration
 	SampleRate       float64
@@ -96,10 +98,9 @@ func LoadContentAuditConfig() ContentAuditConfig {
 	}
 	cfg.Enabled = cfg.Mode != "off" && (cfg.Provider == "chat_completions" || cfg.Provider == "typesafe")
 	cfg.Endpoint = strings.TrimRight(strings.TrimSpace(requestPolicyOptionOrEnv("ContentAuditEndpoint", "CONTENT_AUDIT_ENDPOINT")), "/")
-	cfg.APIKey = strings.TrimSpace(os.Getenv("CONTENT_AUDIT_API_KEY"))
-	if cfg.Provider == "typesafe" {
-		cfg.APIKey = strings.TrimSpace(os.Getenv("TYPESAFE_API_KEY"))
-	}
+	var credentialErr error
+	cfg.APIKey, cfg.CredentialSource, credentialErr = model.ContentAuditCredential(cfg.Provider)
+	cfg.CredentialError = credentialErr != nil
 	cfg.Model = strings.TrimSpace(requestPolicyOptionOrEnv("ContentAuditModel", "CONTENT_AUDIT_MODEL"))
 	cfg.Prompt = requestPolicyOptionOrEnv("ContentAuditPrompt", "CONTENT_AUDIT_PROMPT")
 	if cfg.Provider == "typesafe" {
@@ -128,10 +129,10 @@ func contentAuditSystemPromptFor(cfg ContentAuditConfig) string {
 }
 
 func contentAuditModelsEndpoint(endpoint string) (string, error) {
-	parsed, err := url.ParseRequestURI(strings.TrimSpace(endpoint))
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return "", errors.New("content audit endpoint must be an http(s) URL")
+	if err := common.ValidateOutboundCredentialEndpoint(endpoint); err != nil {
+		return "", errors.New("content audit endpoint must use HTTPS, except for loopback HTTP")
 	}
+	parsed, _ := url.ParseRequestURI(strings.TrimSpace(endpoint))
 	path := strings.TrimRight(parsed.Path, "/")
 	switch {
 	case strings.HasSuffix(path, "/systemone"):
@@ -152,10 +153,10 @@ func contentAuditModelsEndpoint(endpoint string) (string, error) {
 }
 
 func contentAuditCompletionsEndpoint(endpoint string) (string, error) {
-	parsed, err := url.ParseRequestURI(strings.TrimSpace(endpoint))
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return "", errors.New("content audit endpoint must be an http(s) URL")
+	if err := common.ValidateOutboundCredentialEndpoint(endpoint); err != nil {
+		return "", errors.New("content audit endpoint must use HTTPS, except for loopback HTTP")
 	}
+	parsed, _ := url.ParseRequestURI(strings.TrimSpace(endpoint))
 	path := strings.TrimRight(parsed.Path, "/")
 	if strings.HasSuffix(path, "/chat/completions") {
 		return parsed.String(), nil
@@ -176,16 +177,25 @@ func FetchContentAuditModels(ctx context.Context, endpoint string) ([]string, er
 }
 
 func FetchContentAuditModelsForProvider(ctx context.Context, endpoint, provider string) ([]string, error) {
+	return FetchContentAuditModelsWithAPIKey(ctx, endpoint, provider, "")
+}
+
+func FetchContentAuditModelsWithAPIKey(ctx context.Context, endpoint, provider, apiKey string) ([]string, error) {
 	cfg := LoadContentAuditConfig()
 	if provider != "" {
 		cfg.Provider = provider
 		if provider != "typesafe" && provider != "chat_completions" {
 			return nil, errors.New("invalid content audit provider")
 		}
-		cfg.APIKey = strings.TrimSpace(os.Getenv("CONTENT_AUDIT_API_KEY"))
-		if provider == "typesafe" {
-			cfg.APIKey = strings.TrimSpace(os.Getenv("TYPESAFE_API_KEY"))
+		var credentialErr error
+		cfg.APIKey, cfg.CredentialSource, credentialErr = model.ContentAuditCredential(provider)
+		cfg.CredentialError = credentialErr != nil
+	}
+	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
+		if len(apiKey) > 4096 || strings.ContainsAny(apiKey, "\r\n\x00") {
+			return nil, errors.New("invalid content audit API key")
 		}
+		cfg.APIKey = apiKey
 	}
 	if cfg.APIKey == "" {
 		return nil, errors.New("content audit API key is not configured on the server")

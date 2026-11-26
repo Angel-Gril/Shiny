@@ -77,6 +77,30 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			rules := `[{"name":"session","model_regex":[".*"],"key_sources":[{"type":"request_header","key":"X-Session"}],"ttl_seconds":0,"skip_retry_on_failure":false,"include_using_group":false,"param_override_template":{"temperature":0},"future_field":{"enabled":false}}]`
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"RetryTimes": "2", "channel_affinity_setting.rules": rules}))
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditMode": "shadow", "ContentAuditProvider": "typesafe", "ContentAuditMaxChunks": "8", "ContentAuditTypesafePolicy": "Judge current intent", "ContentAuditPreflightScope": "signal", "SensitiveWordSignals": "窃取 API 密钥\nbypass billing", "SensitiveWords": ""}))
+			previousCryptoSecret, previousCryptoConfigured := common.CryptoSecret, common.PersistentCryptoSecretConfigured
+			common.CryptoSecret, common.PersistentCryptoSecretConfigured = "stable-policy-test-secret-with-entropy", true
+			t.Cleanup(func() {
+				common.CryptoSecret, common.PersistentCryptoSecretConfigured = previousCryptoSecret, previousCryptoConfigured
+			})
+			require.NoError(t, UpdateRequestPolicySettings(nil, map[string]string{"typesafe": "private-jev-fixture"}, nil))
+			var secretOption Option
+			require.NoError(t, db.Where(map[string]any{"key": "ContentAuditTypesafeApiKey"}).First(&secretOption).Error)
+			assert.NotContains(t, secretOption.Value, "private-jev-fixture")
+			assert.Contains(t, secretOption.Value, "enc:v1:")
+			secret, source, err := ContentAuditCredential("typesafe")
+			require.NoError(t, err)
+			assert.Equal(t, "private-jev-fixture", secret)
+			assert.Equal(t, "console", source)
+			t.Setenv("TYPESAFE_API_KEY", "environment-jev-fixture")
+			require.NoError(t, UpdateRequestPolicySettings(nil, nil, []string{"typesafe"}))
+			secret, source, err = ContentAuditCredential("typesafe")
+			require.NoError(t, err)
+			assert.Equal(t, "environment-jev-fixture", secret)
+			assert.Equal(t, "environment", source)
+			t.Setenv("TYPESAFE_API_KEY", "")
+			_, source, err = ContentAuditCredential("typesafe")
+			require.NoError(t, err)
+			assert.Empty(t, source)
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "false"}))
 			require.NoError(t, LoadOptionsFromDatabase())
 			require.NoError(t, LoadOptionsFromDatabase())
@@ -167,5 +191,11 @@ func TestContentAuditPolicyOptionsValidateWithoutSecrets(t *testing.T) {
 			_, err := BuildRequestPolicy(invalid)
 			return err
 		}())
+	}
+	for _, endpoint := range []string{"http://audit.example/v1/chat/completions", "https://user:password@audit.example/v1/chat/completions", "https://audit.example/v1/chat/completions?key=value"} {
+		invalid := maps.Clone(options)
+		invalid["ContentAuditEndpoint"] = endpoint
+		_, err := BuildRequestPolicy(invalid)
+		assert.Error(t, err, "credential-bearing content audit endpoints must not include HTTP remotes or embedded credentials")
 	}
 }

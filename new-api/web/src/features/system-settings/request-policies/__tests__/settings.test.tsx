@@ -164,6 +164,11 @@ beforeEach(() => {
                 String(value),
               ])
             ),
+            credentials: {
+              chat_completions: { configured: false, source: '', error: false },
+              typesafe: { configured: false, source: '', error: false },
+              store_ready: true,
+            },
           },
         },
       }
@@ -534,11 +539,10 @@ it('configures Jev explicitly without copying the DeepSeek prompt or enabling au
     screen.getByRole('combobox', { name: 'Content audit mode' })
   ).toHaveTextContent('off')
   expect(api.patch).not.toHaveBeenCalled()
-  await userEvent.type(
-    screen.getByLabelText('Audit endpoint'),
+  expect(screen.getByLabelText('Audit endpoint')).toHaveValue(
     'https://api.typesafe.ai/v1/systemone'
   )
-  await userEvent.type(screen.getByLabelText('Audit model'), 'jev-1.14.0')
+  expect(screen.getByLabelText('Audit model')).toHaveValue('jev-1.14.0')
   await userEvent.click(
     screen.getByRole('button', { name: 'Save audit settings' })
   )
@@ -553,4 +557,59 @@ it('configures Jev explicitly without copying the DeepSeek prompt or enabling au
   expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).not.toMatchObject({
     options: { ContentAuditPrompt: '' },
   })
+})
+
+it('tests and saves an encrypted Jev credential without reading it back', async () => {
+  const post = vi.spyOn(api, 'post').mockResolvedValue({
+    data: { success: true, data: { models: ['jev-1.14.0'] } },
+  })
+  vi.mocked(api.patch).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        options: {},
+        credentials: {
+          chat_completions: {
+            configured: false,
+            source: '',
+            error: false,
+          },
+          typesafe: { configured: true, source: 'console', error: false },
+          store_ready: true,
+        },
+      },
+    },
+  })
+  await renderPolicies('/system-settings/request-policies/legacy-audit')
+  const provider = await screen.findByRole('combobox', {
+    name: 'Audit provider',
+  })
+  await userEvent.click(provider)
+  await userEvent.click(screen.getByRole('option', { name: 'TypeSafe Jev' }))
+  const apiKey = await screen.findByLabelText('Audit API key')
+  expect(apiKey).toHaveAttribute('type', 'password')
+  await userEvent.type(apiKey, 'jev-secret-fixture')
+  expect(screen.getByLabelText('Audit endpoint')).toHaveValue(
+    'https://api.typesafe.ai/v1/systemone'
+  )
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Test connection and fetch models' })
+  )
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith('/api/option/content_audit/models', {
+      endpoint: 'https://api.typesafe.ai/v1/systemone',
+      provider: 'typesafe',
+      api_key: 'jev-secret-fixture',
+    })
+  )
+  expect(await screen.findByDisplayValue('jev-1.14.0')).toBeInTheDocument()
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Save audit settings' })
+  )
+  await waitFor(() => expect(api.patch).toHaveBeenCalled())
+  expect(vi.mocked(api.patch).mock.calls.at(-1)?.[1]).toMatchObject({
+    credentials: { typesafe: 'jev-secret-fixture' },
+  })
+  expect(screen.getByLabelText('Audit API key')).toHaveValue('')
+  expect(screen.getByText('Saved key configured')).toBeInTheDocument()
 })

@@ -435,6 +435,20 @@ func TestTypesafeModelsAndDedicatedKey(t *testing.T) {
 	require.Error(t, err, "Jev must never fall back to the DeepSeek key")
 }
 
+func TestContentAuditModelCheckUsesUnsavedKeyWithoutReturningIt(t *testing.T) {
+	t.Setenv("CONTENT_AUDIT_API_KEY", "")
+	t.Setenv("TYPESAFE_API_KEY", "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/models", r.URL.Path)
+		require.Equal(t, "Bearer unsaved-credential-fixture", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte(`{"models":[{"name":"jev-1.14.0"}]}`))
+	}))
+	defer server.Close()
+	models, err := FetchContentAuditModelsWithAPIKey(context.Background(), server.URL+"/v1/systemone", "typesafe", "unsaved-credential-fixture")
+	require.NoError(t, err)
+	require.Equal(t, []string{"jev-1.14.0"}, models)
+}
+
 func TestContentAuditRefusesCredentialRedirect(t *testing.T) {
 	var targetCalls atomic.Int64
 	var forwardedCredentials atomic.Int64

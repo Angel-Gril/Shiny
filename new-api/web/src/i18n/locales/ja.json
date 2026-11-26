@@ -7537,7 +7537,19 @@
     "Audit input tokens": "Audit input tokens",
     "Audit output tokens": "Audit output tokens",
     "Audit token totals are cumulative external review usage across provider changes in this process; they are not customer inference tokens.": "Audit token totals are cumulative external review usage across provider changes in this process; they are not customer inference tokens.",
-    "Usage unreported": "Usage unreported"
+    "Usage unreported": "Usage unreported",
+    "Audit API key": "Audit API key",
+    "The key is encrypted with the stable server secret before it is saved. It is never returned to the browser.": "The key is encrypted with the stable server secret before it is saved. It is never returned to the browser.",
+    "Enter a new key or leave blank to keep the saved key": "Enter a new key or leave blank to keep the saved key",
+    "Saved key configured": "Saved key configured",
+    "Using server environment key": "Using server environment key",
+    "Saved key cannot be decrypted. Check the stable server secret or enter the key again.": "Saved key cannot be decrypted. Check the stable server secret or enter the key again.",
+    "Clear saved key on save": "Clear saved key on save",
+    "Keep saved key": "Keep saved key",
+    "Test connection and fetch models": "Test connection and fetch models",
+    "Select the audit protocol here. Credentials are stored separately for each protocol; changing providers does not enable auditing.": "Select the audit protocol here. Credentials are stored separately for each protocol; changing providers does not enable auditing.",
+    "This server needs a stable credential-encryption secret with at least 32 characters. Set SESSION_SECRET or CRYPTO_SECRET once, then restart New API before saving audit keys.": "This server needs a stable credential-encryption secret with at least 32 characters. Set SESSION_SECRET or CRYPTO_SECRET once, then restart New API before saving audit keys.",
+    "Updated audit credentials for {{updated_providers}}; cleared credentials for {{cleared_providers}}": "Updated audit credentials for {{updated_providers}}; cleared credentials for {{cleared_providers}}"
   },
   "Legacy Shiny audit": "従来の Shiny 監査",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新しいルールは「リクエスト処理」で設定してください。従来の設定は互換性のために残されています。同じリクエストに両方の監査を有効にしないでください。"

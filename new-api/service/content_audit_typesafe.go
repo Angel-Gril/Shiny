@@ -30,7 +30,7 @@ var typesafeAuditHTTPClient = &http.Client{CheckRedirect: func(_ *http.Request, 
 
 func evaluateTypesafeAudit(ctx context.Context, cfg ContentAuditConfig, input string) (ContentAuditResult, error) {
 	endpoint, err := url.ParseRequestURI(cfg.Endpoint)
-	if err != nil || endpoint.Host == "" || endpoint.User != nil || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+	if err != nil || endpoint.Host == "" || common.ValidateOutboundCredentialEndpoint(cfg.Endpoint) != nil {
 		return ContentAuditResult{}, errors.New("invalid Typesafe audit endpoint")
 	}
 	path := strings.TrimRight(endpoint.Path, "/")

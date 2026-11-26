@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -57,7 +58,7 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
-import { getContentAuditModels } from './api'
+import { getContentAuditModels, getPolicyConfig } from './api'
 import { useSavePolicy } from './use-save-policy'
 
 const sensitiveSchema = z.object({
@@ -130,11 +131,11 @@ export function RequestChecksSection({
 
     try {
       if (updates.length > 0) {
-        await updateOption.mutateAsync(
-          Object.fromEntries(
+        await updateOption.mutateAsync({
+          options: Object.fromEntries(
             updates.map(([key, value]) => [key, String(value ?? '')])
-          )
-        )
+          ),
+        })
       }
     } catch (error) {
       handleServerError(error)
@@ -304,7 +305,7 @@ function BehaviorAuditSection(props: RequestChecksSectionProps) {
     }
     try {
       await updateOption.mutateAsync({
-        BehaviorAuditEnabled: String(values.BehaviorAuditEnabled),
+        options: { BehaviorAuditEnabled: String(values.BehaviorAuditEnabled) },
       })
     } catch (error) {
       handleServerError(error)
@@ -356,9 +357,16 @@ function BehaviorAuditSection(props: RequestChecksSectionProps) {
 function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
   const { t } = useTranslation()
   const updateOption = useSavePolicy()
+  const policyQuery = useQuery({
+    queryKey: ['request-policy'],
+    queryFn: getPolicyConfig,
+    staleTime: Infinity,
+  })
   const [modelOptions, setModelOptions] = useState<string[]>([])
   const [modelFetchError, setModelFetchError] = useState('')
   const [isFetchingModels, setIsFetchingModels] = useState(false)
+  const [apiKey, setApiKey] = useState('')
+  const [clearApiKey, setClearApiKey] = useState(false)
   const form = useForm<ContentAuditFormValues>({
     resolver: zodResolver(contentAuditSchema),
     defaultValues,
@@ -386,7 +394,8 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     try {
       const models = await getContentAuditModels(
         form.getValues('ContentAuditEndpoint'),
-        form.getValues('ContentAuditProvider')
+        form.getValues('ContentAuditProvider'),
+        apiKey
       )
       setModelOptions(models)
       if (!form.getValues('ContentAuditModel')) {
@@ -406,10 +415,24 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
       ([key, value]) =>
         value !== defaultValues[key as keyof ContentAuditFormValues]
     )
-    if (updates.length === 0) return
-    await updateOption.mutateAsync(
-      Object.fromEntries(updates.map(([key, value]) => [key, String(value)]))
-    )
+    const credentials = apiKey.trim()
+      ? { [values.ContentAuditProvider]: apiKey.trim() }
+      : undefined
+    const clearCredentials = clearApiKey ? [values.ContentAuditProvider] : []
+    if (updates.length === 0 && !credentials && clearCredentials.length === 0) {
+      return
+    }
+    await updateOption.mutateAsync({
+      options: Object.fromEntries(
+        updates.map(([key, value]) => [key, String(value)])
+      ),
+      ...(credentials ? { credentials } : {}),
+      ...(clearCredentials.length > 0
+        ? { clear_credentials: clearCredentials }
+        : {}),
+    })
+    setApiKey('')
+    setClearApiKey(false)
   }
 
   const auditProvider = form.watch('ContentAuditProvider')
@@ -434,13 +457,15 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
           'Audit mode is independent of keyword filtering. Shadow reviews in the background; preflight can reject a request before billing and upstream submission.'
         )}
       </p>
-      <Alert>
-        <AlertDescription>
-          {t(
-            'The audit API key is never stored in New API options or shown here. Configure it in the server secret environment.'
-          )}
-        </AlertDescription>
-      </Alert>
+      {policyQuery.data?.credentials?.store_ready === false && (
+        <Alert variant='destructive'>
+          <AlertDescription>
+            {t(
+              'This server needs a stable credential-encryption secret with at least 32 characters. Set SESSION_SECRET or CRYPTO_SECRET once, then restart New API before saving audit keys.'
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
@@ -461,6 +486,23 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
                       return
                     }
                     field.onChange(value)
+                    setApiKey('')
+                    setClearApiKey(false)
+                    if (
+                      value === 'typesafe' &&
+                      !form.getValues('ContentAuditEndpoint')
+                    ) {
+                      form.setValue(
+                        'ContentAuditEndpoint',
+                        'https://api.typesafe.ai/v1/systemone'
+                      )
+                    }
+                    if (
+                      value === 'typesafe' &&
+                      !form.getValues('ContentAuditModel')
+                    ) {
+                      form.setValue('ContentAuditModel', 'jev-1.14.0')
+                    }
                     setModelOptions([])
                     setModelFetchError('')
                   }}
@@ -481,7 +523,7 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
                 </Select>
                 <FormDescription>
                   {t(
-                    'Jev uses TYPESAFE_API_KEY; Chat Completions uses CONTENT_AUDIT_API_KEY. Keys stay in the server environment. Changing providers does not migrate keys or enable auditing.'
+                    'Select the audit protocol here. Credentials are stored separately for each protocol; changing providers does not enable auditing.'
                   )}
                 </FormDescription>
               </FormItem>
@@ -496,6 +538,61 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
               </AlertDescription>
             </Alert>
           )}
+          <FormItem>
+            <FormLabel htmlFor='content-audit-api-key'>
+              {t('Audit API key')}
+            </FormLabel>
+            <FormControl>
+              <Input
+                id='content-audit-api-key'
+                type='password'
+                autoComplete='new-password'
+                value={apiKey}
+                placeholder={t(
+                  'Enter a new key or leave blank to keep the saved key'
+                )}
+                onChange={(event) => {
+                  setApiKey(event.target.value)
+                  setClearApiKey(false)
+                }}
+              />
+            </FormControl>
+            <div className='flex flex-wrap items-center justify-between gap-2'>
+              <FormDescription>
+                {t(
+                  'The key is encrypted with the stable server secret before it is saved. It is never returned to the browser.'
+                )}
+              </FormDescription>
+              {policyQuery.data?.credentials?.[auditProvider]?.configured && (
+                <span className='text-xs text-emerald-700'>
+                  {policyQuery.data.credentials[auditProvider]?.source ===
+                  'environment'
+                    ? t('Using server environment key')
+                    : t('Saved key configured')}
+                </span>
+              )}
+              {policyQuery.data?.credentials?.[auditProvider]?.error && (
+                <span className='text-destructive text-xs'>
+                  {t(
+                    'Saved key cannot be decrypted. Check the stable server secret or enter the key again.'
+                  )}
+                </span>
+              )}
+            </div>
+            {policyQuery.data?.credentials?.[auditProvider]?.source ===
+              'console' && (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                onClick={() => setClearApiKey((value) => !value)}
+              >
+                {clearApiKey
+                  ? t('Keep saved key')
+                  : t('Clear saved key on save')}
+              </Button>
+            )}
+          </FormItem>
           <SettingsControlGroup>
             <FormField
               control={form.control}
@@ -601,15 +698,15 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
                       type='button'
                       variant='outline'
                       size='sm'
-                      aria-label={t('Fetch models')}
-                      title={t('Fetch models')}
+                      aria-label={t('Test connection and fetch models')}
+                      title={t('Test connection and fetch models')}
                       disabled={isFetchingModels}
                       onClick={() => void fetchModels()}
                     >
                       <RefreshCw
                         className={isFetchingModels ? 'animate-spin' : ''}
                       />
-                      <span>{t('Fetch models')}</span>
+                      <span>{t('Test connection and fetch models')}</span>
                     </Button>
                   </div>
                   <datalist id='content-audit-models'>

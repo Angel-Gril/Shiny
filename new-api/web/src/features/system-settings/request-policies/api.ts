@@ -21,6 +21,21 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 
 export type PolicyConfig = {
   options: Record<string, string>
+  credentials?: {
+    chat_completions?: AuditCredentialStatus
+    typesafe?: AuditCredentialStatus
+    store_ready?: boolean
+  }
+}
+export type AuditCredentialStatus = {
+  configured: boolean
+  source: 'console' | 'environment' | ''
+  error: boolean
+}
+export type SavePolicyRequest = {
+  options: Record<string, string>
+  credentials?: Record<string, string>
+  clear_credentials?: string[]
 }
 export type PolicyDecision = { action: string; reason: string; source: string }
 export type PolicyEvent = {
@@ -42,21 +57,26 @@ export async function getPolicyConfig() {
   )
   return requireServerSuccess(response.data).data
 }
-export async function savePolicyConfig(options: Record<string, string>) {
+export async function savePolicyConfig(request: SavePolicyRequest) {
   const response = await api.patch<Response<PolicyConfig>>(
     '/api/option/request_policy',
-    { options }
+    request
   )
   return requireServerSuccess(response.data).data
 }
 
 export async function getContentAuditModels(
   endpoint: string,
-  provider?: string
+  provider?: string,
+  apiKey?: string
 ) {
   const response = await api.post<Response<{ models: string[] }>>(
     '/api/option/content_audit/models',
-    { endpoint, ...(provider ? { provider } : {}) }
+    {
+      endpoint,
+      ...(provider ? { provider } : {}),
+      ...(apiKey ? { api_key: apiKey } : {}),
+    }
   )
   return requireServerSuccess(response.data).data.models
 }

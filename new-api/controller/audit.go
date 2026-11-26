@@ -51,6 +51,7 @@ var auditContentTemplates = map[string]string{
 	"option.passkey_domains_confirmed": "Confirmed removal of Passkey domains: ${domains}; affected ${known}; unknown ${unknown}",
 	"option.passkey_domains_blocked":   "Passkey domain change blocked: ${domains}; affected ${known}; unknown ${unknown}",
 	"option.passkey_domains_failed":    "Passkey domain update failed",
+	"option.content_audit_credentials": "Updated audit credentials for ${updated_providers}; cleared credentials for ${cleared_providers}",
 
 	"channel.create":             "Created channel ${name} (type ${type}, count ${count})",
 	"channel.update":             "Updated channel ${name} (ID: ${id})",

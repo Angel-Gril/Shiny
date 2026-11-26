@@ -7537,7 +7537,19 @@
     "Audit input tokens": "审核输入 Token",
     "Audit output tokens": "审核输出 Token",
     "Audit token totals are cumulative external review usage across provider changes in this process; they are not customer inference tokens.": "审核 Token 总量是当前进程累计的外部审核用量，可能包含切换服务前的数据，不是客户推理 Token。",
-    "Usage unreported": "未回報用量"
+    "Usage unreported": "未回報用量",
+    "Audit API key": "審核 API 金鑰",
+    "The key is encrypted with the stable server secret before it is saved. It is never returned to the browser.": "金鑰儲存前會使用伺服器的穩定密鑰加密，且不會傳回瀏覽器。",
+    "Enter a new key or leave blank to keep the saved key": "輸入新金鑰；留白則保留已儲存的金鑰",
+    "Saved key configured": "已設定儲存的金鑰",
+    "Using server environment key": "正在使用伺服器環境變數中的金鑰",
+    "Saved key cannot be decrypted. Check the stable server secret or enter the key again.": "無法解密已儲存的金鑰。請檢查伺服器穩定密鑰，或重新輸入 API 金鑰。",
+    "Clear saved key on save": "儲存時清除已儲存金鑰",
+    "Keep saved key": "保留已儲存金鑰",
+    "Test connection and fetch models": "測試連線並取得模型",
+    "Select the audit protocol here. Credentials are stored separately for each protocol; changing providers does not enable auditing.": "在此選擇審核協定。每種協定的憑據分別儲存；切換服務不會自動啟用審核。",
+    "This server needs a stable credential-encryption secret with at least 32 characters. Set SESSION_SECRET or CRYPTO_SECRET once, then restart New API before saving audit keys.": "伺服器需要至少 32 個字元的穩定憑據加密密鑰。請設定 SESSION_SECRET 或 CRYPTO_SECRET 並重新啟動 New API，然後再儲存審核金鑰。",
+    "Updated audit credentials for {{updated_providers}}; cleared credentials for {{cleared_providers}}": "更新審核服務憑據：更新 {{updated_providers}}；清除 {{cleared_providers}}"
   },
   "Legacy Shiny audit": "舊版 Shiny 審計",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。"

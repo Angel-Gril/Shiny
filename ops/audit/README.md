@@ -8,14 +8,20 @@ and no account ban, balance, quota, or permission change is automated.
 
 ## Jev setup
 
-1. Set `TYPESAFE_API_KEY` in the New API server's secret environment and restart
-   the New API service. Keep it out of the database, repository, browser, and
-   support logs. Jev does not reuse `CONTENT_AUDIT_API_KEY`.
-2. In **System settings → Request policies → Content audit**, select **TypeSafe
-   Jev**, set endpoint `https://api.typesafe.ai/v1/systemone`, and choose a
-   fixed model such as `jev-1.14.0`. Model discovery uses the Jev `/v1/models`
-   response; the adapter also accepts a manually entered fixed model.
-3. Keep mode **Off** while saving and validating credentials, then select
+1. In **System settings → Request policies → Content audit**, select the audit
+   protocol, enter the endpoint, enter an API key, and use **Test connection
+   and fetch models**. Jev defaults to `https://api.typesafe.ai/v1/systemone`
+   and `jev-1.14.0`. Credentials are saved separately for each protocol and
+   are never returned to the browser. A blank key leaves the saved key intact;
+   an explicit clear falls back to that provider's environment key, if set.
+2. Console-entered keys are encrypted with AES-GCM before storage in the
+   existing options table. Encryption derives from a stable `CRYPTO_SECRET`
+   (at least 32 characters), or `SESSION_SECRET` when `CRYPTO_SECRET` is absent.
+   Keep the selected server secret stable across restarts and all New API
+   instances sharing the database. The console refuses to save keys if no
+   qualifying secret is configured. Environment variables `TYPESAFE_API_KEY`
+   and `CONTENT_AUDIT_API_KEY` remain supported as fallback credentials.
+3. Keep mode **Off** while saving and testing credentials, then select
    **Shadow** for an initial sample. Shadow does not delay or block the model
    request. Signal matches are audited, with the configured background sample
    rate applying to other requests.
@@ -63,11 +69,11 @@ required privacy approval before sending production requests.
 
 ## Compatibility and verification
 
-The policy values are stored in the existing options table; no database schema
-or billing changes are required. Older servers may reject the new option
-names, so deploy the matching application build before configuring Jev.
-Provider credentials remain environment-only. Switching providers does not
-copy the DeepSeek prompt, change the mode, or enable auditing.
+The policy values and encrypted credentials are stored in the existing options
+table; no database schema or billing changes are required. Older servers may
+reject the new option names, so deploy the matching application build before
+configuring Jev. Switching providers does not copy the DeepSeek prompt, change
+the mode, or enable auditing.
 
 Focused checks:
 
@@ -76,6 +82,39 @@ go test ./service -run '^(TestTypesafe|TestContentAudit|TestAudit|TestEvaluateCo
 go test ./model -run '^(TestRequestPolicyDatabaseMatrix|TestContentAuditPolicyOptions)' -count=1 -v
 bunx vitest run src/features/system-settings/request-policies/__tests__/settings.test.tsx src/features/usage-logs/audit/__tests__/review-queue.test.tsx --maxWorkers=1 --no-file-parallelism
 ```
+
+## Credential handling
+
+The settings endpoints stay under the existing root-admin authorization and
+must be used over HTTPS. Provider endpoints must use HTTPS too; HTTP is accepted
+only for `localhost` or loopback IPs such as `127.0.0.1` and `::1`. Embedded URL
+credentials and query parameters are rejected. The console never reads a saved
+key back. A connection test sends the unsaved key only to the selected provider's model-list endpoint
+and returns model IDs, not the key. A successful key save writes an operation
+audit listing updated and cleared provider IDs; it never records the
+credential or encrypted value. Generic option reads omit both audit API-key
+fields, and generic option writes reject them.
+
+Stored keys use AES-GCM with a fresh random nonce. The encryption key is derived
+from a stable server `CRYPTO_SECRET` (at least 32 characters), or from
+`SESSION_SECRET` when the former is absent, so the encryption key remains
+outside the database. Keep the chosen server secret stable across restarts and
+all New API instances sharing the database. Rotating `CRYPTO_SECRET` also
+invalidates existing signed task artifact URLs; rotating `SESSION_SECRET`
+invalidates active sessions. Either rotation makes stored audit credentials
+unreadable, so re-enter provider keys after planned rotation. This is
+application-level encryption, not a KMS/HSM-backed secret manager.
+
+The credential flow follows the relevant OWASP guidance for authenticated TLS
+transport, least-privilege access, safe secret storage, and logging secret
+administration without logging secret material:
+
+- [Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+- [Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
+- [Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
+
+This change does not claim ASVS certification or a complete security audit.
 
 ## Open-source references
 

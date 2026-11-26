@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -204,8 +204,7 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 		return nil, fmt.Errorf("invalid ContentAuditPreflightScope")
 	}
 	if endpoint := strings.TrimSpace(raw["ContentAuditEndpoint"]); endpoint != "" {
-		parsed, err := url.ParseRequestURI(endpoint)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || len(endpoint) > 512 {
+		if len(endpoint) > 512 || common.ValidateOutboundCredentialEndpoint(endpoint) != nil {
 			return nil, fmt.Errorf("invalid ContentAuditEndpoint")
 		}
 	}
@@ -300,6 +299,13 @@ func refreshRequestPolicySnapshot() error {
 // UpdateRequestPolicyOptions validates the entire resulting policy before any
 // write. Unknown JSON rule fields stay in the original option string.
 func UpdateRequestPolicyOptions(values map[string]string) error {
+	return UpdateRequestPolicySettings(values, nil, nil)
+}
+
+// UpdateRequestPolicySettings commits request policy options and optional
+// encrypted audit credentials together. Plaintext credentials never enter the
+// options table or in-memory option map.
+func UpdateRequestPolicySettings(values map[string]string, credentials map[string]string, clearCredentials []string) error {
 	requestPolicyOptionMutex.Lock()
 	defer requestPolicyOptionMutex.Unlock()
 	options := maps.Clone(CurrentRequestPolicy().Options)
@@ -313,8 +319,47 @@ func UpdateRequestPolicyOptions(values map[string]string) error {
 	if err != nil {
 		return err
 	}
+	persistedValues := maps.Clone(values)
+	if persistedValues == nil {
+		persistedValues = map[string]string{}
+	}
+	cleared := make(map[string]bool, len(clearCredentials))
+	for _, provider := range clearCredentials {
+		key, ok := contentAuditCredentialOption(provider)
+		if !ok || cleared[provider] {
+			return fmt.Errorf("invalid content audit credential provider")
+		}
+		if _, alsoSet := credentials[provider]; alsoSet {
+			return fmt.Errorf("content audit credential cannot be set and cleared together")
+		}
+		cleared[provider] = true
+		persistedValues[key] = ""
+	}
+	for provider, credential := range credentials {
+		key, ok := contentAuditCredentialOption(provider)
+		credential = strings.TrimSpace(credential)
+		if !ok || credential == "" || len(credential) > 4096 || strings.ContainsAny(credential, "\r\n\x00") {
+			return fmt.Errorf("invalid content audit credential")
+		}
+		if cleared[provider] {
+			return fmt.Errorf("content audit credential cannot be set and cleared together")
+		}
+		encrypted, err := common.EncryptStoredSecret(credential)
+		if err != nil {
+			return err
+		}
+		persistedValues[key] = encrypted
+	}
+	for key := range persistedValues {
+		if !IsRequestPolicyOption(key) && key != "ContentAuditChatCompletionsApiKey" && key != "ContentAuditTypesafeApiKey" {
+			return fmt.Errorf("not a request policy option: %s", key)
+		}
+	}
+	if len(persistedValues) == 0 {
+		return nil
+	}
 	if err := DB.Transaction(func(tx *gorm.DB) error {
-		for key, value := range values {
+		for key, value := range persistedValues {
 			option := Option{Key: key}
 			if err := tx.FirstOrCreate(&option, Option{Key: key}).Error; err != nil {
 				return err
@@ -328,11 +373,55 @@ func UpdateRequestPolicyOptions(values map[string]string) error {
 		return err
 	}
 	BumpSyncTopic(SyncTopicOptions)
-	for key, value := range values {
+	for key, value := range persistedValues {
 		if err := updateOptionMap(key, value); err != nil {
 			return err
 		}
 	}
 	requestPolicySnapshot.Store(snapshot)
 	return nil
+}
+
+func contentAuditCredentialOption(provider string) (string, bool) {
+	switch provider {
+	case "chat_completions":
+		return "ContentAuditChatCompletionsApiKey", true
+	case "typesafe":
+		return "ContentAuditTypesafeApiKey", true
+	default:
+		return "", false
+	}
+}
+
+// ContentAuditCredential returns a decrypted console credential when present,
+// otherwise the legacy provider-specific environment variable.
+func ContentAuditCredential(provider string) (string, string, error) {
+	optionKey, ok := contentAuditCredentialOption(provider)
+	if !ok {
+		return "", "", fmt.Errorf("invalid content audit credential provider")
+	}
+	if encrypted, exists := RequestPolicyOptionValue(optionKey); exists && encrypted != "" {
+		credential, err := common.DecryptStoredSecret(encrypted)
+		if err != nil {
+			return "", "console", err
+		}
+		return credential, "console", nil
+	}
+	envKey := "CONTENT_AUDIT_API_KEY"
+	if provider == "typesafe" {
+		envKey = "TYPESAFE_API_KEY"
+	}
+	if credential := strings.TrimSpace(os.Getenv(envKey)); credential != "" {
+		return credential, "environment", nil
+	}
+	return "", "", nil
+}
+
+func ContentAuditCredentialStatus(provider string) (bool, string, bool) {
+	credential, source, err := ContentAuditCredential(provider)
+	return err == nil && credential != "", source, err != nil
+}
+
+func ContentAuditCredentialStoreReady() bool {
+	return common.PersistentCryptoSecretAvailable()
 }

@@ -4,18 +4,18 @@ import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
 
-import { savePolicyConfig } from './api'
+import { savePolicyConfig, type SavePolicyRequest } from './api'
 
 export function useSavePolicy() {
   const client = useQueryClient()
   const { t } = useTranslation()
   return useMutation({
     mutationFn: savePolicyConfig,
-    onSuccess: (data, options) => {
+    onSuccess: (data, request: SavePolicyRequest) => {
       client.setQueryData(['request-policy'], data)
       void client.invalidateQueries({ queryKey: ['system-options'] })
       void client.invalidateQueries({ queryKey: ['channel-ops'] })
-      if ('channel_affinity_setting.rules' in options) {
+      if ('channel_affinity_setting.rules' in request.options) {
         void client.invalidateQueries({ queryKey: ['channel-affinity-cache'] })
       }
       toast.success(t('Saved successfully'))
