@@ -30,12 +30,13 @@ func UpdateRequestPolicy(c *gin.Context) {
 func GetContentAuditModels(c *gin.Context) {
 	var request struct {
 		Endpoint string `json:"endpoint"`
+		Provider string `json:"provider"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	models, err := service.FetchContentAuditModels(c.Request.Context(), request.Endpoint)
+	models, err := service.FetchContentAuditModelsForProvider(c.Request.Context(), request.Endpoint, request.Provider)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return

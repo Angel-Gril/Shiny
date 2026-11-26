@@ -53,7 +53,7 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			common.SetMainDatabaseType(common.DatabaseType(dialect))
 			initCol()
 			t.Cleanup(func() {
-				require.NoError(t, db.Migrator().DropTable(&Option{}))
+				require.NoError(t, db.Migrator().DropTable(&SystemTask{}, &Option{}))
 				for k, v := range previousSnapshot.Options {
 					require.NoError(t, updateOptionMap(k, v))
 				}
@@ -66,7 +66,7 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 				initCol()
 				require.NoError(t, sqlDB.Close())
 			})
-			require.NoError(t, db.AutoMigrate(&Option{}))
+			require.NoError(t, db.AutoMigrate(&Option{}, &SystemTask{}))
 			var version string
 			query := "SELECT version()"
 			if dialect == "sqlite" {
@@ -76,12 +76,15 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			t.Logf("database version: %s", version)
 			rules := `[{"name":"session","model_regex":[".*"],"key_sources":[{"type":"request_header","key":"X-Session"}],"ttl_seconds":0,"skip_retry_on_failure":false,"include_using_group":false,"param_override_template":{"temperature":0},"future_field":{"enabled":false}}]`
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"RetryTimes": "2", "channel_affinity_setting.rules": rules}))
-			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditMode": "shadow", "ContentAuditPreflightScope": "signal", "SensitiveWordSignals": "窃取 API 密钥\nbypass billing", "SensitiveWords": ""}))
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditMode": "shadow", "ContentAuditProvider": "typesafe", "ContentAuditMaxChunks": "8", "ContentAuditTypesafePolicy": "Judge current intent", "ContentAuditPreflightScope": "signal", "SensitiveWordSignals": "窃取 API 密钥\nbypass billing", "SensitiveWords": ""}))
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "false"}))
 			require.NoError(t, LoadOptionsFromDatabase())
 			require.NoError(t, LoadOptionsFromDatabase())
 			assert.False(t, CurrentRequestPolicy().BehaviorAuditEnabled)
 			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"])
+			assert.Equal(t, "typesafe", CurrentRequestPolicy().Options["ContentAuditProvider"])
+			assert.Equal(t, "8", CurrentRequestPolicy().Options["ContentAuditMaxChunks"])
+			assert.Equal(t, "Judge current intent", CurrentRequestPolicy().Options["ContentAuditTypesafePolicy"])
 			require.NoError(t, UpdateOption("BehaviorAuditEnabled", "true"))
 			assert.True(t, CurrentRequestPolicy().BehaviorAuditEnabled)
 			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"], "behavior auditing never changes the content audit mode")
@@ -151,6 +154,8 @@ func TestContentAuditPolicyOptionsValidateWithoutSecrets(t *testing.T) {
 
 	for key, value := range map[string]string{
 		"ContentAuditEndpoint":         "ftp://audit.example/v1/chat/completions",
+		"ContentAuditProvider":         "unknown",
+		"ContentAuditMaxChunks":        "17",
 		"ContentAuditTimeoutMs":        "50",
 		"ContentAuditSampleRate":       "1.5",
 		"ContentAuditReviewThreshold":  "-0.1",

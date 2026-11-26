@@ -26,11 +26,18 @@ var auditJobs = make(chan struct{}, 8)
 var contentAuditStats struct {
 	Requests, Flagged, Errors, Dropped, InFlight, LastErrorAt   int64
 	Evaluations, RateLimited, Incomplete, SampledOut, Completed int64
+	InputTokens, OutputTokens                                   int64
+	UsageUnreported                                             int64
 	sync.Mutex
 	Durations []int64
 }
 
 type ContentAuditHealth struct {
+	Provider         string  `json:"provider"`
+	MaxChunks        int     `json:"max_chunks"`
+	InputTokens      int64   `json:"input_tokens"`
+	OutputTokens     int64   `json:"output_tokens"`
+	UsageUnreported  int64   `json:"usage_unreported"`
 	Enabled          bool    `json:"enabled"`
 	Configured       bool    `json:"configured"`
 	Mode             string  `json:"mode"`
@@ -59,7 +66,7 @@ type ContentAuditHealth struct {
 
 func ContentAuditHealthSnapshot() ContentAuditHealth {
 	cfg := LoadContentAuditConfig()
-	h := ContentAuditHealth{Enabled: cfg.Mode != "off", Configured: cfg.Endpoint != "" && cfg.APIKey != "" && cfg.Model != "", Mode: cfg.Mode, Scope: cfg.Scope, Model: cfg.Model, TimeoutMS: cfg.Timeout.Milliseconds(), SampleRate: cfg.SampleRate, FlaggedThreshold: cfg.FlaggedThreshold, ReviewThreshold: cfg.ReviewThreshold,
+	h := ContentAuditHealth{Provider: cfg.Provider, MaxChunks: cfg.MaxChunks, InputTokens: atomic.LoadInt64(&contentAuditStats.InputTokens), OutputTokens: atomic.LoadInt64(&contentAuditStats.OutputTokens), UsageUnreported: atomic.LoadInt64(&contentAuditStats.UsageUnreported), Enabled: cfg.Mode != "off", Configured: cfg.Endpoint != "" && cfg.APIKey != "" && cfg.Model != "", Mode: cfg.Mode, Scope: cfg.Scope, Model: cfg.Model, TimeoutMS: cfg.Timeout.Milliseconds(), SampleRate: cfg.SampleRate, FlaggedThreshold: cfg.FlaggedThreshold, ReviewThreshold: cfg.ReviewThreshold,
 		Requests: atomic.LoadInt64(&contentAuditStats.Requests), Flagged: atomic.LoadInt64(&contentAuditStats.Flagged), Errors: atomic.LoadInt64(&contentAuditStats.Errors), Dropped: atomic.LoadInt64(&contentAuditStats.Dropped), InFlight: atomic.LoadInt64(&contentAuditStats.InFlight), LastErrorAt: atomic.LoadInt64(&contentAuditStats.LastErrorAt), Evaluations: atomic.LoadInt64(&contentAuditStats.Evaluations), RateLimited: atomic.LoadInt64(&contentAuditStats.RateLimited), Incomplete: atomic.LoadInt64(&contentAuditStats.Incomplete), SampledOut: atomic.LoadInt64(&contentAuditStats.SampledOut), Completed: atomic.LoadInt64(&contentAuditStats.Completed)}
 	contentAuditStats.Lock()
 	durations := slices.Clone(contentAuditStats.Durations)
@@ -80,8 +87,12 @@ func EvaluateContentAuditSegments(ctx context.Context, cfg ContentAuditConfig, t
 
 func evaluateAuditInput(ctx context.Context, cfg ContentAuditConfig, input ContentAuditInput) (ContentAuditResult, error) {
 	chunks, complete := auditInputChunks(input)
-	if cfg.Mode == "shadow" && len(chunks) > 4 {
-		chunks = chunks[:4]
+	limit := cfg.MaxChunks
+	if limit < 1 || limit > 16 {
+		limit = 4
+	}
+	if cfg.Mode == "shadow" && len(chunks) > limit {
+		chunks = chunks[:limit]
 		complete = false
 	}
 	merged := ContentAuditResult{Category: "none", PrimaryCategory: "none", Action: "allow", Context: "ambiguous", Categories: map[string]bool{}, CategoryScores: map[string]float64{}}
@@ -134,6 +145,13 @@ func evaluateAuditInput(ctx context.Context, cfg ContentAuditConfig, input Conte
 			flags[category] = flags[category] || value
 		}
 	}
+	anyCategory := false
+	for category, value := range merged.Categories {
+		if category != "none" && value {
+			anyCategory = true
+		}
+	}
+	merged.Categories["none"] = !anyCategory
 	if !complete {
 		if firstError == nil {
 			return merged, ErrContentAuditCoverage
@@ -190,7 +208,7 @@ func runAudit(c *gin.Context, cfg ContentAuditConfig, userID, tokenID int, model
 			length += utf8.RuneCountInString(part.Text)
 		}
 		if userID > 0 && tokenID > 0 {
-			model.RecordAbuseSignal(c, userID, tokenID, "content_audit", model.AuditFields{"source": "deepseek", "mode": cfg.Mode, "category": result.Category, "category_scores": result.CategoryScores, "categories": result.Categories, "confidence": result.Confidence, "context": result.Context, "reason_code": result.ReasonCode, "action": "review", "audit_model": cfg.Model, "model_name": modelName, "input_length": length, "coverage_complete": err == nil, "keyword_signal": signalHit})
+			model.RecordAbuseSignal(c, userID, tokenID, "content_audit", model.AuditFields{"source": contentAuditSource(cfg), "mode": cfg.Mode, "category": result.Category, "category_scores": result.CategoryScores, "categories": result.Categories, "confidence": result.Confidence, "context": result.Context, "reason_code": result.ReasonCode, "action": "review", "audit_model": cfg.Model, "audit_model_version": result.AuditModel, "provider": cfg.Provider, "model_name": modelName, "input_length": length, "coverage_complete": err == nil, "keyword_signal": signalHit})
 		}
 	}
 	return result, err
@@ -272,4 +290,24 @@ func CheckRequestContent(c *gin.Context, request dto.Request, modelName, normali
 		return types.NewError(errors.New("request rejected by content policy"), types.ErrorCodeContentAuditRejected, types.ErrOptionWithStatusCode(http.StatusForbidden), types.ErrOptionWithSkipRetry())
 	}
 	return nil
+}
+
+func recordContentAuditUsage(input, output int64) {
+	if input < 0 || input > 1000000 || output < 0 || output > 1000000 {
+		recordContentAuditUsageMissing()
+		return
+	}
+	atomic.AddInt64(&contentAuditStats.InputTokens, input)
+	atomic.AddInt64(&contentAuditStats.OutputTokens, output)
+}
+
+func recordContentAuditUsageMissing() {
+	atomic.AddInt64(&contentAuditStats.UsageUnreported, 1)
+}
+
+func contentAuditSource(cfg ContentAuditConfig) string {
+	if cfg.Provider == "typesafe" {
+		return "typesafe"
+	}
+	return "chat_completions"
 }

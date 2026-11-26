@@ -66,6 +66,9 @@ func requestPolicyDefaultOptions() map[string]string {
 	defaults["BehaviorAuditEnabled"] = "true"
 	defaults["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	defaults["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
+	defaults["ContentAuditTypesafePolicy"] = ""
+	defaults["ContentAuditProvider"] = "chat_completions"
+	defaults["ContentAuditMaxChunks"] = "4"
 	defaults["ContentAuditEnabled"] = "false"
 	defaults["ContentAuditMode"] = "off"
 	defaults["ContentAuditPreflightScope"] = "signal"
@@ -80,7 +83,7 @@ func requestPolicyDefaultOptions() map[string]string {
 }
 
 func IsRequestPolicyOption(key string) bool {
-	if key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" {
+	if key == "ContentAuditTypesafePolicy" || key == "ContentAuditProvider" || key == "ContentAuditMaxChunks" || key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" {
 		return true
 	}
 	if strings.HasPrefix(key, "channel_affinity_setting.") {
@@ -186,6 +189,12 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 	if _, err := strconv.ParseBool(raw["ContentAuditEnabled"]); err != nil {
 		return nil, fmt.Errorf("invalid boolean: ContentAuditEnabled")
 	}
+	if raw["ContentAuditProvider"] != "chat_completions" && raw["ContentAuditProvider"] != "typesafe" {
+		return nil, fmt.Errorf("invalid ContentAuditProvider")
+	}
+	if count, err := strconv.Atoi(raw["ContentAuditMaxChunks"]); err != nil || count < 1 || count > 16 {
+		return nil, fmt.Errorf("ContentAuditMaxChunks must be between 1 and 16")
+	}
 	switch raw["ContentAuditMode"] {
 	case "off", "shadow", "preflight":
 	default:
@@ -200,7 +209,7 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 			return nil, fmt.Errorf("invalid ContentAuditEndpoint")
 		}
 	}
-	if len(raw["ContentAuditModel"]) > 128 || len(raw["ContentAuditPrompt"]) > 20000 {
+	if len(raw["ContentAuditModel"]) > 128 || len(raw["ContentAuditPrompt"]) > 20000 || len(raw["ContentAuditTypesafePolicy"]) > 20000 {
 		return nil, fmt.Errorf("content audit model or prompt is too long")
 	}
 	timeoutMs, err := strconv.Atoi(raw["ContentAuditTimeoutMs"])
