@@ -1,5 +1,7 @@
 # RU 商业分支验证记录
 
+2026-11-27 上线结果见 [RU 一键 Key 发布记录](releases/2026-11-27-universal-keys.md)。下文候选测试为开发当时记录，当前 RU 已发布对应前后端；国内服务未随之更新。
+
 ## 2026-11-27：RU 一键创建密钥候选
 
 基线 `commercial/ru-portal` 的 `c0eae7770d2b65f3ed7b83d40cfb7592f65d89e3`，
