@@ -7729,6 +7729,8 @@
     "No structured evidence available": "暂无结构化证据",
     "Russian": "俄語",
     "Legacy Shiny audit": "舊版 Shiny 審計",
-    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。"
+    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。",
+    "By clicking sign in, you agree to our": "點擊登入即表示您同意我們的",
+    "By creating an account, you agree to our": "建立帳戶即表示您同意我們的"
   }
 }

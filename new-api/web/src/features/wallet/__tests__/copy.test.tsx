@@ -24,6 +24,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 import { BillingHistoryDialog } from '@/features/wallet/components/dialogs/billing-history-dialog'
 import en from '@/i18n/locales/en.json'
+import ru from '@/i18n/locales/ru.json'
 import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 
@@ -36,7 +37,7 @@ beforeEach(async () => {
     lng: 'zh',
     fallbackLng: false,
     nsSeparator: false,
-    resources: { en, zh },
+    resources: { en, zh, ru },
     interpolation: { escapeValue: false },
   })
 })
@@ -74,6 +75,11 @@ it('translates billing history statuses and updates them when the language chang
   for (const label of ['Success', 'Pending', 'Expired']) {
     expect(screen.getByText(label)).toBeVisible()
   }
+  await act(() => i18n.changeLanguage('ru'))
+  for (const key of ['Success', 'Pending', 'Expired'] as const) {
+    expect(screen.getByText(ru.translation[key])).toBeVisible()
+  }
+  expect(screen.getByText(ru.translation['Billing History'])).toBeVisible()
 })
 
 it.each([

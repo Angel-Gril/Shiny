@@ -7729,6 +7729,8 @@
     "No structured evidence available": "No structured evidence available",
     "Russian": "Tiếng Nga",
     "Legacy Shiny audit": "Kiểm tra Shiny cũ",
-    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu."
+    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu.",
+    "By clicking sign in, you agree to our": "Khi đăng nhập, bạn đồng ý với",
+    "By creating an account, you agree to our": "Khi tạo tài khoản, bạn đồng ý với"
   }
 }

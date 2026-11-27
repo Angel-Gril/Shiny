@@ -2231,7 +2231,7 @@
     "Education": "Образование",
     "Effective icon": "Используемая иконка",
     "Email": "Электронная почта",
-    "Email (required for verification)": "Email (требуется для верификации)",
+    "Email (required for verification)": "Электронная почта (для подтверждения)",
     "Email & Notifications": "Почта и уведомления",
     "Email Address": "Адрес электронной почты",
     "Email address is already in use": "Этот адрес электронной почты уже используется",
@@ -7729,6 +7729,8 @@
     "No structured evidence available": "Структурированных сведений нет",
     "Russian": "Русский",
     "Legacy Shiny audit": "Прежний аудит Shiny",
-    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Для новых правил используйте обработку запросов. Прежние настройки сохранены для совместимости; не включайте оба механизма для одних и тех же запросов."
+    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Для новых правил используйте обработку запросов. Прежние настройки сохранены для совместимости; не включайте оба механизма для одних и тех же запросов.",
+    "By clicking sign in, you agree to our": "Нажимая «Войти», вы принимаете условия документов:",
+    "By creating an account, you agree to our": "Создавая аккаунт, вы принимаете условия документов:"
   }
 }
