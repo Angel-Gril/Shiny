@@ -87,6 +87,8 @@ jobs:
         working-directory: new-api/web
       - run: bunx vitest run src/features/models/__tests__/metadata-sync.test.tsx src/i18n/__tests__/site-language.test.ts src/components/__tests__/password-strength.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
         working-directory: new-api/web
+      - run: bunx vitest run src/features/auth/components/__tests__/terms-footer.test.tsx src/features/wallet/__tests__/copy.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
+        working-directory: new-api/web
       - run: go test ./controller -run '^(TestRussianMetadata|TestMetadataSyncLocale)' -count=1
         working-directory: new-api
       - run: go test ./controller -run '^TestModelManagementDatabaseMatrix$' -count=1 -v

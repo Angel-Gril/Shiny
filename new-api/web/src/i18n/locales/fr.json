@@ -7729,6 +7729,8 @@
     "No structured evidence available": "No structured evidence available",
     "Russian": "Russe",
     "Legacy Shiny audit": "Audit Shiny hérité",
-    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Utilisez le traitement des requêtes pour les nouvelles règles. Ces réglages hérités restent disponibles pour la compatibilité ; évitez les deux contrôles sur une même requête."
+    "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Utilisez le traitement des requêtes pour les nouvelles règles. Ces réglages hérités restent disponibles pour la compatibilité ; évitez les deux contrôles sur une même requête.",
+    "By clicking sign in, you agree to our": "En vous connectant, vous acceptez nos",
+    "By creating an account, you agree to our": "En créant un compte, vous acceptez nos"
   }
 }
