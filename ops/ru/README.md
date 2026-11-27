@@ -9,6 +9,8 @@
 保留为历史交接记录；升级应固定实际要发布的源码，不能将旧基线当作当前版本。
 当前俄语模型元数据与控制台语言修复的线上版本、验证及回滚见
 [俄语修复发布记录](releases/2026-11-27-russian-metadata.md)。
+认证文案与同源 Logo 的后续版本及 Turnstile 决策见
+[2026-11-28 发布记录](releases/2026-11-28-auth-copy-and-brand.md)。
 
 读取 [Shiny 商业分支](https://github.com/Angel-Gril/Shiny/tree/commercial/ru-portal)，不要只读取 `main`。已验证的功能基线是 `8d166676f70163930ce4d8efc9080e5d2fdce4a3`，本轮补充的是部署交接文档，未修改程序或生产配置。该功能基线的门户、原生支付及源码工作流均通过，见 [验证记录](VALIDATION.md)；后续有代码变更时重新固定提交并验证。
 
