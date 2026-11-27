@@ -1085,6 +1085,50 @@ func TestMetadataSyncLocaleAndEndpointValidation(t *testing.T) {
 	}
 }
 
+func TestRussianMetadataSyncUsesEnglishSourceAndRussianPresentation(t *testing.T) {
+	t.Setenv("SHINY_SITE_PROFILE", "ru")
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/i18n/en/newapi/models.json":
+			_, _ = w.Write([]byte(`{"success":true,"data":[{"model_name":"gpt-6.2-astra","description":"A frontier reasoning model.","tags":"Reasoning,Tools,Files,Vision,1.1M","vendor_name":"OpenAI","icon":"OpenAI","status":1,"endpoints":["openai-response"]},{"model_name":"future-model","description":"An operator-independent future model.","tags":"Reasoning,CustomTag","vendor_name":"Future","status":1}]}`))
+		case "/api/i18n/en/newapi/vendors.json":
+			_, _ = w.Write([]byte(`{"success":true,"data":[{"name":"OpenAI","description":"AI models","status":1},{"name":"Future","description":"Future provider","status":1}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer upstream.Close()
+	t.Setenv("SYNC_UPSTREAM_BASE", upstream.URL)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/models/sync_upstream/preview", nil)
+	source, catalog, vendors, err := fetchMetadataCatalog(ctx, "ru")
+	require.NoError(t, err)
+	assert.Equal(t, "ru", source.Locale)
+	assert.Contains(t, source.ModelsURL, "/i18n/en/")
+	assert.Contains(t, catalog["gpt-6.2-astra"].Description, "программирования")
+	assert.Equal(t, "Рассуждения,Инструменты,Файлы,Мультимодальность,1.1M", catalog["gpt-6.2-astra"].Tags)
+	assert.Equal(t, `["openai-response"]`, catalog["gpt-6.2-astra"].Endpoints)
+	assert.Equal(t, 1, catalog["gpt-6.2-astra"].Status)
+	assert.Equal(t, "An operator-independent future model.", catalog["future-model"].Description)
+	assert.Equal(t, "Рассуждения,CustomTag", catalog["future-model"].Tags)
+	assert.Equal(t, "Future provider", vendors["Future"].Description)
+	assert.Contains(t, vendors["OpenAI"].Description, "моделей")
+	normalized, valid := normalizeLocale("")
+	assert.True(t, valid)
+	assert.Equal(t, "ru", normalized)
+
+	english, englishCatalog, _, err := fetchMetadataCatalog(ctx, "en")
+	require.NoError(t, err)
+	assert.Equal(t, "en", english.Locale)
+	assert.Equal(t, "A frontier reasoning model.", englishCatalog["gpt-6.2-astra"].Description)
+	assert.NotEqual(t, source.Version, english.Version)
+	t.Setenv("SHINY_SITE_PROFILE", "")
+	normalized, valid = normalizeLocale("")
+	assert.True(t, valid)
+	assert.Equal(t, "zh", normalized)
+}
+
 func TestVendorManagementDatabaseMatrix(t *testing.T) {
 	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
 		t.Run(dialect.kind, func(t *testing.T) {

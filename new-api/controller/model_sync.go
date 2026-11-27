@@ -17,6 +17,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,8 +30,15 @@ const (
 
 func normalizeLocale(locale string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(locale)) {
-	case "", "zh", "zh-cn":
+	case "":
+		if setting.IsRUSiteProfile() {
+			return "ru", true
+		}
 		return "zh", true
+	case "zh", "zh-cn":
+		return "zh", true
+	case "ru", "ru-ru":
+		return "ru", true
 	case "en":
 		return "en", true
 	case "ja":
@@ -47,6 +55,11 @@ func getUpstreamBase() string {
 func getUpstreamURLs(locale string) (modelsURL, vendorsURL string) {
 	base := strings.TrimRight(getUpstreamBase(), "/")
 	if l, ok := normalizeLocale(locale); ok && l != "" {
+		// The upstream catalog has no Russian export. Apply the reviewed
+		// Russian presentation to its English source after fetching.
+		if l == "ru" {
+			l = "en"
+		}
 		return fmt.Sprintf("%s/api/i18n/%s/newapi/models.json", base, l),
 			fmt.Sprintf("%s/api/i18n/%s/newapi/vendors.json", base, l)
 	}
@@ -285,6 +298,9 @@ func fetchMetadataCatalog(c *gin.Context, locale string) (metadataSyncSource, ma
 		if vendor.Name == "" {
 			continue
 		}
+		if resolved == "ru" {
+			vendor.Description = setting.RussianVendorDescription(vendor.Name, vendor.Description)
+		}
 		vendors[vendor.Name] = model.Vendor{Name: vendor.Name, Description: vendor.Description, Icon: vendor.Icon, Status: vendor.Status}
 	}
 	for _, item := range modelsEnv.Data {
@@ -298,6 +314,9 @@ func fetchMetadataCatalog(c *gin.Context, locale string) (metadataSyncSource, ma
 			}
 		}
 		values := model.MetadataValues{Description: item.Description, Icon: item.Icon, Tags: item.Tags, Vendor: strings.TrimSpace(item.VendorName), Endpoints: endpoints, NameRule: item.NameRule, Status: item.Status}
+		if resolved == "ru" {
+			values.Description, values.Tags = setting.RussianModelMetadata(item.ModelName, values.Description, values.Tags)
+		}
 		if err := model.ValidateMetadataValues(values); err != nil {
 			return source, nil, nil, fmt.Errorf("model %s: %w", item.ModelName, err)
 		}

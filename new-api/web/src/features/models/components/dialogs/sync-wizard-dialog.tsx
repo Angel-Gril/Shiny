@@ -85,7 +85,9 @@ export function SyncWizardDialog(props: {
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [locale, setLocale] = useState<SyncLocale>('zh')
+  const [locale, setLocale] = useState<SyncLocale>(() =>
+    document.documentElement.dataset.defaultLanguage === 'ru' ? 'ru' : 'zh'
+  )
   const [preview, setPreview] = useState<MetadataSyncPreview | null>(null)
   const [scope, setScope] = useState('site')
   const [search, setSearch] = useState('')
@@ -420,11 +422,13 @@ export function SyncWizardDialog(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {getSyncLocaleOptions(t).map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {getSyncLocaleOptions(t).map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -436,6 +440,13 @@ export function SyncWizardDialog(props: {
               {t('Load metadata preview')}
             </Button>
           </div>
+          {locale === 'ru' && (
+            <p className='text-muted-foreground text-sm'>
+              {t(
+                'Russian metadata uses reviewed translations for supported models; other descriptions use the English source.'
+              )}
+            </p>
+          )}
           {load.isPending && <LoadingState />}
           {load.isError && (
             <ErrorState

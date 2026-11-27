@@ -149,3 +149,26 @@ RU 日志 `upstream_request_id` 与主站 `request_id` 对应。取消测试验�
 部署交接补充只更新本文件和 [README.md](README.md)，不修改程序、依赖、数据库结构、生产环境或国内定价。功能测试基线仍为 `8d166676f70163930ce4d8efc9080e5d2fdce4a3`；其 [RU 门户](https://github.com/Angel-Gril/Shiny/actions/runs/45599918847)、[原生支付](https://github.com/Angel-Gril/Shiny/actions/runs/45599918648)、[源码检查](https://github.com/Angel-Gril/Shiny/actions/runs/45599918950) 共 6 个任务通过。交接文档提交的 CI 结果以相应提交为准，不能借用功能基线的记录代称新提交已通过。
 
 只读工具 `configuration_passed` 表示可自动检查的配置通过；`deployment_accepted` 始终为 false。它不会将本地测试、DNS/TLS 或商户 fixture 当作生产验收完成。
+
+## 2026-11-27 RU 元数据与界面语言修复
+
+复现了两条入口：`/api/pricing` 中模型介绍和标签来自 RU 数据库的中文元数据；
+同步界面固定初始 `zh`，服务端空语言也固定中文，而上游俄语导出返回 404。
+新增失败用例先确认俄语同步不支持、RU 同步选择中文及密码提示缺少俄译，修复后通过。
+俄语同步使用英文上游加随源码维护的精确型号译文；未知模型保留英文说明和自定义标签。
+英文、中文同步的字段与语言行为保留，不修改计费、模型权限或数据库结构。
+
+实际执行：
+
+- `go test ./controller -run '^(TestRussianMetadata|TestMetadataSyncLocale)' -count=1`：通过；覆盖来源 URL、已知/未知型号、标签去重、原端点/状态以及普通实例默认中文。
+- `bun run typecheck`：通过。
+- `bunx vitest run src/features/models/__tests__/metadata-sync.test.tsx src/i18n/__tests__/site-language.test.ts src/components/__tests__/password-strength.test.tsx src/features/pricing/lib/__tests__ --maxWorkers=1 --no-file-parallelism`：6 文件、206 项通过；末次译文调整后相关 3 文件、80 项再次通过。
+- 修改文件的 oxlint、保留版权头的定向 oxfmt、`git diff --check`、`python scripts/check-secrets.py --all`：通过。扩大到整个 models 目录时存在旧文件 lint 错误，不将其描述为全库 Lint 通过。
+- `bun run build`：生产构建通过。
+- 通过 RU 管理 API 更新 13 个模型的介绍和现有标签，以及 OpenAI 供应商说明。核对全部业务选项、渠道、现有 Key、主站选项和公共计价字段一致；仅展示文案变更。`codex-auto-review` 无可靠介绍，保留空白。
+
+同时补充注册密码强度/要求、审计/日志/请求处理的俄文，移除证据格式化中写死的中文，
+将两条误放在 `translation` 之外的旧审计提示归回命名空间。七种语言均包含本次新增键。
+微信登录的协议指令 `验证码` 保留原文，不能翻译成无法匹配的命令。
+新增 CI 检查俄语同步和前端回归，并沿原模型管理矩阵在 SQLite/MySQL/PostgreSQL 验证字段选择、版本校验与同步原子性。
+最终服务器候选、上线版本和浏览器验收应以独立发布记录为准。

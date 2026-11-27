@@ -63,6 +63,40 @@ const preview: MetadataSyncPreview = {
 }
 
 describe('metadata sync preview', () => {
+  it('a RU site defaults metadata sync to Russian instead of Chinese', async () => {
+    document.documentElement.dataset.defaultLanguage = 'ru'
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: {
+        success: true,
+        data: { ...preview, source: { ...preview.source, locale: 'ru' } },
+      },
+    })
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    try {
+      render(
+        <QueryClientProvider client={client}>
+          <SyncWizardDialog open onOpenChange={() => {}} />
+        </QueryClientProvider>
+      )
+      expect(
+        screen.getByRole('combobox', { name: 'Metadata language' })
+      ).toHaveTextContent('Russian')
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'Load metadata preview' }))
+      await waitFor(() =>
+        expect(get).toHaveBeenCalledWith(expect.stringContaining('locale=ru'))
+      )
+    } finally {
+      delete document.documentElement.dataset.defaultLanguage
+      client.clear()
+    }
+  })
   it('shows additions and field effects and writes only after explicit confirmation', async () => {
     vi.spyOn(api, 'get').mockResolvedValue({
       data: { success: true, data: preview },
