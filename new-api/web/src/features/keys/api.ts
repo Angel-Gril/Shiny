@@ -17,15 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import {
+  createServerError,
+  requireServerSuccess,
+} from '@/lib/server-error-message'
 
-import type {
-  ApiKey,
-  ApiResponse,
-  GetApiKeysParams,
-  GetApiKeysResponse,
-  SearchApiKeysParams,
-  ApiKeyFormData,
-  TokenAutoGroupsConfig,
+import {
+  apiKeySchema,
+  type ApiKey,
+  type ApiResponse,
+  type GetApiKeysParams,
+  type GetApiKeysResponse,
+  type SearchApiKeysParams,
+  type ApiKeyFormData,
+  type TokenAutoGroupsConfig,
 } from './types'
 
 // ============================================================================
@@ -75,6 +80,16 @@ export async function createApiKey(
 ): Promise<ApiResponse<ApiKey>> {
   const res = await api.post('/api/token/', data)
   return res.data
+}
+
+export async function createUniversalApiKey(name: string): Promise<ApiKey> {
+  const response = await api.post<ApiResponse<ApiKey>>('/api/token/', {
+    preset: 'ru_universal',
+    name,
+  })
+  const result = requireServerSuccess(response.data)
+  if (!result.data) throw createServerError(result, 'Failed to create API key')
+  return apiKeySchema.parse(result.data)
 }
 
 // Update an existing API key

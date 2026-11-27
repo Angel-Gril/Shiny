@@ -2,14 +2,19 @@ package controller
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"slices"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -269,4 +274,137 @@ func TestGetTokenAutoGroupsReturnsFullFilteredGlobalOrderAndLimit(t *testing.T) 
 	require.NoError(t, common.Unmarshal(response.Data, &data))
 	assert.Equal(t, []string{"vip", "default"}, data.Groups)
 	assert.Equal(t, 1, data.MaxCount)
+}
+
+func TestRUUniversalKeyPresetInheritsAccountAccess(t *testing.T) {
+	t.Setenv("SHINY_SITE_PROFILE", "ru")
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Token{}))
+	user := model.User{Id: 101, Username: "universal-owner", Password: "fixture", Group: "default", Status: common.UserStatusEnabled}
+	require.NoError(t, db.Create(&user).Error)
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", map[string]any{
+		"preset": "ru_universal", "name": "All models", "user_id": 999,
+		"group": "admin-only", "auto_groups": []string{"admin-only"},
+		"model_limits_enabled": true, "model_limits": "one-model",
+		"expired_time": 0, "remain_quota": -1, "cross_group_retry": true,
+	}, user.Id)
+	AddToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	require.True(t, response.Success, response.Message)
+	var saved model.Token
+	require.NoError(t, db.Where("user_id = ?", user.Id).First(&saved).Error)
+	assert.Empty(t, saved.Group)
+	assert.Empty(t, saved.AutoGroups)
+	assert.False(t, saved.CrossGroupRetry)
+	assert.False(t, saved.ModelLimitsEnabled)
+	assert.Empty(t, saved.ModelLimits)
+	assert.True(t, saved.UnlimitedQuota)
+	assert.EqualValues(t, -1, saved.ExpiredTime)
+	assert.True(t, saved.AllowUserQuotaQuery)
+	var returned model.Token
+	require.NoError(t, common.Unmarshal(response.Data, &returned))
+	assert.Equal(t, saved.Id, returned.Id)
+	assert.Equal(t, saved.GetMaskedKey(), returned.Key)
+	assert.NotContains(t, recorder.Body.String(), saved.Key)
+	assert.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+	assert.True(t, common.GetContextKeyBool(ctx, constant.ContextKeyTokenAuditSucceeded))
+
+	// Existing auth and model discovery resolve the owner's group dynamically.
+	oldSelfUse := operation_setting.SelfUseModeEnabled
+	operation_setting.SelfUseModeEnabled = true
+	t.Cleanup(func() { operation_setting.SelfUseModeEnabled = oldSelfUse })
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "fixture-openai", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "fixture-claude", ChannelId: 2, Enabled: true},
+		{Group: "default", Model: "fixture-gemini", ChannelId: 3, Enabled: true},
+		{Group: "admin-only", Model: "fixture-private", ChannelId: 4, Enabled: true},
+	}).Error)
+	for _, expected := range [][]string{
+		{"fixture-openai", "fixture-claude", "fixture-gemini"},
+		{"fixture-openai", "fixture-claude", "fixture-gemini", "fixture-new-model"},
+	} {
+		listCtx, listRecorder := newAuthenticatedContext(t, http.MethodGet, "/v1/models", nil, user.Id)
+		require.NoError(t, middleware.SetupContextForToken(listCtx, &saved))
+		ListModels(listCtx, constant.ChannelTypeOpenAI)
+		assert.ElementsMatch(t, expected, slices.Collect(maps.Keys(decodeListModelsResponse(t, listRecorder))))
+		if len(expected) == 3 {
+			require.NoError(t, db.Create(&model.Ability{Group: "default", Model: "fixture-new-model", ChannelId: 5, Enabled: true}).Error)
+		}
+	}
+}
+
+func TestRUUniversalKeyPresetRejectsUnsupportedSitesAndKeepsTokenLimit(t *testing.T) {
+	for _, test := range []struct{ name, profile, preset string }{
+		{"domestic", "", "ru_universal"},
+		{"unknown preset", "ru", "grant-every-group"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("SHINY_SITE_PROFILE", test.profile)
+			db := setupTokenControllerTestDB(t)
+			ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", map[string]any{"preset": test.preset}, 101)
+			AddToken(ctx)
+			assert.False(t, decodeAPIResponse(t, recorder).Success)
+			var count int64
+			require.NoError(t, db.Model(&model.Token{}).Count(&count).Error)
+			assert.Zero(t, count)
+		})
+	}
+	t.Run("token limit", func(t *testing.T) {
+		t.Setenv("SHINY_SITE_PROFILE", "ru")
+		db := setupTokenControllerTestDB(t)
+		previous := operation_setting.GetMaxUserTokens()
+		operation_setting.GetTokenSetting().MaxUserTokens = 1
+		t.Cleanup(func() { operation_setting.GetTokenSetting().MaxUserTokens = previous })
+		seedToken(t, db, 101, "existing", "synthetic-existing-key")
+		ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", map[string]any{"preset": "ru_universal"}, 101)
+		AddToken(ctx)
+		assert.False(t, decodeAPIResponse(t, recorder).Success)
+		var count int64
+		require.NoError(t, db.Model(&model.Token{}).Count(&count).Error)
+		assert.EqualValues(t, 1, count)
+	})
+}
+
+func TestRUUniversalKeyDatabaseMatrix(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			t.Setenv("SHINY_SITE_PROFILE", "ru")
+			if dialect == "sqlite" {
+				setupTokenControllerTestDB(t)
+			} else {
+				dsn := os.Getenv("TEST_MYSQL_DSN")
+				if dialect == "postgres" {
+					dsn = os.Getenv("TEST_POSTGRES_DSN")
+				}
+				if dsn == "" {
+					t.Skip("external test database is not configured")
+				}
+				db, managed := openTokenControllerExternalDB(t, dialect, dsn)
+				*managed = true
+				migrateTokenControllerTestDB(t, db)
+			}
+			versionQuery := "SELECT version()"
+			if dialect == "sqlite" {
+				versionQuery = "SELECT sqlite_version()"
+			}
+			var version string
+			require.NoError(t, model.DB.Raw(versionQuery).Scan(&version).Error)
+			t.Logf("%s: %s", dialect, version)
+			ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", map[string]any{"preset": "ru_universal"}, 101)
+			AddToken(ctx)
+			response := decodeAPIResponse(t, recorder)
+			require.True(t, response.Success, response.Message)
+			var data model.Token
+			require.NoError(t, common.Unmarshal(response.Data, &data))
+			var stored model.Token
+			require.NoError(t, model.DB.First(&stored, data.Id).Error)
+			assert.Equal(t, "Universal API key", stored.Name)
+			assert.Equal(t, 101, stored.UserId)
+			assert.Empty(t, stored.Group)
+			assert.False(t, stored.ModelLimitsEnabled)
+			assert.True(t, stored.UnlimitedQuota)
+			assert.Equal(t, common.TokenStatusEnabled, stored.Status)
+			assert.Equal(t, stored.GetMaskedKey(), data.Key)
+		})
+	}
 }

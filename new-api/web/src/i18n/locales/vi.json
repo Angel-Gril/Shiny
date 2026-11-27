@@ -2914,7 +2914,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Với kênh tùy chỉnh nâng cao, thiết lập này chỉ áp dụng cho các route /v1/responses không chuyển đổi giao thức.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Đối với các triển khai riêng tư, định dạng: https://fastgpt.run/api/openapi",
@@ -7600,7 +7600,15 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "ID người bán ZPAY",
     "ZPAY merchant key": "Khóa người bán ZPAY",
-    "ZPAY payment method (alipay, wxpay)": "Phương thức thanh toán ZPAY (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "Phương thức thanh toán ZPAY (alipay, wxpay)",
+    "Universal API key": "Khóa API dùng chung",
+    "Creating API key...": "Đang tạo khóa API…",
+    "Your API key is ready": "Khóa API đã sẵn sàng",
+    "One key works with all available providers and models for your account. No group selection is needed.": "Một khóa dùng cho mọi nhà cung cấp và mô hình mà tài khoản được phép sử dụng. Không cần chọn nhóm.",
+    "Edit key settings": "Chỉnh sửa cài đặt khóa",
+    "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.": "Sử dụng số dư tài khoản và có hiệu lực đến khi thu hồi. Có thể đặt hạn dùng, ngân sách, giới hạn mô hình hoặc IP trong cài đặt khóa.",
+    "This key preset is not available on this site": "Cách tạo khóa này không khả dụng trên trang này",
+    "API address": "Địa chỉ API"
   },
   "Legacy Shiny audit": "Kiểm tra Shiny cũ",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu."

@@ -1,5 +1,41 @@
 # RU 商业分支验证记录
 
+## 2026-11-27：RU 一键创建密钥候选
+
+基线 `commercial/ru-portal` 的 `c0eae7770d2b65f3ed7b83d40cfb7592f65d89e3`，
+功能分支 `commercial/ru-universal-keys`。本节为本地候选验证，未部署 RU 或国内
+生产，未合并商业基线或主站分支。
+
+- 前端 `bun run typecheck`、Key 组件和表单工具 8 个文件共 75 项测试通过；
+  包含 RU 直接创建、旧后端回退、国内表单保留、防重复点击、业务失败不重试、
+  读取密钥失败可重试且不重复创建。最后补齐地址翻译后，6 项专属回归重跑通过。
+- 在 `new-api/` 执行 `go test ./controller -run '^(TestRUUniversal|TestAddToken|TestGetTokenKey)' -count=1`。
+  覆盖属主、客户端伪造 group/user/model 参数不扩大权限、私有组模型不开放、
+  同组新增模型可见、数量上限、非 RU 拒绝预设、原创建/读取行为保留。
+- `TestRUUniversalKeyDatabaseMatrix` 在真实 SQLite **3.50.4**、MySQL **8.0.46**、
+  PostgreSQL **16.13** 上通过。使用独立临时数据库，不连接生产；没有新增列、
+  更改 schema、查询语法或覆盖已有 Key 的迁移。CI 已补入该矩阵及前端回归。
+- `bun run build` 和 `go build` 完整构建通过。影响文件的 oxlint 和保护版权头
+  的定向格式检查、`git diff --check`、源代码秘密扫描通过；没有新运行依赖。
+- 用同一份构建启动两个本地实例，分别为 RU 和普通站点，配合合成账号与本地
+  OpenAI 兼容上游。真实浏览器登录后，RU 1440px/390px 一次点击创建、复制到
+  剪贴板、进入可选编辑均通过；没有分组选择步骤、横向溢出或页面脚本错误。
+  密钥只通过原属主校验接口读取，未写入 localStorage/sessionStorage。
+- 同一创建的 Key 经真实 HTTP 成功调用三个模拟平台模型；随后新增同组模型，
+  无需重建 Key 即可在 `/v1/models` 看到；其他组私有模型不在列表中。匿名创建
+  返回 401，普通站点拒绝 RU 创建预设且浏览器仍使用原表单。没有真实模型费用。
+- 复用项目 Dialog、ApiKeyCell、CopyButton、Button 和现有编辑抽屉；新增组件
+  只组合“创建成功后的接入信息”这一业务内容，不另造复制、展示或弹窗机制。
+- 按 OWASP Authentication、Session Management、REST Security Cheat Sheets
+  核对服务端权限、凭据传输、生成和审计边界。既有鉴权、随机密钥、操作审计及
+  秘密读取流程保留；创建响应脱敏且 no-store。未声称完整 ASVS 合规认证，
+  未更改凭据数据库的既有存储方式或登录验证机制。
+
+界面证据：[手机](../evidence/ru-universal-key-390.png)、
+[桌面](../evidence/ru-universal-key-1440.png)，全部为合成本地账号和脱敏密钥。
+正式上线仍需从匹配的商业源码一起构建前后端并在服务器候选验证；本轮不替代
+真实上游、目标网络及生产灰度观察。
+
 日期：2026-11-25。分支：`commercial/ru-portal`。范围：俄语静态门户、独立 RU 实例默认配置、内部账号并发设置、13 个原生国际支付模块、支付运营与恢复、只读候选检查、真实本地双实例回归。重点预选为 Creem、Waffo Pancake、TryBit、NOWPayments、OxaPay、Apirone。尚未部署生产；俄区域名的 DNS/TLS 留到候选部署检查。
 
 ## 门户、价格和历史状态

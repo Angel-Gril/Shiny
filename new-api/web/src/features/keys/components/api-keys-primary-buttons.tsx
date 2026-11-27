@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ChevronDown, Globe, Plus } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -38,14 +39,40 @@ import {
 } from '@/components/ui/popover'
 import { useApiInfo } from '@/features/dashboard/hooks/use-status-data'
 import { useStatus } from '@/hooks/use-status'
+import { handleServerError } from '@/lib/handle-server-error'
 
+import { createUniversalApiKey } from '../api'
 import { useApiKeys } from './api-keys-provider'
 
 export function ApiKeysPrimaryButtons() {
   const { t } = useTranslation()
-  const { setOpen } = useApiKeys()
+  const { setOpen, setCurrentRow, triggerRefresh } = useApiKeys()
   const { status, loading } = useStatus()
+  const [creating, setCreating] = useState(false)
+  const creatingRef = useRef(false)
   const { items } = useApiInfo()
+
+  const createKey = async () => {
+    if (status?.site_profile !== 'ru' || status.ru_universal_keys !== true) {
+      setCurrentRow(null)
+      setOpen('create')
+      return
+    }
+    if (creatingRef.current) return
+    creatingRef.current = true
+    setCreating(true)
+    try {
+      const created = await createUniversalApiKey(t('Universal API key'))
+      setCurrentRow(created)
+      triggerRefresh()
+      setOpen('created')
+    } catch (error) {
+      handleServerError(error, t('Failed to create API key'))
+    } finally {
+      creatingRef.current = false
+      setCreating(false)
+    }
+  }
   const serverAddress =
     (typeof status?.server_address === 'string' &&
       status.server_address.trim()) ||
@@ -112,9 +139,14 @@ export function ApiKeysPrimaryButtons() {
           )}
         </PopoverContent>
       </Popover>
-      <Button size='sm' onClick={() => setOpen('create')}>
+      <Button
+        size='sm'
+        onClick={createKey}
+        disabled={creating || (loading && !status)}
+        aria-busy={creating}
+      >
         <Plus className='h-4 w-4' />
-        {t('Create API Key')}
+        {t(creating ? 'Creating API key...' : 'Create API Key')}
       </Button>
     </div>
   )
