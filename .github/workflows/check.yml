@@ -85,6 +85,15 @@ jobs:
         working-directory: new-api/web
       - run: bunx vitest run src/features/keys/components/__tests__/universal-key.test.tsx src/features/keys/components/__tests__/api-keys-mutate-drawer.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
         working-directory: new-api/web
+      - run: bunx vitest run src/features/models/__tests__/metadata-sync.test.tsx src/i18n/__tests__/site-language.test.ts src/components/__tests__/password-strength.test.tsx --pool=forks --maxWorkers=1 --no-file-parallelism
+        working-directory: new-api/web
+      - run: go test ./controller -run '^(TestRussianMetadata|TestMetadataSyncLocale)' -count=1
+        working-directory: new-api
+      - run: go test ./controller -run '^TestModelManagementDatabaseMatrix$' -count=1 -v
+        working-directory: new-api
+        env:
+          TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
+          TEST_POSTGRES_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture?sslmode=disable
       - run: go test ./middleware -run '^(TestBehaviorAuditSwitch|TestAbuseShadow|TestRecordTokenChurn)' -count=1
         working-directory: new-api
       - run: go test ./model -run '^TestRequestPolicyDatabaseMatrix$' -count=1 -v

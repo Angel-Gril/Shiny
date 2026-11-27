@@ -5,33 +5,34 @@ const ACTION_LABELS: Record<string, string> = {
   'abuse.model_switch': 'Model changes observed',
   'abuse.long_stream': 'Long stream observed',
   'abuse.keyword_signal': 'Keyword signal',
-  'abuse.failure_burst': '连续失败',
-  'abuse.provider_error': '上游服务错误',
-  'abuse.token_churn': '密钥频繁轮换',
-  'abuse.long_request': '请求持续时间过长',
-  'abuse.content_audit': '内容审计命中',
-  'abuse.keyword_match': '高风险行为关键词命中',
+  'abuse.failure_burst': 'Repeated failures',
+  'abuse.provider_error': 'Upstream service error',
+  'abuse.token_churn': 'Frequent key rotation',
+  'abuse.long_request': 'Long request observed',
+  'abuse.content_audit': 'Content audit signal',
+  'abuse.keyword_match': 'Operator keyword match',
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  cyber_abuse: '网络滥用',
-  credential_theft: '凭据窃取',
-  security_bypass: '安全机制绕过',
-  provider_policy_evasion: '上游政策规避',
-  bulk_account_key_rotation: '批量账号或密钥轮换',
-  bulk_registration_evasion: '批量注册规避',
-  quota_billing_evasion: '额度或计费规避',
-  bulk_account_abuse: '批量账号滥用',
-  cost_abuse: '计费滥用',
-  none: '未分类',
+  cyber_abuse: 'Cyber abuse',
+  credential_theft: 'Credential theft',
+  security_bypass: 'Security bypass',
+  provider_policy_evasion: 'Provider policy evasion',
+  bulk_account_key_rotation: 'Bulk account or key rotation',
+  bulk_registration_evasion: 'Abusive bulk registration',
+  quota_billing_evasion: 'Quota or billing evasion',
+  bulk_account_abuse: 'Bulk account abuse',
+  cost_abuse: 'Billing abuse',
+  none: 'Unclassified',
 }
 
 const REASON_LABELS: Record<string, string> = {
-  third_party_attack: '检测到针对第三方系统的攻击意图',
-  bulk_account_key_rotation: '检测到批量账号或密钥轮换以规避检测',
-  bulk_registration_evasion: '检测到批量注册以规避检测',
-  quota_billing_evasion: '检测到额度或计费规避意图',
-  sensitive_keyword: '命中高风险行为规则',
+  third_party_attack: 'Intent to attack a third-party system detected',
+  bulk_account_key_rotation:
+    'Bulk account or key rotation to evade detection observed',
+  bulk_registration_evasion: 'Bulk registration to evade detection observed',
+  quota_billing_evasion: 'Intent to evade quota or billing detected',
+  sensitive_keyword: 'Operator risk rule matched',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -46,25 +47,25 @@ const FIELD_LABELS: Record<string, string> = {
   distinct_count: 'Distinct count',
   model: 'Model',
   severity: 'Severity',
-  failure_count: '失败次数',
-  status: '上游 HTTP 状态',
-  token_id: '关联密钥编号',
-  user_id: '关联用户编号',
-  window_seconds: '统计窗口',
-  duration_ms: '请求耗时',
-  category: '审计类别',
-  confidence: '审计置信度',
-  reason_code: '审计原因',
-  model_name: '审计模型',
-  input_length: '输入长度',
-  match_count: '命中规则数',
-  rule_source: '规则来源',
-  action: '处置建议',
+  failure_count: 'Failure count',
+  status: 'Upstream HTTP status',
+  token_id: 'Related key ID',
+  user_id: 'Related user ID',
+  window_seconds: 'Observation window',
+  duration_ms: 'Request duration',
+  category: 'Audit category',
+  confidence: 'Audit confidence',
+  reason_code: 'Audit reason',
+  model_name: 'Requested model',
+  input_length: 'Input length',
+  match_count: 'Matched rule count',
+  rule_source: 'Rule source',
+  action: 'Suggested action',
 }
 
 function labelForValue(value: unknown, labels: Record<string, string>) {
   if (typeof value !== 'string') return value
-  return labels[value] ?? value
+  return labels[value] ? t(labels[value]) : value
 }
 
 function formatValue(key: string, value: unknown): string {
@@ -86,19 +87,21 @@ function formatValue(key: string, value: unknown): string {
   if (key === 'category') return String(labelForValue(value, CATEGORY_LABELS))
   if (key === 'reason_code') return String(labelForValue(value, REASON_LABELS))
   if (key === 'action') {
-    if (value === 'review') return '进入人工复核'
-    if (value === 'allow') return '放行并记录'
+    if (value === 'review') return t('Send for manual review')
+    if (value === 'allow') return t('Allow and record')
     return String(value)
   }
   if (key === 'confidence' && typeof value === 'number') {
     return `${Math.round(value * 100)}%`
   }
-  if (key === 'duration_ms' && typeof value === 'number') return `${value} 毫秒`
+  if (key === 'duration_ms' && typeof value === 'number') {
+    return t('{{value}} ms', { value })
+  }
   if (key === 'window_seconds' && typeof value === 'number') {
-    return `${value} 秒`
+    return t('{{value}} seconds', { value })
   }
   if (key === 'input_length' && typeof value === 'number') {
-    return `${value} 字符`
+    return t('{{value}} characters', { value })
   }
   if (typeof value === 'object' && value !== null) return JSON.stringify(value)
   return String(value)
@@ -109,27 +112,39 @@ function reasonFor(action: string, fields: Record<string, unknown>): string {
   const status = fields.status
   const duration = fields.duration_ms
   if (action === 'abuse.failure_burst' && failureCount !== undefined) {
-    return `短时间内连续失败请求达到 ${failureCount} 次`
+    return t('Repeated failures within a short period: {{value}}', {
+      value: failureCount,
+    })
   }
   if (action === 'abuse.provider_error' && status !== undefined) {
-    return `上游服务返回 HTTP ${status} 错误`
+    return t('The upstream returned HTTP {{status}}', { status })
   }
   if (action === 'abuse.token_churn') {
-    return '同一用户在短时间内频繁创建或轮换 API 密钥'
+    return t(
+      'The same user frequently created or rotated API keys within a short period'
+    )
   }
   if (
     (action === 'abuse.long_request' || action === 'abuse.long_stream') &&
     duration !== undefined
   ) {
-    return `请求持续 ${duration} 毫秒，超过长请求告警阈值`
+    return t(
+      'The request lasted {{value}} ms, above the long-request alert threshold',
+      { value: duration }
+    )
   }
   if (action === 'abuse.content_audit') {
     const category = labelForValue(fields.category, CATEGORY_LABELS)
     const reason = labelForValue(fields.reason_code, REASON_LABELS)
-    return `内容审计识别为${category}${reason ? `：${reason}` : ''}`
+    return (
+      t('Content audit category: {{category}}', { category }) +
+      (reason ? `: ${reason}` : '')
+    )
   }
   if (action === 'abuse.keyword_match') {
-    return '请求命中高风险行为关键词规则，进入人工复核'
+    return t(
+      'The request matched an operator keyword rule and was sent for review'
+    )
   }
   if (action === 'abuse.multi_ip') {
     return t('Network exits changed; this does not prove account sharing.')
@@ -145,7 +160,7 @@ export function formatAbuseAction(action: string): string {
 }
 
 export function formatAbuseEvidence(action: string, raw: string): string {
-  if (!raw) return '暂无结构化证据'
+  if (!raw) return t('No structured evidence available')
   let parsed: Record<string, unknown>
   try {
     parsed = JSON.parse(raw) as Record<string, unknown>
@@ -156,7 +171,7 @@ export function formatAbuseEvidence(action: string, raw: string): string {
     parsed.root_info && typeof parsed.root_info === 'object'
       ? { ...(parsed.root_info as Record<string, unknown>), ...parsed }
       : parsed
-  const lines = [`原因：${reasonFor(action, fields)}`]
+  const lines = [`${t('Reason')}: ${reasonFor(action, fields)}`]
   for (const [key, value] of Object.entries(fields)) {
     if (
       key === 'root_info' ||
@@ -165,7 +180,7 @@ export function formatAbuseEvidence(action: string, raw: string): string {
       continue
     }
     const label = t(FIELD_LABELS[key] ?? key)
-    lines.push(`${label}：${formatValue(key, value)}`)
+    lines.push(`${label}: ${formatValue(key, value)}`)
   }
   return lines.join('\n')
 }

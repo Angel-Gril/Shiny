@@ -16,10 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createInstance } from 'i18next'
+import i18next, { createInstance } from 'i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import { formatAbuseEvidence } from '@/features/usage-logs/audit/abuse-evidence'
+
 import { INTERFACE_LANGUAGE_OPTIONS } from '../languages'
+import ru from '../locales/ru.json'
 import {
   createSiteLanguageDetector,
   siteLanguageDetection,
@@ -81,4 +84,57 @@ it('unsupported site and browser languages fall back to English', async () => {
   vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['de-DE'])
   vi.spyOn(navigator, 'language', 'get').mockReturnValue('de-DE')
   expect(await detectLanguage()).toBe('en')
+})
+
+it('Russian account and audit copy has translated labels and preserves interpolation', () => {
+  const values = ru.translation as Record<string, string>
+  for (const key of [
+    'Password strength empty',
+    'Password requirement',
+    'For a stronger password',
+    '8–128 characters',
+    '15 or more characters',
+    'Uppercase and lowercase letters',
+    'A number',
+    'A symbol',
+    'Show password',
+    'Review threshold',
+    'Default price',
+    'Legacy Shiny audit',
+  ]) {
+    expect(values[key], key).toMatch(/[А-Яа-яЁё]/)
+    expect(values[key], key).not.toMatch(/[\u3400-\u9fff]/)
+  }
+  for (const key of [
+    'Characters needed: {{count}}',
+    'Request processing: {{names}}',
+  ]) {
+    expect(values[key], key).not.toBe(key)
+    expect(values[key].match(/\{\{[^}]+\}\}/g)).toEqual(
+      key.match(/\{\{[^}]+\}\}/g)
+    )
+  }
+})
+
+it('Russian audit evidence translates reason, category and units rather than embedding Chinese', async () => {
+  i18next.addResourceBundle('ru', 'translation', ru.translation)
+  await i18next.changeLanguage('ru')
+  try {
+    const text = formatAbuseEvidence(
+      'abuse.content_audit',
+      JSON.stringify({
+        category: 'credential_theft',
+        reason_code: 'sensitive_keyword',
+        duration_ms: 1000,
+        input_length: 128,
+        action: 'review',
+      })
+    )
+    expect(text).toContain('Кража учётных данных')
+    expect(text).toContain('1000 мс')
+    expect(text).not.toMatch(/[\u3400-\u9fff]/)
+  } finally {
+    await i18next.changeLanguage('en')
+    i18next.removeResourceBundle('ru', 'translation')
+  }
 })
