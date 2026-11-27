@@ -35,6 +35,7 @@ func (input *tokenAutoGroupsInput) UnmarshalJSON(data []byte) error {
 
 type tokenRequest struct {
 	model.Token
+	Preset     string               `json:"preset"`
 	AutoGroups tokenAutoGroupsInput `json:"auto_groups"`
 	// 指针区分“未传”和显式 false：新建时未传即开启，更新时未传则保留原值。
 	AllowUserQuotaQuery *bool `json:"allow_user_quota_query"`
@@ -321,6 +322,22 @@ func AddToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if request.Preset != "" {
+		if request.Preset != "ru_universal" || !setting.IsRUSiteProfile() {
+			common.ApiErrorT(c, "This key preset is not available on this site")
+			return
+		}
+		name := strings.TrimSpace(request.Name)
+		if name == "" {
+			name = "Universal API key"
+		}
+		// Inherit the owner's group at authentication time, with no model
+		// snapshot. New models in that group work without recreating the key.
+		// This does not grant access to other groups or change routing options.
+		request.Token = model.Token{Name: name, ExpiredTime: -1, UnlimitedQuota: true}
+		request.AutoGroups = tokenAutoGroupsInput{}
+		request.AllowUserQuotaQuery = common.GetPointer(true)
+	}
 	token := request.Token
 	if len(token.Name) > 50 {
 		common.ApiErrorT(c, "Token name is too long")
@@ -392,6 +409,11 @@ func AddToken(c *gin.Context) {
 	}
 	params["id"] = cleanToken.Id
 	common.SetContextKey(c, constant.ContextKeyTokenAuditSucceeded, true)
+	if request.Preset == "ru_universal" {
+		c.Header("Cache-Control", "no-store")
+		common.ApiSuccess(c, buildMaskedTokenResponse(&cleanToken))
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -597,6 +619,3 @@ func GetTokenKeysBatch(c *gin.Context) {
 	common.SetContextKey(c, constant.ContextKeyTokenAuditSucceeded, true)
 	common.ApiSuccess(c, gin.H{"keys": keysMap})
 }
-
-
-

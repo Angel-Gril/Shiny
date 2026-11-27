@@ -2914,7 +2914,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Projets liés",
     "footer.defaultCopyright": "Tous droits réservés.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
+    "footer.newapi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Pour les canaux personnalisés avancés, ceci ne s’applique qu’aux routes /v1/responses sans conversion de protocole.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Pour les canaux ajoutés après le 10 mai 2025, pas besoin de supprimer \".\" des noms de modèles lors du déploiement",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Pour les déploiements privés, format : https://fastgpt.run/api/openapi",
@@ -7600,7 +7600,15 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "Identifiant marchand ZPAY",
     "ZPAY merchant key": "Clé du marchand ZPAY",
-    "ZPAY payment method (alipay, wxpay)": "Mode de paiement ZPAY (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "Mode de paiement ZPAY (alipay, wxpay)",
+    "Universal API key": "Clé API universelle",
+    "Creating API key...": "Création de la clé…",
+    "Your API key is ready": "Votre clé API est prête",
+    "One key works with all available providers and models for your account. No group selection is needed.": "Une seule clé pour tous les fournisseurs et modèles accessibles à votre compte, sans choisir de groupe.",
+    "Edit key settings": "Configurer la clé",
+    "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.": "Utilise le solde du compte et reste valide jusqu’à révocation. Les paramètres permettent de limiter la durée, le budget, les modèles ou les IP.",
+    "This key preset is not available on this site": "Ce mode de création de clé est indisponible sur ce site",
+    "API address": "Adresse API"
   },
   "Legacy Shiny audit": "Audit Shiny hérité",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Utilisez le traitement des requêtes pour les nouvelles règles. Ces réglages hérités restent disponibles pour la compatibilité ; évitez les deux contrôles sur une même requête."

@@ -140,6 +140,7 @@ export interface SystemStatus {
   // Allow direct access to common properties
   version?: string
   site_profile?: string
+  ru_universal_keys?: boolean
   default_language?: string
   system_name?: string
   logo?: string

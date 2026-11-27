@@ -2914,7 +2914,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For private deployments, format: https://fastgpt.run/api/openapi": "For private deployments, format: https://fastgpt.run/api/openapi",
@@ -7600,7 +7600,15 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "ZPAY merchant ID",
     "ZPAY merchant key": "ZPAY merchant key",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY payment method (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY payment method (alipay, wxpay)",
+    "Universal API key": "Universal API key",
+    "Creating API key...": "Creating API key...",
+    "Your API key is ready": "Your API key is ready",
+    "One key works with all available providers and models for your account. No group selection is needed.": "One key works with all available providers and models for your account. No group selection is needed.",
+    "Edit key settings": "Edit key settings",
+    "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.": "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.",
+    "This key preset is not available on this site": "This key preset is not available on this site",
+    "API address": "API address"
   },
   "Legacy Shiny audit": "Legacy Shiny audit",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests."

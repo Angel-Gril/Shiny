@@ -2914,7 +2914,7 @@
     "footer.columns.related.links.oneApi": "Один API",
     "footer.columns.related.title": "Связанные проекты",
     "footer.defaultCopyright": "Все права защищены.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
+    "footer.newapi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Для расширенных пользовательских каналов это действует только для маршрутов /v1/responses без преобразования протокола.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Для каналов, добавленных после 10 мая 2025 г., не нужно удалять \".\" из имён моделей при развёртывании",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Для частных развертываний, формат: https://fastgpt.run/api/openapi",
@@ -7600,7 +7600,15 @@
     "Zoom": "Zoom",
     "ZPAY merchant ID": "ID продавца ZPAY",
     "ZPAY merchant key": "Ключ продавца ZPAY",
-    "ZPAY payment method (alipay, wxpay)": "Способ оплаты ZPAY (alipay, wxpay)"
+    "ZPAY payment method (alipay, wxpay)": "Способ оплаты ZPAY (alipay, wxpay)",
+    "Universal API key": "Универсальный API-ключ",
+    "Creating API key...": "Создание ключа…",
+    "Your API key is ready": "Ваш API-ключ готов",
+    "One key works with all available providers and models for your account. No group selection is needed.": "Один ключ для всех доступных вашему аккаунту провайдеров и моделей. Выбирать группу не нужно.",
+    "Edit key settings": "Настройки ключа",
+    "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.": "Списания идут с баланса аккаунта. Ключ действует до отзыва. В настройках можно задать срок, бюджет, ограничения моделей или IP.",
+    "This key preset is not available on this site": "Этот способ создания ключа недоступен на данном сайте",
+    "API address": "Адрес API"
   },
   "Legacy Shiny audit": "Прежний аудит Shiny",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Новые правила задавайте в обработке запросов. Прежние настройки оставлены для совместимости; не включайте обе проверки для одного запроса."

@@ -53,6 +53,7 @@ func GetStatus(c *gin.Context) {
 
 	data := gin.H{
 		"site_profile":                siteProfile,
+		"ru_universal_keys":           setting.IsRUSiteProfile(),
 		"default_language":            setting.RUConsoleDefaultLanguage(),
 		"version":                     common.Version,
 		"start_time":                  common.StartTime,

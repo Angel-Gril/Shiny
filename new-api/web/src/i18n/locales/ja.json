@@ -2914,7 +2914,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高度なカスタムチャネルでは、プロトコル変換を行わない /v1/responses ルートにのみ適用されます。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For private deployments, format: https://fastgpt.run/api/openapi": "プライベートデプロイメントの場合、形式: https://fastgpt.run/api/openapi",
@@ -7600,7 +7600,15 @@
     "Zoom": "ズーム",
     "ZPAY merchant ID": "ZPAY 加盟店 ID",
     "ZPAY merchant key": "ZPAY 加盟店キー",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY 支払い方法（alipay、wxpay）"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支払い方法（alipay、wxpay）",
+    "Universal API key": "共通 API キー",
+    "Creating API key...": "API キーを作成中…",
+    "Your API key is ready": "API キーを作成しました",
+    "One key works with all available providers and models for your account. No group selection is needed.": "アカウントで利用可能なすべてのプロバイダーとモデルに使えます。グループの選択は不要です。",
+    "Edit key settings": "キー設定を編集",
+    "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.": "アカウント残高を使用し、取り消すまで有効です。設定で有効期限、予算、モデル、IP を制限できます。",
+    "This key preset is not available on this site": "このサイトではこのキー作成方法を利用できません",
+    "API address": "API アドレス"
   },
   "Legacy Shiny audit": "従来の Shiny 監査",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新しいルールは「リクエスト処理」で設定してください。従来の設定は互換性のために残されています。同じリクエストに両方の監査を有効にしないでください。"

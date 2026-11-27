@@ -2914,7 +2914,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相關項目",
     "footer.defaultCopyright": "版權所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
+    "footer.newapi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "進階自訂渠道僅對 /v1/responses 且不做協定轉換的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "對於 2025 年 5 月 10 日之後新增的渠道，在部署時無需從模型名稱中移除 \".\"",
     "For private deployments, format: https://fastgpt.run/api/openapi": "對於私有部署，格式為：https://fastgpt.run/api/openapi",
@@ -7600,7 +7600,15 @@
     "Zoom": "縮放",
     "ZPAY merchant ID": "ZPAY 商戶 ID",
     "ZPAY merchant key": "ZPAY 商戶密鑰",
-    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）"
+    "ZPAY payment method (alipay, wxpay)": "ZPAY 支付方式（alipay、wxpay）",
+    "Universal API key": "通用 API 金鑰",
+    "Creating API key...": "正在建立金鑰…",
+    "Your API key is ready": "API 金鑰已建立",
+    "One key works with all available providers and models for your account. No group selection is needed.": "一組金鑰即可呼叫帳戶可用的所有平台與模型，無需選擇群組。",
+    "Edit key settings": "編輯金鑰設定",
+    "Uses your account balance and stays valid until revoked. You can set an expiry, budget, model or IP restrictions in key settings.": "使用帳戶餘額，有效至撤銷。可在金鑰設定中調整有效期、預算、模型或 IP 限制。",
+    "This key preset is not available on this site": "本站不支援此金鑰建立方式",
+    "API address": "API 位址"
   },
   "Legacy Shiny audit": "舊版 Shiny 審計",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新規則請使用「請求處理」。此處保留舊版相容設定，請勿對同一請求同時啟用兩套審核。"
