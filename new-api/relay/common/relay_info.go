@@ -99,7 +99,10 @@ type RelayInfo struct {
 	UsePrice               bool
 	RelayMode              int
 	OriginModelName        string
-	ResponseModel          *ResponseModel
+	// RequestContentChecked belongs to one client request, not one attempt.
+	// Exempt channels leave it false so a later ordinary route checks the input.
+	RequestContentChecked bool
+	ResponseModel         *ResponseModel
 
 	// BillingModelName is the pricing identity for this request. It is kept
 	// separate from OriginModelName and UpstreamModelName so virtual pricing

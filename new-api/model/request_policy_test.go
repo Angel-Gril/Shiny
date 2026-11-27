@@ -132,9 +132,17 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			assert.Equal(t, "environment", source)
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditProvider": "typesafe"}))
 			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"BehaviorAuditEnabled": "false"}))
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditExcludedChannelIds": "[41,42]"}))
 			require.NoError(t, LoadOptionsFromDatabase())
 			require.NoError(t, LoadOptionsFromDatabase())
 			assert.False(t, CurrentRequestPolicy().BehaviorAuditEnabled)
+			assert.Contains(t, CurrentRequestPolicy().ContentAuditExcludedChannelIDs, 41)
+			assert.Contains(t, CurrentRequestPolicy().ContentAuditExcludedChannelIDs, 42)
+			for _, invalid := range []string{"null", "{}", "[0]", "[-1]", "[1.5]", `["41"]`, "[41,41]", "[2147483648]"} {
+				before := CurrentRequestPolicy()
+				assert.Error(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditExcludedChannelIds": invalid}))
+				assert.Same(t, before, CurrentRequestPolicy())
+			}
 			assert.Equal(t, "shadow", CurrentRequestPolicy().Options["ContentAuditMode"])
 			assert.Equal(t, "typesafe", CurrentRequestPolicy().Options["ContentAuditProvider"])
 			assert.Equal(t, "8", CurrentRequestPolicy().Options["ContentAuditMaxChunks"])

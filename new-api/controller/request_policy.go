@@ -52,6 +52,9 @@ func UpdateRequestPolicy(c *gin.Context) {
 			"cleared_providers": strings.Join(clearedProviders, ", "),
 		})
 	}
+	if _, changed := request.Options["ContentAuditExcludedChannelIds"]; changed {
+		recordManageAudit(c, "option.content_audit_exclusions", map[string]any{"channel_ids": model.CurrentRequestPolicy().Options["ContentAuditExcludedChannelIds"]})
+	}
 	GetRequestPolicy(c)
 }
 

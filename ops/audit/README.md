@@ -6,6 +6,32 @@ it does not enable either or change the production provider. Existing Chat Compl
 (including DeepSeek) remains the default, existing review history is retained,
 and no account ban, balance, quota, or permission change is automated.
 
+## Channel exclusions
+
+**System settings → Request policies → Content audit → Excluded audit channels**
+selects real channel IDs by name. Save audit settings persists
+`ContentAuditExcludedChannelIds`, a JSON array (empty by default). Only the
+server-selected channel grants the exemption; names, client headers and group
+labels cannot grant it. A selected channel is exempt in every group it serves.
+
+Exempt channels skip Shiny AI content auditing (Shadow and Preflight) and the
+legacy operator keyword content check. Authentication, model access, quotas,
+billing, rate limits, usage/operation logs, behavior observation and separately
+configured request-processing plugins retain their existing rules. An exclusion
+does not change the actual upstream provider's policies or guarantees.
+
+If a request starts on an exempt channel and fails over to an ordinary channel,
+content checks run before sending to the ordinary upstream. A rejection ends the
+request and refunds its reservation through the existing failure lifecycle.
+Already checked input is not re-audited on each retry. An audit queued on an
+earlier ordinary attempt cannot be withdrawn by later routing to an exempt
+channel. HTTP relay and each Responses WebSocket request use the same boundary;
+this setting does not introduce auditing into paths that previously had none.
+
+Clearing the selection restores normal checks. Invalid/duplicate/nonpositive IDs
+are rejected before persistence; deleted channel IDs are kept visible by ID so
+an unrelated settings save cannot silently remove an operator's selections.
+
 ## Jev setup
 
 1. In **System settings → Request policies → Content audit**, select the audit

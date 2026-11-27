@@ -11,12 +11,15 @@ import (
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -25,6 +28,116 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestContentAuditChannelExclusionRetryBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		excluded    []int
+		firstFails  bool
+		keyword     bool
+		flagged     bool
+		mode        string
+		status      int
+		audits      int64
+		firstCalls  int64
+		secondCalls int64
+	}{
+		{"excluded skips keyword and classifier", []int{41}, false, true, true, "preflight", 200, 0, 1, 0},
+		{"ordinary keyword blocks before forwarding", nil, false, true, false, "preflight", 403, 0, 0, 0},
+		{"excluded retry to ordinary preflight blocks and refunds", []int{41}, true, false, true, "preflight", 403, 1, 1, 0},
+		{"excluded retry to ordinary shadow audits", []int{41}, true, false, false, "shadow", 200, 1, 1, 1},
+		{"ordinary retry to excluded keeps completed review", []int{42}, true, false, false, "preflight", 200, 1, 1, 1},
+		{"all excluded retries never audit", []int{41, 42}, true, false, true, "preflight", 200, 0, 1, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			user, token := setupResponsesWSRequestTest(t)
+			previousPolicy := maps.Clone(model.CurrentRequestPolicy().Options)
+			common.OptionMapRWMutex.Lock()
+			previousOptions := common.OptionMap
+			common.OptionMap = maps.Clone(previousPolicy)
+			common.OptionMapRWMutex.Unlock()
+			previousBatch, previousCount, previousLog := common.BatchUpdateEnabled, constant.CountToken, common.LogConsumeEnabled
+			common.BatchUpdateEnabled, constant.CountToken, common.LogConsumeEnabled = false, false, true
+			t.Cleanup(func() {
+				require.NoError(t, model.UpdateRequestPolicyOptions(previousPolicy))
+				common.OptionMapRWMutex.Lock()
+				common.OptionMap = previousOptions
+				common.OptionMapRWMutex.Unlock()
+				common.BatchUpdateEnabled, constant.CountToken, common.LogConsumeEnabled = previousBatch, previousCount, previousLog
+			})
+			require.NoError(t, model.DB.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.Option{}, &model.SystemTask{}, &model.AuditLog{}, &model.AbuseReview{}))
+			require.NoError(t, model.LOG_DB.AutoMigrate(&model.Log{}))
+			require.NoError(t, model.DB.Model(user).Updates(map[string]any{"quota": 100000, "setting": `{"billing_preference":"wallet_only"}`}).Error)
+			require.NoError(t, model.DB.Model(token).Update("remain_quota", 100000).Error)
+			previousModelPrices := ratio_setting.ModelPrice2JSONString()
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"audit-route-fixture":0.002}`))
+			t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(previousModelPrices)) })
+			var calls, first, second atomic.Int64
+			auditor := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				confidence := 0.0
+				category := "none"
+				if tc.flagged {
+					confidence = 1
+					category = "credential_theft"
+				}
+				decision, _ := common.Marshal(map[string]any{"flagged": tc.flagged, "category": category, "confidence": confidence, "reason_code": "fixture", "action": "review"})
+				wire, _ := common.Marshal(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(decision)}}}})
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write(wire)
+			}))
+			defer auditor.Close()
+			t.Setenv("CONTENT_AUDIT_API_KEY", "synthetic-audit-key")
+			excluded := tc.excluded
+			if excluded == nil {
+				excluded = []int{}
+			}
+			encoded, _ := common.Marshal(excluded)
+			require.NoError(t, model.UpdateRequestPolicyOptions(map[string]string{"RetryTimes": "1", "AutomaticRetryStatusCodes": "503", "AutomaticDisableChannelEnabled": "false", "ContentAuditExcludedChannelIds": string(encoded), "ContentAuditMode": tc.mode, "ContentAuditProvider": "chat_completions", "ContentAuditPreflightScope": "all", "ContentAuditEndpoint": auditor.URL, "ContentAuditModel": "fixture", "ContentAuditSampleRate": "1", "ContentAuditTimeoutMs": "1000", "CheckSensitiveEnabled": fmt.Sprint(tc.keyword), "CheckSensitiveOnPromptEnabled": fmt.Sprint(tc.keyword), "SensitiveWords": "blocked-fixture"}))
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Authorization") == "Bearer first" {
+					first.Add(1)
+					if tc.firstFails {
+						w.WriteHeader(503)
+						_, _ = w.Write([]byte(`{"error":{"message":"synthetic unavailable","type":"server_error"}}`))
+						return
+					}
+				} else {
+					second.Add(1)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"synthetic","object":"chat.completion","model":"audit-route-fixture","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":1,"total_tokens":11}}`))
+			}))
+			defer upstream.Close()
+			for _, ch := range []model.Channel{{Id: 41, Name: "first", Key: "first", Type: 1, Status: 1, Models: "audit-route-fixture", Group: "default", Priority: common.GetPointer(int64(10)), BaseURL: &upstream.URL}, {Id: 42, Name: "second", Key: "second", Type: 1, Status: 1, Models: "audit-route-fixture", Group: "default", Priority: common.GetPointer(int64(0)), BaseURL: &upstream.URL}} {
+				require.NoError(t, model.DB.Create(&ch).Error)
+				require.NoError(t, ch.AddAbilities(model.DB))
+			}
+			service.InitHttpClient()
+			engine := gin.New()
+			engine.Use(middleware.BodyStorageCleanup())
+			engine.POST("/v1/chat/completions", middleware.TokenAuth(), middleware.Distribute(), func(c *gin.Context) { Relay(c, types.RelayFormatOpenAI) })
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"audit-route-fixture","messages":[{"role":"user","content":"blocked-fixture"}]}`))
+			request.Header.Set("Authorization", "Bearer sk-"+token.Key)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("X-Channel-ID", "41")
+			engine.ServeHTTP(response, request)
+			require.Equal(t, tc.status, response.Code, response.Body.String())
+			if tc.audits > 0 {
+				require.Eventually(t, func() bool { return calls.Load() == tc.audits && service.ContentAuditHealthSnapshot().InFlight == 0 }, 2*time.Second, time.Millisecond)
+			}
+			assert.Equal(t, tc.audits, calls.Load())
+			assert.Equal(t, tc.firstCalls, first.Load())
+			assert.Equal(t, tc.secondCalls, second.Load())
+			if tc.status == 403 {
+				var stored model.User
+				require.NoError(t, model.DB.First(&stored, user.Id).Error)
+				assert.Equal(t, 100000, stored.Quota, "a blocked fallback refunds reserved quota")
+			}
+		})
+	}
+}
 
 func TestShouldRetryHonorsPinRetryMode(t *testing.T) {
 	openaiErr := types.NewOpenAIError(errors.New("upstream"), types.ErrorCodeBadResponseStatusCode, http.StatusInternalServerError)

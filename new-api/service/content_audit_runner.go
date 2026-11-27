@@ -243,6 +243,9 @@ func enqueueAudit(c *gin.Context, cfg ContentAuditConfig, userID, tokenID int, m
 // Kept for callers of the original shadow API. Signal audit uses the structured
 // request path below, independent of both sensitive-word switches.
 func EnqueueContentAuditShadow(c *gin.Context, userID, tokenID int, modelName, input string) {
+	if IsContentAuditChannelExcluded(c) {
+		return
+	}
 	cfg := LoadContentAuditConfig()
 	if cfg.Mode != "shadow" {
 		return
@@ -251,6 +254,9 @@ func EnqueueContentAuditShadow(c *gin.Context, userID, tokenID int, modelName, i
 }
 
 func CheckRequestContent(c *gin.Context, request dto.Request, modelName, normalized string) *types.NewAPIError {
+	if IsContentAuditChannelExcluded(c) {
+		return nil
+	}
 	if setting.ShouldCheckPromptSensitive() {
 		if hit, words := CheckSensitiveText(normalized); hit {
 			if c.GetInt("id") > 0 && c.GetInt("token_id") > 0 {
@@ -290,6 +296,16 @@ func CheckRequestContent(c *gin.Context, request dto.Request, modelName, normali
 		return types.NewError(errors.New("request rejected by content policy"), types.ErrorCodeContentAuditRejected, types.ErrOptionWithStatusCode(http.StatusForbidden), types.ErrOptionWithSkipRetry())
 	}
 	return nil
+}
+
+// Only the server-selected channel can exempt content checks. Client headers,
+// requested groups and the final outcome cannot grant an exemption.
+func IsContentAuditChannelExcluded(c *gin.Context) bool {
+	if c == nil || c.GetInt("channel_id") <= 0 {
+		return false
+	}
+	_, excluded := model.CurrentRequestPolicy().ContentAuditExcludedChannelIDs[c.GetInt("channel_id")]
+	return excluded
 }
 
 func recordContentAuditUsage(input, output int64) {

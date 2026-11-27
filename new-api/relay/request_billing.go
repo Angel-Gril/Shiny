@@ -44,6 +44,7 @@ func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 		if rejected := service.CheckRequestContent(c, info.Request, info.OriginModelName, meta.CombineText); rejected != nil {
 			return rejected
 		}
+		info.RequestContentChecked = !service.IsContentAuditChannelExcluded(c)
 	}
 
 	tokens, err := service.EstimateRequestToken(c, meta, info)
@@ -61,6 +62,24 @@ func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 		return nil
 	}
 	return service.PreConsumeBilling(c, priceData.QuotaToPreConsume, info)
+}
+
+// CheckSelectedChannelContent closes the retry boundary for requests whose
+// first channel was exempt. It never repeats an already performed check and
+// never treats an exemption as a successful content review.
+func CheckSelectedChannelContent(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+	if info.RequestContentChecked || service.IsContentAuditChannelExcluded(c) || info.Request == nil {
+		return nil
+	}
+	meta := info.Request.GetTokenCountMeta()
+	if meta == nil {
+		return nil
+	}
+	if rejected := service.CheckRequestContent(c, info.Request, info.OriginModelName, meta.CombineText); rejected != nil {
+		return rejected
+	}
+	info.RequestContentChecked = true
+	return nil
 }
 
 // RefundFailedRequestBilling applies the common final-failure policy after all
