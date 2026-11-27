@@ -32,6 +32,16 @@ func MigrateSensitiveWords() error {
 	changed := false
 	name := ""
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		// Shiny still manages these controls alongside its content auditor.
+		// Moving them to a global plugin would ignore channel exclusions and
+		// deleting them would disable the saved checks on the next startup.
+		var managed int64
+		if err := tx.Model(&Option{}).Where(commonKeyCol+" IN ?", []string{"ContentAuditMode", "SensitiveWordSignals", "ContentAuditExcludedChannelIds"}).Count(&managed).Error; err != nil {
+			return err
+		}
+		if managed > 0 {
+			return nil
+		}
 		values := make(map[string]string, len(retiredSensitiveOptionKeys))
 		var found []string
 		for _, key := range retiredSensitiveOptionKeys {

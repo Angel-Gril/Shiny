@@ -32,6 +32,11 @@ Clearing the selection restores normal checks. Invalid/duplicate/nonpositive IDs
 are rejected before persistence; deleted channel IDs are kept visible by ID so
 an unrelated settings save cannot silently remove an operator's selections.
 
+Startup preserves the legacy content-check options when Shiny's audit settings
+are present. It does not migrate those managed rules into a global request-filter
+plugin, whose separate scope would ignore channel exclusions. Installations
+without Shiny audit options retain the official sensitive-word migration.
+
 ## Jev setup
 
 1. In **System settings → Request policies → Content audit**, select the audit

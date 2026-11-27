@@ -138,6 +138,18 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			assert.False(t, CurrentRequestPolicy().BehaviorAuditEnabled)
 			assert.Contains(t, CurrentRequestPolicy().ContentAuditExcludedChannelIDs, 41)
 			assert.Contains(t, CurrentRequestPolicy().ContentAuditExcludedChannelIDs, 42)
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"CheckSensitiveEnabled": "true", "CheckSensitiveOnPromptEnabled": "true", "SensitiveWords": "retained-legacy-fixture"}))
+			for range 2 {
+				require.NoError(t, MigrateSensitiveWords())
+				var savedWords Option
+				require.NoError(t, db.Where(map[string]any{"key": "SensitiveWords"}).First(&savedWords).Error)
+				assert.Equal(t, "retained-legacy-fixture", savedWords.Value, "a new process must still load the saved check")
+				require.NoError(t, LoadOptionsFromDatabase())
+				assert.True(t, CurrentRequestPolicy().CheckText, "startup must retain Shiny-managed content checks")
+				assert.Equal(t, []string{"retained-legacy-fixture"}, CurrentRequestPolicy().TextKeywords)
+				assert.Contains(t, CurrentRequestPolicy().ContentAuditExcludedChannelIDs, 41)
+			}
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"CheckSensitiveEnabled": "false", "CheckSensitiveOnPromptEnabled": "false", "SensitiveWords": ""}))
 			for _, invalid := range []string{"null", "{}", "[0]", "[-1]", "[1.5]", `["41"]`, "[41,41]", "[2147483648]"} {
 				before := CurrentRequestPolicy()
 				assert.Error(t, UpdateRequestPolicyOptions(map[string]string{"ContentAuditExcludedChannelIds": invalid}))
