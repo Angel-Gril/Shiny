@@ -94,11 +94,17 @@ jobs:
         env:
           TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
           TEST_POSTGRES_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture?sslmode=disable
-      - run: go test ./model -run '^TestRequestPolicyDatabaseMatrix$' -count=1 -v
+      - run: go test ./model -run '^(TestRequestPolicyDatabaseMatrix|TestMigrateSensitiveWords)' -count=1 -v
         working-directory: new-api
         env:
           TEST_MYSQL_DSN: root:fixture-ci-only@tcp(127.0.0.1:13316)/fixture?charset=utf8mb4&parseTime=True&loc=Local
           TEST_POSTGRES_DSN: postgres://postgres:fixture-ci-only@127.0.0.1:15321/fixture?sslmode=disable
+      - run: go test ./controller -run '^TestContentAuditChannelExclusionRetryBoundary$' -count=1
+        working-directory: new-api
+      - run: go test ./relay -run '^(TestResponsesWS|TestSelectResponsesWS|TestRestoreConnectionContext)' -count=1
+        working-directory: new-api
+      - run: go test ./controller -run '^TestResponsesWebSocketContentAuditExclusion$' -count=1
+        working-directory: new-api
       - run: go test ./controller -run '^(TestUserInsight|TestRequestPolicyRetryAvoidsUsedChannelsDatabaseMatrix)' -count=1
         working-directory: new-api
         env:

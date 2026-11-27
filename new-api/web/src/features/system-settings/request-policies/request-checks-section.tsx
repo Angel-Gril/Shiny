@@ -24,6 +24,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
 
+import { MultiSelect } from '@/components/multi-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,7 +59,11 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
-import { getContentAuditModels, getPolicyConfig } from './api'
+import {
+  getContentAuditChannels,
+  getContentAuditModels,
+  getPolicyConfig,
+} from './api'
 import { useSavePolicy } from './use-save-policy'
 
 const sensitiveSchema = z.object({
@@ -81,6 +86,25 @@ const contentAuditSchema = z.object({
   ContentAuditSubqPolicy: z.string().max(20000),
   ContentAuditEnabled: z.boolean(),
   ContentAuditMode: z.enum(['off', 'shadow', 'preflight']),
+  ContentAuditExcludedChannelIds: z.string().refine((value) => {
+    try {
+      const ids: unknown = JSON.parse(value)
+      return (
+        Array.isArray(ids) &&
+        ids.length <= 1000 &&
+        ids.every(
+          (id: unknown) =>
+            typeof id === 'number' &&
+            Number.isInteger(id) &&
+            id > 0 &&
+            id <= 2147483647
+        ) &&
+        new Set(ids).size === ids.length
+      )
+    } catch {
+      return false
+    }
+  }, 'Select valid channel IDs'),
   ContentAuditPreflightScope: z.enum(['signal', 'all']),
   ContentAuditEndpoint: z.string().max(512),
   ContentAuditModel: z.string().max(128),
@@ -381,6 +405,10 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     queryFn: getPolicyConfig,
     staleTime: Infinity,
   })
+  const channelsQuery = useQuery({
+    queryKey: ['content-audit-channels'],
+    queryFn: getContentAuditChannels,
+  })
   const [modelOptions, setModelOptions] = useState<string[]>([])
   const [modelFetchError, setModelFetchError] = useState('')
   const [isFetchingModels, setIsFetchingModels] = useState(false)
@@ -398,6 +426,8 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
     ContentAuditSubqPolicy: defaultValues.ContentAuditSubqPolicy,
     ContentAuditEnabled: defaultValues.ContentAuditEnabled,
     ContentAuditMode: defaultValues.ContentAuditMode,
+    ContentAuditExcludedChannelIds:
+      defaultValues.ContentAuditExcludedChannelIds,
     ContentAuditPreflightScope: defaultValues.ContentAuditPreflightScope,
     ContentAuditEndpoint: defaultValues.ContentAuditEndpoint,
     ContentAuditModel: defaultValues.ContentAuditModel,
@@ -699,6 +729,55 @@ function ContentAuditSection({ defaultValues }: RequestChecksSectionProps) {
           <Alert>
             <AlertDescription>{auditModeMessage}</AlertDescription>
           </Alert>
+
+          <FormField
+            control={form.control}
+            name='ContentAuditExcludedChannelIds'
+            render={({ field }) => {
+              const selected: string[] = (
+                JSON.parse(field.value || '[]') as number[]
+              ).map(String)
+              const options = [...(channelsQuery.data ?? [])]
+              for (const id of selected) {
+                if (!options.some((option) => option.value === id)) {
+                  options.push({ label: `#${id}`, value: id })
+                }
+              }
+              return (
+                <FormItem>
+                  <FormLabel>{t('Excluded audit channels')}</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={options}
+                      selected={selected}
+                      onChange={(ids) =>
+                        field.onChange(JSON.stringify(ids.map(Number)))
+                      }
+                      placeholder={t('Select channels to exclude')}
+                      disabled={
+                        channelsQuery.isPending || channelsQuery.isError
+                      }
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Selected channels skip AI content audit and legacy keyword checks in every group. Authentication, billing, rate limits and usage logs remain active. Retries to other channels are checked before forwarding.'
+                    )}
+                  </FormDescription>
+                  {channelsQuery.isError && (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      onClick={() => void channelsQuery.refetch()}
+                    >
+                      {t('Retry loading channels')}
+                    </Button>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )
+            }}
+          />
 
           <div className='grid gap-4 md:grid-cols-2'>
             <FormField

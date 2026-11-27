@@ -40,6 +40,8 @@ const POLICY_SECTIONS = [
           ContentAuditSubqPolicy: settings.ContentAuditSubqPolicy,
           ContentAuditEnabled: settings.ContentAuditEnabled,
           ContentAuditMode: settings.ContentAuditMode,
+          ContentAuditExcludedChannelIds:
+            settings.ContentAuditExcludedChannelIds,
           ContentAuditPreflightScope: settings.ContentAuditPreflightScope,
           ContentAuditEndpoint: settings.ContentAuditEndpoint,
           ContentAuditModel: settings.ContentAuditModel,

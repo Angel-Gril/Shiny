@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getChannels } from '@/features/channels/api'
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
@@ -52,6 +53,25 @@ export type PolicyEvent = {
   health?: string
 }
 type Response<T> = { success: boolean; message?: string; data: T }
+
+export async function getContentAuditChannels() {
+  const channels: { label: string; value: string }[] = []
+  for (let page = 1; ; page++) {
+    const response = requireServerSuccess(
+      await getChannels({ p: page, page_size: 100, tag_mode: false })
+    )
+    const data = response.data
+    if (!data) throw new Error('Failed to load channels')
+    channels.push(
+      ...data.items.map((channel) => ({
+        label: `#${channel.id} ${channel.name}`,
+        value: String(channel.id),
+      }))
+    )
+    if (channels.length >= data.total) return channels
+    if (data.items.length === 0) throw new Error('Failed to load channels')
+  }
+}
 export async function getPolicyConfig() {
   const response = await api.get<Response<PolicyConfig>>(
     '/api/option/request_policy'

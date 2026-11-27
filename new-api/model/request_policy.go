@@ -23,17 +23,18 @@ import (
 // settings API. It is rebuilt from the option map on every option write, so
 // the runtime globals updated by the same write never disagree with it.
 type RequestPolicySnapshot struct {
-	Affinity             operation_setting.ChannelAffinitySetting
-	RetryTimes           int
-	RetryCodes           []operation_setting.StatusCodeRange
-	DisableCodes         []operation_setting.StatusCodeRange
-	DisableKeywords      []string
-	CheckText            bool
-	TextKeywords         []string
-	TextSignals          []string
-	BehaviorAuditEnabled bool
-	AutoDisable          bool
-	Options              map[string]string
+	Affinity                       operation_setting.ChannelAffinitySetting
+	RetryTimes                     int
+	RetryCodes                     []operation_setting.StatusCodeRange
+	DisableCodes                   []operation_setting.StatusCodeRange
+	DisableKeywords                []string
+	CheckText                      bool
+	TextKeywords                   []string
+	TextSignals                    []string
+	BehaviorAuditEnabled           bool
+	ContentAuditExcludedChannelIDs map[int]struct{}
+	AutoDisable                    bool
+	Options                        map[string]string
 }
 
 var requestPolicySnapshot atomic.Pointer[RequestPolicySnapshot]
@@ -72,6 +73,7 @@ func requestPolicyDefaultOptions() map[string]string {
 	defaults["ContentAuditMaxChunks"] = "4"
 	defaults["ContentAuditEnabled"] = "false"
 	defaults["ContentAuditMode"] = "off"
+	defaults["ContentAuditExcludedChannelIds"] = "[]"
 	defaults["ContentAuditPreflightScope"] = "signal"
 	defaults["ContentAuditEndpoint"] = ""
 	defaults["ContentAuditModel"] = ""
@@ -84,7 +86,7 @@ func requestPolicyDefaultOptions() map[string]string {
 }
 
 func IsRequestPolicyOption(key string) bool {
-	if key == "ContentAuditTypesafePolicy" || key == "ContentAuditSubqPolicy" || key == "ContentAuditProvider" || key == "ContentAuditMaxChunks" || key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" {
+	if key == "ContentAuditTypesafePolicy" || key == "ContentAuditSubqPolicy" || key == "ContentAuditProvider" || key == "ContentAuditMaxChunks" || key == "ContentAuditPreflightScope" || key == "BehaviorAuditEnabled" || key == "ContentAuditExcludedChannelIds" {
 		return true
 	}
 	if strings.HasPrefix(key, "channel_affinity_setting.") {
@@ -133,6 +135,18 @@ func BuildRequestPolicy(options map[string]string) (*RequestPolicySnapshot, erro
 		raw["ContentAuditMode"] = "shadow"
 	}
 	snapshot := &RequestPolicySnapshot{Options: raw}
+	var excluded []int
+	if len(raw["ContentAuditExcludedChannelIds"]) > 20000 || common.UnmarshalJsonStr(raw["ContentAuditExcludedChannelIds"], &excluded) != nil || excluded == nil || len(excluded) > 1000 {
+		return nil, fmt.Errorf("ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs")
+	}
+	snapshot.ContentAuditExcludedChannelIDs = make(map[int]struct{}, len(excluded))
+	for _, id := range excluded {
+		_, duplicate := snapshot.ContentAuditExcludedChannelIDs[id]
+		if id <= 0 || int64(id) > 2147483647 || duplicate {
+			return nil, fmt.Errorf("ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs")
+		}
+		snapshot.ContentAuditExcludedChannelIDs[id] = struct{}{}
+	}
 	affinityFields := map[string]string{}
 	for key, value := range raw {
 		if field, ok := strings.CutPrefix(key, "channel_affinity_setting."); ok {

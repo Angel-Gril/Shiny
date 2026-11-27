@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,6 +38,40 @@ import (
 )
 
 var responsesWSTestUserSequence atomic.Int64
+
+func TestResponsesWebSocketContentAuditExclusion(t *testing.T) {
+	fixture := newResponsesWSBillingTest(t, `tier("request", fixed(0.002))`, func(ws *websocket.Conn, _ *http.Request) {
+		for index := range 2 {
+			if _, _, err := ws.ReadMessage(); !assert.NoError(t, err) {
+				return
+			}
+			if err := ws.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf(`{"type":"response.completed","response":{"id":"fixture-%d","status":"completed","usage":{"input_tokens":10,"output_tokens":1,"total_tokens":11}}}`, index))); !assert.NoError(t, err) {
+				return
+			}
+		}
+		_, _, _ = ws.ReadMessage()
+	})
+	require.NoError(t, model.DB.AutoMigrate(&model.Option{}, &model.SystemTask{}))
+	oldPolicy := maps.Clone(model.CurrentRequestPolicy().Options)
+	common.OptionMapRWMutex.Lock()
+	oldOptions := common.OptionMap
+	common.OptionMap = maps.Clone(oldPolicy)
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		require.NoError(t, model.UpdateRequestPolicyOptions(oldPolicy))
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = oldOptions
+		common.OptionMapRWMutex.Unlock()
+	})
+	encoded, err := common.Marshal([]int{fixture.channel.Id})
+	require.NoError(t, err)
+	require.NoError(t, model.UpdateRequestPolicyOptions(map[string]string{"ContentAuditExcludedChannelIds": string(encoded), "ContentAuditMode": "preflight", "ContentAuditPreflightScope": "all", "ContentAuditEndpoint": "http://127.0.0.1:1", "ContentAuditModel": "unavailable-fixture", "CheckSensitiveEnabled": "true", "CheckSensitiveOnPromptEnabled": "true", "SensitiveWords": "blocked-fixture"}))
+	for range 2 {
+		require.NoError(t, fixture.client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","model":"ws-billing","input":"blocked-fixture"}`)))
+		event := readResponsesWSTestEvent(t, fixture.client)
+		require.Equal(t, "response.completed", event["type"], "each turn on an excluded channel skips content checks")
+	}
+}
 
 func setupResponsesWSRequestTest(t *testing.T) (*model.User, *model.Token) {
 	t.Helper()

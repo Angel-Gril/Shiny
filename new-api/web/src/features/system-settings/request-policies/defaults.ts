@@ -48,6 +48,7 @@ export type FilteringSettings = {
   ContentAuditSubqPolicy: string
   ContentAuditEnabled: boolean
   ContentAuditMode: 'off' | 'shadow' | 'preflight'
+  ContentAuditExcludedChannelIds: string
   ContentAuditPreflightScope: 'signal' | 'all'
   ContentAuditEndpoint: string
   ContentAuditModel: string
@@ -93,6 +94,7 @@ export const defaultRequestPolicySettings: RequestPolicySettings = {
   ContentAuditSubqPolicy: '',
   ContentAuditEnabled: false,
   ContentAuditMode: 'off',
+  ContentAuditExcludedChannelIds: '[]',
   ContentAuditPreflightScope: 'signal',
   ContentAuditEndpoint: '',
   ContentAuditModel: '',

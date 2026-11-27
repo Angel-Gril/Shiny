@@ -346,6 +346,9 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 				}
 			}
 			info.RetryIndex = retry.GetRetry()
+			if apiErr = CheckSelectedChannelContent(c, info); apiErr != nil {
+				return apiErr
+			}
 			policy.BeginAttempt(channel, info.UsingGroup)
 			var payload []byte
 			payload, apiErr = buildResponsesWSCreatePayload(c, info, create.Request, create.Generate, create.StreamID)

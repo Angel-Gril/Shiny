@@ -82,6 +82,45 @@ func TestAuditModesAndQuotedKeywordRegression(t *testing.T) {
 	require.True(t, types.IsSkipRetryError(rejected))
 }
 
+func TestContentAuditExcludesSelectedChannelWithoutTrustingHeaders(t *testing.T) {
+	previous := maps.Clone(model.CurrentRequestPolicy().Options)
+	common.OptionMapRWMutex.Lock()
+	previousOptions := common.OptionMap
+	common.OptionMap = maps.Clone(previous)
+	common.OptionMapRWMutex.Unlock()
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.SystemTask{}))
+	model.DB = db
+	t.Cleanup(func() {
+		require.NoError(t, model.UpdateRequestPolicyOptions(previous))
+		model.DB = previousDB
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousOptions
+		common.OptionMapRWMutex.Unlock()
+		connection, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, connection.Close())
+	})
+	require.NoError(t, model.UpdateRequestPolicyOptions(map[string]string{
+		"ContentAuditExcludedChannelIds": "[41,42]", "ContentAuditMode": "preflight", "ContentAuditPreflightScope": "all",
+		"ContentAuditEndpoint": "http://127.0.0.1:1", "ContentAuditModel": "fixture", "CheckSensitiveEnabled": "true", "CheckSensitiveOnPromptEnabled": "true", "SensitiveWords": "blocked-fixture",
+	}))
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Request.Header.Set("X-Channel-ID", "41")
+	c.Set("channel_id", 41)
+	request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "blocked-fixture"}}}
+	require.Nil(t, CheckRequestContent(c, request, "fixture", "blocked-fixture"))
+	c.Set("channel_id", 43)
+	rejected := CheckRequestContent(c, request, "fixture", "blocked-fixture")
+	require.NotNil(t, rejected)
+	require.Equal(t, types.ErrorCodeSensitiveWordsDetected, rejected.GetErrorCode())
+	c.Set("channel_id", 0)
+	require.NotNil(t, CheckRequestContent(c, request, "fixture", "blocked-fixture"), "missing channel cannot bypass checks")
+}
+
 func TestAuditRejectsEmptyDecision(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

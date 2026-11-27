@@ -152,6 +152,20 @@ beforeEach(() => {
     },
   })
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/channel') {
+      return {
+        data: {
+          success: true,
+          data: {
+            items: [
+              { id: 41, name: 'Excluded upstream' },
+              { id: 42, name: 'Second upstream' },
+            ],
+            total: 2,
+          },
+        },
+      }
+    }
     if (url === '/api/option/') return { data: optionsResponse() }
     if (url === '/api/option/request_policy') {
       return {
@@ -197,6 +211,53 @@ afterEach(() => {
 })
 
 describe('request policy settings', () => {
+  it('selects excluded channels by name and saves only channel IDs', async () => {
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
+    const input = await screen.findByRole('combobox', {
+      name: 'Select channels to exclude',
+    })
+    await waitFor(() => expect(input).toBeEnabled())
+    await userEvent.click(input)
+    await userEvent.click(
+      await screen.findByRole('option', { name: '#41 Excluded upstream' })
+    )
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save audit settings' })
+    )
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/option/request_policy', {
+        options: { ContentAuditExcludedChannelIds: '[41]' },
+      })
+    )
+  })
+
+  it('preserves a saved missing channel and allows clearing exclusions', async () => {
+    settings.ContentAuditExcludedChannelIds = '[41,999]'
+    await renderPolicies('/system-settings/request-policies/legacy-audit')
+    const input = await screen.findByRole('combobox', {
+      name: 'Select channels to exclude',
+    })
+    await waitFor(() => expect(input).toBeEnabled())
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save audit settings' })
+    )
+    expect(api.patch).not.toHaveBeenCalled()
+    await userEvent.click(input)
+    await userEvent.click(
+      await screen.findByRole('option', { name: '#41 Excluded upstream' })
+    )
+    await userEvent.click(await screen.findByRole('option', { name: /^#999$/ }))
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save audit settings' })
+    )
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/option/request_policy', {
+        options: { ContentAuditExcludedChannelIds: '[]' },
+      })
+    )
+  })
   it.each([
     ['retry', 'Save Changes'],
     ['health', 'Save Changes'],
