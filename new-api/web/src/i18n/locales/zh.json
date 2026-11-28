@@ -7565,7 +7565,9 @@
     "Selected channels skip AI content audit and legacy keyword checks in every group. Authentication, billing, rate limits and usage logs remain active. Retries to other channels are checked before forwarding.": "选中渠道在所有分组下均跳过 AI 内容审计和旧关键词检查。鉴权、计费、限流和用量日志仍然生效；重试切换到其他渠道时，会在转发前执行检查。",
     "Retry loading channels": "重新加载渠道",
     "Select valid channel IDs": "请选择有效的渠道 ID",
-    "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs": "排除渠道必须是 JSON 数组，最多包含 1000 个不重复的正整数渠道 ID"
+    "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs": "排除渠道必须是 JSON 数组，最多包含 1000 个不重复的正整数渠道 ID",
+    "Human verification could not load. Check your connection and retry.": "人机验证加载失败，请检查网络后重试。",
+    "Retry verification": "重新验证"
   },
   "Legacy Shiny audit": "旧版 Shiny 审计",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新规则请使用“请求处理”。此处保留旧版兼容设置，请勿对同一请求同时启用两套审核。"

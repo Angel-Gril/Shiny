@@ -191,13 +191,21 @@ export function SignUpForm({
       )
     } finally {
       setIsLoading(false)
+      if (isTurnstileEnabled) {
+        setTurnstileToken('')
+        setTurnstileWidgetKey((value) => value + 1)
+      }
     }
   }
 
   async function handleSendVerificationCode() {
-    if (await sendCode(emailValue || '')) {
-      setTurnstileToken('')
-      setTurnstileWidgetKey((current) => current + 1)
+    try {
+      await sendCode(emailValue || '')
+    } finally {
+      if (isTurnstileEnabled) {
+        setTurnstileToken('')
+        setTurnstileWidgetKey((current) => current + 1)
+      }
     }
   }
 
@@ -378,6 +386,7 @@ export function SignUpForm({
         {isTurnstileEnabled && (
           <div className='mt-2'>
             <Turnstile
+              action='signup'
               key={turnstileWidgetKey}
               siteKey={turnstileSiteKey}
               onVerify={setTurnstileToken}

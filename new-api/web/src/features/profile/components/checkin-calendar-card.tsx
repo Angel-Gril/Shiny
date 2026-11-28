@@ -169,6 +169,7 @@ export function CheckinCalendarCard({
         handleServerError(error, t('Check-in failed'))
       } finally {
         setCheckinLoading(false)
+        if (token) setTurnstileWidgetKey((value) => value + 1)
       }
     },
     [refetch, shouldTriggerTurnstile, t, turnstileSiteKey]
@@ -271,13 +272,11 @@ export function CheckinCalendarCard({
         </div>
         <div className='flex justify-center py-4'>
           <Turnstile
+            action='checkin'
             key={turnstileWidgetKey}
             siteKey={turnstileSiteKey}
             onVerify={(token) => {
               doCheckin(token)
-            }}
-            onExpire={() => {
-              setTurnstileWidgetKey((v) => v + 1)
             }}
           />
         </div>

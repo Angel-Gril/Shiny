@@ -7560,7 +7560,9 @@
     "Selected channels skip AI content audit and legacy keyword checks in every group. Authentication, billing, rate limits and usage logs remain active. Retries to other channels are checked before forwarding.": "Selected channels skip AI content audit and legacy keyword checks in every group. Authentication, billing, rate limits and usage logs remain active. Retries to other channels are checked before forwarding.",
     "Retry loading channels": "Retry loading channels",
     "Select valid channel IDs": "Select valid channel IDs",
-    "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs": "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs"
+    "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs": "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs",
+    "Human verification could not load. Check your connection and retry.": "Human verification could not load. Check your connection and retry.",
+    "Retry verification": "Retry verification"
   },
   "Legacy Shiny audit": "Legacy Shiny audit",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests."

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { act, render } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { Turnstile } from '@/components/turnstile'
@@ -66,10 +66,10 @@ afterEach(() => {
 test('widgets mounted while the shared script loads both become ready', () => {
   delete window.turnstile
   const first = render(
-    <Turnstile siteKey='public-test-site' onVerify={vi.fn()} />
+    <Turnstile action='login' siteKey='public-test-site' onVerify={vi.fn()} />
   )
   const second = render(
-    <Turnstile siteKey='public-test-site' onVerify={vi.fn()} />
+    <Turnstile action='login' siteKey='public-test-site' onVerify={vi.fn()} />
   )
   expect(document.querySelectorAll('#cf-turnstile')).toHaveLength(1)
   window.turnstile = { render: renderWidget, remove: removeWidget }
@@ -83,7 +83,9 @@ test('widgets mounted while the shared script loads both become ready', () => {
 
 test('a 300px form uses flexible sizing without forcing the form to stay wide', () => {
   width = 300
-  render(<Turnstile siteKey='public-test-site' onVerify={vi.fn()} />)
+  render(
+    <Turnstile action='login' siteKey='public-test-site' onVerify={vi.fn()} />
+  )
   expect(renderWidget).toHaveBeenCalledWith(
     expect.any(HTMLDivElement),
     expect.objectContaining({ size: 'flexible' })
@@ -101,6 +103,7 @@ test('a form narrower than 300px uses a centered compact challenge and resizes c
   const onExpire = vi.fn()
   const view = render(
     <Turnstile
+      action='login'
       siteKey='public-test-site'
       onVerify={vi.fn()}
       onExpire={onExpire}
@@ -127,10 +130,15 @@ test('verification and expiry use the latest callbacks without recreating the ch
   const onVerify = vi.fn()
   const onExpire = vi.fn()
   const view = render(
-    <Turnstile siteKey='public-test-site' onVerify={firstVerify} />
+    <Turnstile
+      action='login'
+      siteKey='public-test-site'
+      onVerify={firstVerify}
+    />
   )
   view.rerender(
     <Turnstile
+      action='login'
       siteKey='public-test-site'
       onVerify={onVerify}
       onExpire={onExpire}
@@ -147,4 +155,31 @@ test('verification and expiry use the latest callbacks without recreating the ch
   act(() => options['expired-callback']())
   act(() => options['error-callback']())
   expect(onExpire).toHaveBeenCalledTimes(2)
+  expect(onVerify).toHaveBeenLastCalledWith('')
+  expect(renderWidget.mock.calls[0]?.[1]).toEqual(
+    expect.objectContaining({ action: 'login' })
+  )
+})
+
+test('a failed script load clears verification and exposes a retry that reloads the script', () => {
+  delete window.turnstile
+  const onVerify = vi.fn()
+  const view = render(
+    <Turnstile action='signup' siteKey='public-test-site' onVerify={onVerify} />
+  )
+  const old = document.querySelector('#cf-turnstile')
+  act(() => old?.dispatchEvent(new Event('error')))
+  expect(screen.getByRole('alert')).toBeVisible()
+  expect(onVerify).toHaveBeenLastCalledWith('')
+  fireEvent.click(screen.getByRole('button', { name: 'Retry verification' }))
+  expect(document.querySelector('#cf-turnstile')).not.toBe(old)
+  window.turnstile = { render: renderWidget, remove: removeWidget }
+  act(() =>
+    document.querySelector('#cf-turnstile')?.dispatchEvent(new Event('load'))
+  )
+  expect(renderWidget).toHaveBeenCalledWith(
+    expect.any(HTMLDivElement),
+    expect.objectContaining({ action: 'signup' })
+  )
+  view.unmount()
 })

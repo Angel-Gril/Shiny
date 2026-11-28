@@ -131,9 +131,10 @@ func TestContentAuditChannelExclusionRetryBoundary(t *testing.T) {
 			assert.Equal(t, tc.firstCalls, first.Load())
 			assert.Equal(t, tc.secondCalls, second.Load())
 			if tc.status == 403 {
-				var stored model.User
-				require.NoError(t, model.DB.First(&stored, user.Id).Error)
-				assert.Equal(t, 100000, stored.Quota, "a blocked fallback refunds reserved quota")
+				require.Eventually(t, func() bool {
+					var stored model.User
+					return model.DB.First(&stored, user.Id).Error == nil && stored.Quota == 100000
+				}, 2*time.Second, time.Millisecond, "a blocked fallback finishes its asynchronous refund")
 			}
 		})
 	}

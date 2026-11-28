@@ -53,6 +53,7 @@ export function ForgotPasswordForm({
 }: React.HTMLAttributes<HTMLFormElement>) {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
+  const [widgetKey, setWidgetKey] = useState(0)
 
   const {
     isTurnstileEnabled,
@@ -94,6 +95,10 @@ export function ForgotPasswordForm({
       )
     } finally {
       setIsLoading(false)
+      if (isTurnstileEnabled) {
+        setTurnstileToken('')
+        setWidgetKey((value) => value + 1)
+      }
     }
   }
 
@@ -132,6 +137,8 @@ export function ForgotPasswordForm({
         {isTurnstileEnabled && (
           <div className='mt-2'>
             <Turnstile
+              action='password_reset'
+              key={widgetKey}
               siteKey={turnstileSiteKey}
               onVerify={setTurnstileToken}
             />
