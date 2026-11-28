@@ -7731,6 +7731,8 @@
     "Legacy Shiny audit": "旧版 Shiny 审计",
     "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新规则请使用“请求处理”。此处保留旧版兼容设置，请勿对同一请求同时启用两套审核。",
     "By clicking sign in, you agree to our": "点击登录即表示您同意我们的",
-    "By creating an account, you agree to our": "创建账户即表示您同意我们的"
+    "By creating an account, you agree to our": "创建账户即表示您同意我们的",
+    "Human verification could not load. Check your connection and retry.": "人机验证加载失败，请检查网络后重试。",
+    "Retry verification": "重新验证"
   }
 }

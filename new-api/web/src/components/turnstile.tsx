@@ -16,8 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useEffectEvent, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 declare global {
@@ -31,6 +33,7 @@ declare global {
 
 interface TurnstileProps {
   siteKey: string
+  action: 'login' | 'signup' | 'password_reset' | 'checkin'
   onVerify: (token: string) => void
   onExpire?: () => void
   className?: string
@@ -38,21 +41,37 @@ interface TurnstileProps {
 
 export function Turnstile({
   siteKey,
+  action,
   onVerify,
   onExpire,
   className,
 }: TurnstileProps) {
+  const { t } = useTranslation()
+  const [loadError, setLoadError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const ref = useRef<HTMLDivElement | null>(null)
   const verify = useEffectEvent((token: string) => onVerify(token))
-  const expire = useEffectEvent(() => onExpire?.())
+  const expire = useEffectEvent(() => {
+    onVerify('')
+    onExpire?.()
+  })
 
   useEffect(() => {
     const element = ref.current
     if (!element) return
     let widgetId: string | undefined
     let widgetSize: 'compact' | 'flexible' | undefined
+    let disposed = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    const fail = () => {
+      if (!disposed) {
+        setLoadError(true)
+        expire()
+      }
+    }
     const render = () => {
-      if (!window.turnstile) return
+      if (disposed || !window.turnstile) return
+      clearTimeout(timeout)
       const width = element.getBoundingClientRect().width
       if (width === 0) return
       const size = width < 300 ? 'compact' : 'flexible'
@@ -65,14 +84,28 @@ export function Turnstile({
         }
         widgetId = window.turnstile.render(element, {
           sitekey: siteKey,
+          action,
           size,
-          callback: (token: string) => verify(token),
-          'error-callback': () => expire(),
-          'expired-callback': () => expire(),
+          callback: (token: string) => {
+            if (!disposed) {
+              setLoadError(false)
+              verify(token)
+            }
+          },
+          'error-callback': () => {
+            fail()
+            return true
+          },
+          'expired-callback': () => {
+            if (!disposed) expire()
+          },
+          'timeout-callback': () => {
+            if (!disposed) expire()
+          },
         })
         widgetSize = size
       } catch {
-        /* empty */
+        fail()
       }
     }
 
@@ -91,22 +124,54 @@ export function Turnstile({
         document.head.appendChild(script)
       }
       script.addEventListener('load', render)
+      script.addEventListener('error', fail)
+      timeout = setTimeout(fail, 15000)
     }
     render()
     return () => {
+      disposed = true
+      clearTimeout(timeout)
       observer.disconnect()
       script?.removeEventListener('load', render)
+      script?.removeEventListener('error', fail)
       if (widgetId !== undefined) window.turnstile?.remove(widgetId)
     }
-  }, [siteKey])
+  }, [siteKey, action, attempt])
 
   return (
-    <div
-      ref={ref}
-      className={cn(
-        'flex w-full min-w-0 justify-center [contain:inline-size]',
-        className
+    <div className='w-full min-w-0'>
+      <div
+        ref={ref}
+        className={cn(
+          'flex w-full min-w-0 justify-center [contain:inline-size]',
+          className
+        )}
+      />
+      {loadError && (
+        <div
+          role='alert'
+          className='text-muted-foreground mt-2 space-y-2 text-sm'
+        >
+          <p>
+            {t(
+              'Human verification could not load. Check your connection and retry.'
+            )}
+          </p>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => {
+              if (!window.turnstile) {
+                document.querySelector('#cf-turnstile')?.remove()
+              }
+              setLoadError(false)
+              setAttempt((value) => value + 1)
+            }}
+          >
+            {t('Retry verification')}
+          </Button>
+        </div>
       )}
-    />
+    </div>
   )
 }
