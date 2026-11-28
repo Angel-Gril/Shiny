@@ -67,12 +67,12 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
       passwordFields = { password: payload.password }
     }
     const res = await api.post<LoginResponse>(
-      `/api/user/login?turnstile=${turnstile}`,
+      '/api/user/login',
       {
         username: payload.username,
         ...passwordFields,
       },
-      { skipAuthRefresh: true }
+      { skipAuthRefresh: true, headers: { 'CF-Turnstile-Response': turnstile } }
     )
     if (payload.passwordEncryptionEnabled && !res.data?.success) {
       clearPasswordEncryptionCache()
@@ -154,7 +154,9 @@ export async function sendPasswordResetEmail(
   turnstile?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/reset_password', {
-    params: { email, turnstile },
+    params: { email },
+    headers: { 'CF-Turnstile-Response': turnstile ?? '' },
+    skipAuthRefresh: true,
   })
   return res.data
 }
@@ -248,8 +250,10 @@ export async function telegramLogin(
 
 // User registration
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
-  const res = await api.post(`/api/user/register`, payload, {
-    params: { turnstile: payload.turnstile ?? '' },
+  const { turnstile, ...body } = payload
+  const res = await api.post('/api/user/register', body, {
+    headers: { 'CF-Turnstile-Response': turnstile ?? '' },
+    skipAuthRefresh: true,
   })
   return res.data
 }
@@ -260,7 +264,9 @@ export async function sendEmailVerification(
   turnstile?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/verification', {
-    params: { email, turnstile },
+    params: { email },
+    headers: { 'CF-Turnstile-Response': turnstile ?? '' },
+    skipAuthRefresh: true,
   })
   return res.data
 }

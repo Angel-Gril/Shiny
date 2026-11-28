@@ -71,6 +71,12 @@ jobs:
         working-directory: new-api/web
       - run: bun run typecheck
         working-directory: new-api/web
+      - run: bunx vitest run src/components/turnstile/__tests__/layout.test.tsx src/features/auth/api.test.ts --pool=forks --maxWorkers=1 --no-file-parallelism
+        working-directory: new-api/web
+      - run: go test ./middleware -run '^TestTurnstile' -count=1
+        working-directory: new-api
+      - run: go test ./controller -run '^(TestAnonymousRegistrationRoute|TestAnonymousLoginRoute)' -count=1
+        working-directory: new-api
       - run: bunx vitest run src/features/pricing/lib/__tests__ --pool=forks --maxWorkers=1 --no-file-parallelism
         working-directory: new-api/web
       - run: go test ./pkg/billingexpr ./relay/helper ./service ./relay/channel ./relay/channel/openai -count=1

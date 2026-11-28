@@ -409,6 +409,7 @@ export function UserAuthForm({
             {isTurnstileEnabled && (
               <div className='mt-2'>
                 <Turnstile
+                  action='login'
                   key={turnstileWidgetKey}
                   siteKey={turnstileSiteKey}
                   onVerify={setTurnstileToken}

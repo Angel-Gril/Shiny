@@ -7560,7 +7560,9 @@
     "Selected channels skip AI content audit and legacy keyword checks in every group. Authentication, billing, rate limits and usage logs remain active. Retries to other channels are checked before forwarding.": "Các kênh đã chọn bỏ qua kiểm duyệt AI và kiểm tra từ khóa cũ trong mọi nhóm. Xác thực, tính phí, giới hạn và nhật ký vẫn hoạt động. Khi thử lại trên kênh khác, yêu cầu được kiểm tra trước khi chuyển tiếp.",
     "Retry loading channels": "Tải lại các kênh",
     "Select valid channel IDs": "Chọn ID kênh hợp lệ",
-    "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs": "Danh sách loại trừ phải là mảng JSON chứa tối đa 1000 ID kênh nguyên dương không trùng lặp"
+    "ContentAuditExcludedChannelIds must be a JSON array of up to 1000 unique positive channel IDs": "Danh sách loại trừ phải là mảng JSON chứa tối đa 1000 ID kênh nguyên dương không trùng lặp",
+    "Human verification could not load. Check your connection and retry.": "Không tải được xác minh. Hãy kiểm tra kết nối và thử lại.",
+    "Retry verification": "Thử xác minh lại"
   },
   "Legacy Shiny audit": "Kiểm tra Shiny cũ",
   "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu."
