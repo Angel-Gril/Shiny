@@ -41,7 +41,7 @@ location @previous {
         repeated = routing.build_routing(tree, result, Path('/releases/next/site'), 'web-next')
         repeated_pattern = re.search(r'location ~ "([^"]+)"', repeated)[1]
         self.assertEqual(pattern, repeated_pattern)
-        self.assertIn('root /releases/new/site;\n    try_files $uri @web_rc51_previous_assets;', repeated)
+        self.assertIn(f'root {Path("/releases/new/site")};\n    try_files $uri @web_rc51_previous_assets;', repeated)
 
 
 if __name__ == '__main__':
