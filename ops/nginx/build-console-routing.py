@@ -24,7 +24,10 @@ def build_routing(route_tree, template, site_root, release):
     if root is None or location is None or fallback is None:
         raise ValueError('Unsupported console include')
     old_pattern = location.group(1)
-    pattern = '^(?:' + old_pattern[1:-1] + '|(?:' + '|'.join(sorted(set(patterns))) + ')/?)$'
+    addition = '(?:' + '|'.join(sorted(set(patterns))) + ')/?'
+    pattern = old_pattern
+    if addition not in old_pattern:
+        pattern = '^(?:' + old_pattern[1:-1] + '|' + addition + ')$'
     next_include = template.replace(location.group(0), 'location ~ "' + pattern + '"', 1)
     old_root = root.group(1)
     next_include = next_include.replace(old_root, str(site_root))
