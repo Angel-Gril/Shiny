@@ -7731,6 +7731,8 @@
     "Legacy Shiny audit": "Прежний аудит Shiny",
     "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Для новых правил используйте обработку запросов. Прежние настройки сохранены для совместимости; не включайте оба механизма для одних и тех же запросов.",
     "By clicking sign in, you agree to our": "Нажимая «Войти», вы принимаете условия документов:",
-    "By creating an account, you agree to our": "Создавая аккаунт, вы принимаете условия документов:"
+    "By creating an account, you agree to our": "Создавая аккаунт, вы принимаете условия документов:",
+    "Human verification could not load. Check your connection and retry.": "Не удалось загрузить проверку. Проверьте соединение и повторите.",
+    "Retry verification": "Повторить проверку"
   }
 }

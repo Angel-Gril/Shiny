@@ -7731,6 +7731,8 @@
     "Legacy Shiny audit": "従来の Shiny 監査",
     "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "新しいルールは「リクエスト処理」で設定してください。従来の設定は互換性のために残されています。同じリクエストに両方の監査を有効にしないでください。",
     "By clicking sign in, you agree to our": "ログインすると、次の文書に同意したものとみなされます：",
-    "By creating an account, you agree to our": "アカウントを作成すると、次の文書に同意したものとみなされます："
+    "By creating an account, you agree to our": "アカウントを作成すると、次の文書に同意したものとみなされます：",
+    "Human verification could not load. Check your connection and retry.": "認証を読み込めません。接続を確認して再試行してください。",
+    "Retry verification": "認証を再試行"
   }
 }

@@ -7731,6 +7731,8 @@
     "Legacy Shiny audit": "Legacy Shiny audit",
     "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.",
     "By clicking sign in, you agree to our": "By clicking sign in, you agree to our",
-    "By creating an account, you agree to our": "By creating an account, you agree to our"
+    "By creating an account, you agree to our": "By creating an account, you agree to our",
+    "Human verification could not load. Check your connection and retry.": "Human verification could not load. Check your connection and retry.",
+    "Retry verification": "Retry verification"
   }
 }

@@ -103,6 +103,7 @@ RU 保存客户充值、余额、消费和请求日志；主站保存内部服�
 
 - 可以共用已验证的 `shinyapi.com` 发信域名及邮件供应商；**RU 实例要单独填自己的 SMTP/发信设置、品牌、站点 URL**，可使用 `no-reply@shinyapi.com` 或专用地址。需要辨别“CF 邮箱”：Cloudflare Email Routing 是收信转发，不等于 SMTP 发信服务；若主站使用 Worker/其他发信服务，需核验它允许 RU 站点链接及发件人。
 - Cloudflare Turnstile 是另一项配置；现有 site key 若未授权 `ru.shinyapi.com`，需添加域名或新建独立 key，并填入 RU 实例。验收注册、重置密码、链接域名和验证码。
+- RU 接入既有 widget 时，在自己的 `/system-settings/auth/bot-protection` 保存 Site key、Secret，再开启验证；不使用主站 key。服务端只接受 `ServerAddress` 的精确 hostname（本实例为 `ru.shinyapi.com`）及对应 action。登录 `login`、注册/邮件验证码 `signup`、找回密码 `password_reset`、签到 `checkin`；过期和每次提交结果后刷新 token。Secret 只进入本实例正常设置存储，不写入 Git 或日志。开启后旧标签页需刷新。
 - RU 控制台 Logo 可使用随前端构建的 `/static/ru-brand/mark-v1.svg`，在 RU 站点设置的 `Logo` 中填写该同源路径。该文件与原门户图标字节一致，由 RU release 提供，不再访问国内主域名；静态门户本身使用内联 SVG，不依赖此设置。保留旧静态资源回退。
 - Turnstile 是 Cloudflare 的免费独立服务，不要求站点接入 CF CDN，但浏览器和服务端仍依赖 `challenges.cloudflare.com`。对主要面向俄罗斯用户的站点，先从实际运营商测试再决定全量启用，不能仅凭服务器出口可用就判定用户可用。官方 [2025-06-26 俄区网络报告](https://blog.cloudflare.com/russian-internet-users-are-unable-to-access-the-open-internet/) 是历史风险证据，不代表当前所有俄区网络均不可用。准备启用时建议新建只授权 RU 域名的 Managed widget；保留邮箱验证及服务端限流，验证失败不得自动绕过。配置入口为 `/system-settings/auth/bot-protection`；价格与限制见 [Cloudflare Plans](https://developers.cloudflare.com/turnstile/plans/)。
 - 门户支持 RU/EN，RU 默认控制台和事务邮件已加入本分支；模板 `DEFAULT_LANGUAGE=ru`。邮件供应商、模板链接、品牌及注册/重置流程仍须在候选环境实际收信验收。

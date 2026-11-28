@@ -23,11 +23,59 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { api, type RefreshOutcome } from '@/lib/api'
 import type { AuthBundle } from '@/stores/auth-store'
 
-import { executeLogout } from './api'
+import {
+  executeLogout,
+  login,
+  register,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+} from './api'
 import { useOAuthLogin } from './hooks/use-oauth-login'
 import { consumeOAuthLoginRedirect } from './lib/oauth-callback-mode'
 
 afterEach(() => vi.restoreAllMocks())
+
+test('protected auth calls send verification tokens in headers instead of URL parameters', async () => {
+  const post = vi
+    .spyOn(api, 'post')
+    .mockResolvedValue({ data: { success: false } })
+  const get = vi
+    .spyOn(api, 'get')
+    .mockResolvedValue({ data: { success: false } })
+  await login({
+    username: 'synthetic',
+    password: 'synthetic-password',
+    turnstile: 'one-use-token',
+  })
+  await register({
+    username: 'synthetic',
+    password: 'synthetic-password',
+    turnstile: 'one-use-token',
+  })
+  await sendEmailVerification('synthetic@example.com', 'one-use-token')
+  await sendPasswordResetEmail('synthetic@example.com', 'one-use-token')
+  expect(post).toHaveBeenCalledWith(
+    '/api/user/login',
+    expect.any(Object),
+    expect.objectContaining({
+      headers: { 'CF-Turnstile-Response': 'one-use-token' },
+    })
+  )
+  expect(post).toHaveBeenCalledWith(
+    '/api/user/register',
+    { username: 'synthetic', password: 'synthetic-password' },
+    expect.objectContaining({
+      headers: { 'CF-Turnstile-Response': 'one-use-token' },
+    })
+  )
+  for (const [url, config] of get.mock.calls) {
+    expect(String(url)).not.toContain('turnstile=')
+    expect(config).toMatchObject({
+      params: { email: 'synthetic@example.com' },
+      headers: { 'CF-Turnstile-Response': 'one-use-token' },
+    })
+  }
+})
 
 test.each([true, false])(
   'starts Telegram OAuth only when configuration is ready: %s',

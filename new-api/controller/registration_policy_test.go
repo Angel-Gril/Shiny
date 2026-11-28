@@ -178,7 +178,7 @@ func TestAnonymousRegistrationRouteEnforcesCriticalRateLimit(t *testing.T) {
 		"/api/user/register",
 		middleware.CriticalRateLimit(),
 		middleware.AnonymousRequestBodyLimit(),
-		middleware.TurnstileCheck(),
+		middleware.TurnstileCheck("signup"),
 		Register,
 	)
 
@@ -213,7 +213,7 @@ func TestAnonymousLoginRouteEnforcesCriticalRateLimit(t *testing.T) {
 		middleware.CriticalRateLimit(),
 		middleware.DisableCache(),
 		middleware.AnonymousRequestBodyLimit(),
-		middleware.TurnstileCheck(),
+		middleware.TurnstileCheck("login"),
 		Login,
 	)
 

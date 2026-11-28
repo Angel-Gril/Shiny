@@ -7731,6 +7731,8 @@
     "Legacy Shiny audit": "Kiểm tra Shiny cũ",
     "Use Request processing for new rules. These legacy controls remain for compatibility; avoid enabling both engines for the same requests.": "Dùng Xử lý yêu cầu cho quy tắc mới. Các thiết lập cũ được giữ để tương thích; tránh bật cả hai cơ chế cho cùng yêu cầu.",
     "By clicking sign in, you agree to our": "Khi đăng nhập, bạn đồng ý với",
-    "By creating an account, you agree to our": "Khi tạo tài khoản, bạn đồng ý với"
+    "By creating an account, you agree to our": "Khi tạo tài khoản, bạn đồng ý với",
+    "Human verification could not load. Check your connection and retry.": "Không tải được xác minh. Hãy kiểm tra kết nối và thử lại.",
+    "Retry verification": "Thử xác minh lại"
   }
 }

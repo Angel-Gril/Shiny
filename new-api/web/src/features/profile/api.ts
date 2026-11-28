@@ -299,9 +299,9 @@ export async function getCheckinStatus(
 export async function performCheckin(
   turnstileToken?: string
 ): Promise<ApiResponse<CheckinResponse>> {
-  const url = turnstileToken
-    ? `/api/user/checkin?turnstile=${encodeURIComponent(turnstileToken)}`
-    : '/api/user/checkin'
-  const res = await api.post(url)
+  const res = await api.post('/api/user/checkin', undefined, {
+    headers: { 'CF-Turnstile-Response': turnstileToken ?? '' },
+    singleUseAuthorization: true,
+  })
   return res.data
 }
