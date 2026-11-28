@@ -1,5 +1,8 @@
 # Main-site Turnstile integration
 
+The main-site rollout and observed validation limits are recorded in
+[2026-11-28 release notes](release-20261128.md).
+
 The main New API instance reads its existing `TurnstileSiteKey`, server-only
 `TurnstileSecretKey` and `TurnstileCheckEnabled` settings. No replacement widget
 or new secret slot is created. Secret values must never appear in source,
