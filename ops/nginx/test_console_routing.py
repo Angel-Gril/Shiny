@@ -36,6 +36,13 @@ location @previous {
         self.assertIn('root /releases/old/site;\n    try_files $uri @previous;', result)
         self.assertIn('X-Shiny-Frontend "web-rc51"', result)
 
+        # A second release with the same route tree must not keep appending
+        # another copy of every route to Nginx's bounded regex parameter.
+        repeated = routing.build_routing(tree, result, Path('/releases/next/site'), 'web-next')
+        repeated_pattern = re.search(r'location ~ "([^"]+)"', repeated)[1]
+        self.assertEqual(pattern, repeated_pattern)
+        self.assertIn('root /releases/new/site;\n    try_files $uri @web_rc51_previous_assets;', repeated)
+
 
 if __name__ == '__main__':
     unittest.main()
